@@ -285,6 +285,19 @@ const SUPABASE_URL='https://whubbowuqhjdkdequbmb.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWJib3d1cWhqZGtkZXF1Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjM3NTYsImV4cCI6MjA5Nzc5OTc1Nn0.1S-eme0sMmC_25H-XnZ9r3AMKFSSxnpRx3-GRefSyzs';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
+/* ═══════════ ANALYTICS TRACKING ═══════════ */
+const _sid=(()=>{let s=sessionStorage.getItem('_cc_sid');if(!s){s=crypto.randomUUID();sessionStorage.setItem('_cc_sid',s)}return s})();
+let _formStarted=false,_dateChosen=false,_abandoned=true;
+function _track(event,data){sb.from('analytics_events').insert({event,session_id:_sid,data:data||null}).then(()=>{});}
+_track('page_view');
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&_abandoned)_track('abandon')});
+window.addEventListener('beforeunload',()=>{if(_abandoned)_track('abandon')});
+document.addEventListener('focusin',e=>{
+  const id=e.target?.id;
+  if(!_formStarted&&['fNaam','fEmail','fTel'].includes(id)){_formStarted=true;_track('form_start')}
+  if(!_dateChosen&&['fAankomst','fVertrek'].includes(id)){_dateChosen=true;_track('field_focus',{field:id})}
+});
+
 /* Belgische gestructureerde mededeling (OGM/VCS): 10 cijfers + modulo-97 controle. */
 function ogmReference(volgnummer){
   const base=String(volgnummer).padStart(10,'0');
@@ -439,6 +452,7 @@ async function submitForm(){
       inhoud:`Beste ${naam},\n\nBedankt voor je aanvraag bij Camping Cosmopolite van ${document.getElementById('fAankomst').value} tot ${document.getElementById('fVertrek').value}.\n\nRichtprijs: ${fmt(totaalNow)}\nBetaalreferentie: ${ogm}\n\nTot binnenkort!\nCamping Cosmopolite`
     });
 
+    _abandoned=false;_track('submit',{totaal:totaalNow});
     showConfirm(ogm, fmt(totaalNow));
   }catch(err){
     console.error(err);

@@ -387,6 +387,41 @@ select{color:var(--lbl1)}
   .print-doc{display:block!important}
 }
 .print-doc{display:none}
+
+/* ── num-stepper ── */
+.num-stepper{display:flex;align-items:center;background:var(--bg2);border-radius:10px;overflow:hidden;width:120px;flex-shrink:0}
+.num-stepper button{width:34px;height:34px;background:none;border:none;font-size:19px;font-weight:700;color:var(--green);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;user-select:none}
+.num-stepper button:active{background:rgba(0,0,0,.06)}
+.num-stepper input{flex:1;border:none;background:none;text-align:center;font-size:15px;font-weight:700;color:var(--lbl1);padding:0;-moz-appearance:textfield}
+.num-stepper input::-webkit-outer-spin-button,.num-stepper input::-webkit-inner-spin-button{-webkit-appearance:none}
+.cell-body{align-items:center}
+
+/* ── toggle switch ── */
+.toggle-sw{position:relative;display:inline-block;width:51px;height:31px;flex-shrink:0}
+.toggle-sw input{opacity:0;width:0;height:0}
+.toggle-sw span{position:absolute;inset:0;background:#d1d1d6;border-radius:31px;cursor:pointer;transition:.25s}
+.toggle-sw span::before{content:'';position:absolute;width:27px;height:27px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.25s;box-shadow:0 2px 5px rgba(0,0,0,.25)}
+.toggle-sw input:checked+span{background:var(--green)}
+.toggle-sw input:checked+span::before{transform:translateX(20px)}
+
+/* ── price row extras ── */
+.price-row.muted{color:var(--lbl4);font-size:13px;font-style:italic}
+
+/* ── settings tabs ── */
+.stab{flex:1;padding:8px 4px;background:none;border:none;font-size:12px;font-weight:600;color:var(--lbl3);cursor:pointer;border-bottom:2.5px solid transparent;transition:.2s;white-space:nowrap}
+.stab.on{color:var(--green);border-bottom-color:var(--green)}
+
+/* ── settings cards ── */
+.cfg-section-label{font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 6px;padding:0 2px}
+.cfg-card{background:var(--bg);border-radius:14px;padding:14px 16px;overflow:hidden}
+.cfg-row{display:flex;align-items:center;justify-content:space-between;min-height:40px;gap:12px}
+.cfg-row-lbl{font-size:14px;color:var(--lbl1);font-weight:500;flex-shrink:0}
+.cfg-row-input{flex:1;text-align:right;border:none;background:none;font-size:14px;color:var(--lbl2);outline:none;min-width:0}
+.cfg-row-input::placeholder{color:var(--lbl4)}
+.cfg-sep{height:.5px;background:var(--sep);margin:0 -16px}
+.cfg-full-input{width:100%;padding:10px 12px;background:var(--bg2);border:none;border-radius:10px;font-size:14px;color:var(--lbl1);outline:none;box-sizing:border-box;font-family:inherit}
+.cfg-full-input::placeholder{color:var(--lbl4)}
+textarea.cfg-full-input{resize:vertical}
 </style>
 </head>
 <body>
@@ -571,8 +606,10 @@ select{color:var(--lbl1)}
     <div class="sg"><div class="sg-lbl">Gast</div><div class="cells">
       <div class="cell"><div class="cell-icon ci-green">👤</div><div class="cell-body"><div class="cell-lbl">Naam</div><input type="text" id="fNaam" placeholder="Volledige naam"></div></div>
       <div class="cell"><div class="cell-icon ci-blue">🚗</div><div class="cell-body"><div class="cell-lbl">Nummerplaat</div><input type="text" id="fPlaat" placeholder="1-ABC-123" autocapitalize="characters"></div></div>
-      <div class="cell"><div class="cell-icon ci-orange">🧑</div><div class="cell-body"><div class="cell-lbl">Volwassenen</div><input type="number" id="fVolwassenen" placeholder="2" min="0" max="20" value="2" oninput="updatePriceLive()"></div></div>
-      <div class="cell"><div class="cell-icon ci-orange">🧒</div><div class="cell-body"><div class="cell-lbl">Kinderen (3-11)</div><input type="number" id="fKinderen" placeholder="0" min="0" max="20" value="0" oninput="updatePriceLive()"></div></div>
+      <div class="cell"><div class="cell-icon ci-orange">🧑</div><div class="cell-body"><div class="cell-lbl">Volwassenen <span style="font-weight:400;color:var(--lbl4)">€7/nacht + taks</span></div><div class="num-stepper"><button onclick="stepField('fVolwassenen',-1)">−</button><input type="number" id="fVolwassenen" value="2" min="0" max="30" oninput="updatePriceLive()"><button onclick="stepField('fVolwassenen',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-orange">🧒</div><div class="cell-body"><div class="cell-lbl">Kinderen 3–11 <span style="font-weight:400;color:var(--lbl4)">€5/nacht</span></div><div class="num-stepper"><button onclick="stepField('fKinderen',-1)">−</button><input type="number" id="fKinderen" value="0" min="0" max="30" oninput="updatePriceLive()"><button onclick="stepField('fKinderen',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-blue">👶</div><div class="cell-body"><div class="cell-lbl">Baby's &lt;3 jaar <span style="font-weight:400;color:var(--lbl4)">gratis</span></div><div class="num-stepper"><button onclick="stepField('fBaby',-1)">−</button><input type="number" id="fBaby" value="0" min="0" max="10" oninput="updatePriceLive()"><button onclick="stepField('fBaby',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-blue">🚗</div><div class="cell-body"><div class="cell-lbl">Aantal auto's <span style="font-weight:400;color:var(--lbl4)">1e gratis, +€2/extra</span></div><div class="num-stepper"><button onclick="stepField('fAutos',-1)">−</button><input type="number" id="fAutos" value="1" min="1" max="10" oninput="updatePriceLive()"><button onclick="stepField('fAutos',1)">+</button></div></div></div>
       <div class="cell"><div class="cell-icon ci-blue">📷</div><div class="cell-body"><div class="cell-lbl">Foto klant / ID</div>
         <div class="foto-wrap">
           <label class="foto-btn">Kies foto<input type="file" accept="image/*" capture="environment" id="fFoto" style="display:none" onchange="previewFoto(event,'f')"></label>
@@ -588,9 +625,8 @@ select{color:var(--lbl1)}
     </div></div>
 
     <div class="sg"><div class="sg-lbl">Extra's</div><div class="cells">
-      <div class="chk-row"><input type="checkbox" id="fHond" onchange="updatePriceLive()"><span class="chk-lbl">🐕 Hond mee (+€3/nacht)</span></div>
-      <div class="chk-row"><input type="checkbox" id="fExtraAuto" onchange="updatePriceLive()"><span class="chk-lbl">🚙 Extra auto (+€2/nacht)</span></div>
-      <div class="chk-row"><input type="checkbox" id="fElektriciteit" onchange="updatePriceLive()"><span class="chk-lbl">⚡ Elektriciteit gewenst (+€6 eenmalig)</span></div>
+      <div class="cell"><div class="cell-icon ci-orange">🐕</div><div class="cell-body" style="flex-direction:row;align-items:center;justify-content:space-between;"><div class="cell-lbl">Hond mee <span style="font-weight:400;color:var(--lbl4)">+€3/nacht</span></div><label class="toggle-sw"><input type="checkbox" id="fHond" onchange="updatePriceLive()"><span></span></label></div></div>
+      <div class="cell"><div class="cell-icon ci-green">⚡</div><div class="cell-body" style="flex-direction:row;align-items:center;justify-content:space-between;"><div class="cell-lbl">Elektriciteit <span style="font-weight:400;color:var(--lbl4)">+€6 eenmalig</span></div><label class="toggle-sw"><input type="checkbox" id="fElektriciteit" onchange="updatePriceLive()"><span></span></label></div></div>
     </div></div>
 
     <div class="sg"><div class="sg-lbl">Prijs (automatisch berekend)</div></div>
@@ -611,55 +647,39 @@ select{color:var(--lbl1)}
   </div>
 </section>
 
-<!-- ══ KALENDER ══ -->
+<!-- ══ KALENDER (GANTT) ══ -->
 <section class="view" id="view-kalender">
-  <div class="section-wrap mt16">
-    <div class="card">
-      <div class="cal-nav">
-        <button class="cal-btn" onclick="prevMonth()">‹</button>
-        <div class="cal-mo" id="calMonth"></div>
-        <button class="cal-btn" onclick="nextMonth()">›</button>
-      </div>
-      <div class="cal-grid" id="calGrid"></div>
-      <div class="cal-legend">
-        <div class="cal-lv"><div class="lv-dot" style="background:var(--apple-g)"></div>Aankomst</div>
-        <div class="cal-lv"><div class="lv-dot" style="background:var(--orange)"></div>Vertrek</div>
-      </div>
+  <div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;gap:8px;">
+      <button class="cal-btn" onclick="ganttShift(-14)" style="width:36px;height:36px;border-radius:10px;font-size:18px;">‹</button>
+      <button class="cal-btn" onclick="ganttToday()" style="padding:0 14px;height:36px;border-radius:10px;font-size:13px;font-weight:700;">Vandaag</button>
+      <button class="cal-btn" onclick="ganttShift(14)" style="width:36px;height:36px;border-radius:10px;font-size:18px;">›</button>
     </div>
+    <div style="font-size:13px;font-weight:700;color:var(--lbl1);" id="ganttRangeLabel"></div>
   </div>
-
-  <!-- Bezettingsgraad -->
-  <div class="section-wrap mt16">
-    <div class="card" style="overflow:visible;">
-      <div class="card-hd"><span class="card-title">📊 Bezettingsgraad</span></div>
-      <div style="padding:0 16px 16px;">
-        <div class="occ-inputs">
-          <div class="occ-inp-group"><div class="occ-lbl2">Van</div><input type="date" id="occFrom" class="occ-date"></div>
-          <div class="occ-inp-group"><div class="occ-lbl2">Tot</div><input type="date" id="occTo" class="occ-date"></div>
-          <div class="occ-inp-group"><div class="occ-lbl2">Max plaatsen</div><input type="number" id="maxCap" class="occ-date" value="30" min="1"></div>
-        </div>
-        <button class="btn-full btn-primary" style="width:100%;margin:0;" onclick="calcOccupancy()">Bereken bezetting</button>
-        <div id="occResult"></div>
-      </div>
-    </div>
+  <!-- Legend -->
+  <div style="padding:0 16px 10px;display:flex;gap:12px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--lbl3);"><div style="width:12px;height:12px;border-radius:3px;background:#34C759"></div>Bevestigd</div>
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--lbl3);"><div style="width:12px;height:12px;border-radius:3px;background:#FF9500"></div>Aanvraag</div>
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--lbl3);"><div style="width:12px;height:12px;border-radius:3px;background:#007AFF"></div>Ingecheckt</div>
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--lbl3);"><div style="width:12px;height:12px;border-radius:3px;background:#5856D6"></div>Betaald</div>
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--lbl3);"><div style="width:12px;height:12px;border-radius:3px;background:#8E8E93"></div>Wachtlijst</div>
   </div>
-
-  <!-- Betaling -->
-  <div class="section-wrap mt16">
-    <div class="card">
-      <div class="card-hd"><span class="card-title">💳 Betaling vragen</span></div>
-      <div class="pay-opts">
-        <button class="pay-opt" onclick="toast('📱 QR-code aangemaakt!')"><div class="pay-icon">📱</div><div class="pay-lbl">QR-code</div><div class="pay-sub">Scan &amp; betaal</div></button>
-        <button class="pay-opt" onclick="toast('🔗 Betaallink gekopieerd!')"><div class="pay-icon">🔗</div><div class="pay-lbl">Betaallink</div><div class="pay-sub">Stuur via SMS</div></button>
-        <button class="pay-opt" onclick="toast('💶 Cash aangeduid!')"><div class="pay-icon">💶</div><div class="pay-lbl">Cash</div><div class="pay-sub">Ter plaatse</div></button>
-        <button class="pay-opt" onclick="toast('🏦 Overschrijving aangeduid!')"><div class="pay-icon">🏦</div><div class="pay-lbl">Overschrijving</div><div class="pay-sub">Bankoverschrijving</div></button>
-      </div>
-    </div>
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+    <div id="ganttChart" style="min-width:600px;padding:0 16px 16px;"></div>
   </div>
+  <div style="height:8px;"></div>
 </section>
 
 <!-- ══ ANALYTICS ══ -->
 <section class="view" id="view-analytics">
+  <!-- Reservatie-funnel -->
+  <div class="section-wrap mt16">
+    <div class="card">
+      <div class="card-hd"><span class="card-title">🎯 Reservatieformulier funnel</span><span class="card-sub" id="funnelPeriod">Laatste 30 dagen</span></div>
+      <div id="funnelChart" style="padding:0 16px 16px;"></div>
+    </div>
+  </div>
   <div class="section-wrap mt16">
     <div class="card">
       <div class="card-hd"><span class="card-title">💶 Omzet per maand</span></div>
@@ -944,93 +964,136 @@ select{color:var(--lbl1)}
 
 <!-- Instellingen Sheet -->
 <div class="sh-overlay" id="shSettings" onclick="closeSheetOnOverlay(event,'shSettings')">
-  <div class="sheet">
+  <div class="sheet" style="max-height:95vh;">
     <div class="sh-handle"></div>
-    <div class="sh-hd"><span class="sh-title">⚙️ Instellingen</span><button class="sh-close" onclick="closeSheet('shSettings')">✕</button></div>
-    <div class="sh-body" style="padding:0 16px 24px;">
+    <div class="sh-hd"><span class="sh-title">Instellingen</span><button class="sh-close" onclick="closeSheet('shSettings')">✕</button></div>
 
-      <!-- Gmail sectie -->
-      <div style="margin-top:8px;">
-        <div style="font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">📧 Gmail koppeling</div>
+    <!-- Settings tab nav -->
+    <div style="display:flex;gap:0;padding:0 16px 12px;border-bottom:.5px solid var(--sep);">
+      <button class="stab on" id="stab-mail" onclick="switchSettingsTab('mail')">✉️ Mail</button>
+      <button class="stab" id="stab-betaling" onclick="switchSettingsTab('betaling')">💳 Betaling</button>
+      <button class="stab" id="stab-account" onclick="switchSettingsTab('account')">👤 Account</button>
+    </div>
 
-        <!-- Niet gekoppeld -->
-        <div id="gmailDisconnected">
-          <div style="background:var(--bg);border-radius:var(--r-md);padding:16px;margin-bottom:12px;">
-            <div style="font-size:15px;font-weight:700;color:var(--lbl1);margin-bottom:4px;">Gmail niet gekoppeld</div>
-            <div style="font-size:13px;color:var(--lbl3);line-height:1.5;">Koppel je Gmail zodat alle e-mails met klanten automatisch worden bijgehouden in het mailverkeer-overzicht.</div>
+    <div class="sh-body" style="padding:16px 16px 32px;">
+
+      <!-- TAB: MAIL -->
+      <div id="stab-panel-mail">
+
+        <!-- Gmail koppeling card -->
+        <div class="cfg-section-label">📧 Gmail-koppeling</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div id="gmailDisconnected">
+            <div style="display:flex;align-items:center;gap:14px;padding:4px 0 14px;">
+              <div style="width:44px;height:44px;background:rgba(234,67,53,.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">📧</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:var(--lbl1);">Gmail niet gekoppeld</div>
+                <div style="font-size:12px;color:var(--lbl3);margin-top:2px;line-height:1.4;">Klantmails automatisch bijhouden</div>
+              </div>
+            </div>
+            <button onclick="connectGmail()" style="width:100%;padding:12px;background:var(--bg2);border:none;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:700;color:var(--lbl1);cursor:pointer;">
+              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 5.457l5.546 4.986L40.09 5.457v9.18l-5.546 5.548-5.546-5.548z"/><path fill="#34A853" d="M40.09 14.637v18.728L24 40.543 7.91 33.365V14.637l5.546 5.548L24 26.18l10.544-5.995z"/><path fill="#4A90D9" d="M7.91 5.457l10.544 9.18-10.544 5.548z"/><path fill="#FBBC05" d="M40.09 5.457v9.18l-10.544 5.548 10.544-9.18z"/><path fill="#EA4335" d="M24 26.18L7.91 14.637v18.728L24 40.543z"/></svg>
+              Koppel Gmail account
+            </button>
           </div>
-          <button onclick="connectGmail()" style="width:100%;padding:13px;background:#fff;border:1.5px solid var(--sep);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:700;color:var(--lbl1);cursor:pointer;">
-            <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 5.457l5.546 4.986L40.09 5.457v9.18l-5.546 5.548-5.546-5.548z"/><path fill="#34A853" d="M40.09 14.637v18.728L24 40.543 7.91 33.365V14.637l5.546 5.548L24 26.18l10.544-5.995z"/><path fill="#4A90D9" d="M7.91 5.457l10.544 9.18-10.544 5.548z"/><path fill="#FBBC05" d="M40.09 5.457v9.18l-10.544 5.548 10.544-9.18z"/><path fill="#EA4335" d="M24 26.18L7.91 14.637v18.728L24 40.543z"/></svg>
-            Koppel Gmail account
-          </button>
-        </div>
-
-        <!-- Gekoppeld -->
-        <div id="gmailConnected" style="display:none;">
-          <div style="background:rgba(27,138,91,.07);border:1.5px solid rgba(27,138,91,.2);border-radius:var(--r-md);padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;">
-            <div style="font-size:28px;">✅</div>
-            <div>
-              <div style="font-size:14px;font-weight:700;color:var(--green);">Gmail gekoppeld</div>
-              <div style="font-size:12.5px;color:var(--lbl3);margin-top:2px;" id="gmailConnectedEmail">—</div>
-              <div style="font-size:11.5px;color:var(--lbl4);margin-top:2px;" id="gmailSyncStatus">Nog niet gesynchroniseerd</div>
+          <div id="gmailConnected" style="display:none;">
+            <div style="display:flex;align-items:center;gap:12px;padding:4px 0 14px;">
+              <div style="width:44px;height:44px;background:rgba(27,138,91,.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">✅</div>
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:700;color:var(--green);">Gmail gekoppeld</div>
+                <div style="font-size:12px;color:var(--lbl3);margin-top:1px;" id="gmailConnectedEmail">—</div>
+                <div style="font-size:11px;color:var(--lbl4);margin-top:1px;" id="gmailSyncStatus"></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="syncGmail()" id="syncBtn" style="flex:1;padding:11px;background:var(--green);color:#fff;border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;">🔄 Synchroniseer</button>
+              <button onclick="disconnectGmail()" style="padding:11px 14px;background:rgba(255,59,48,.1);color:var(--red);border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;">Ontkoppelen</button>
             </div>
           </div>
-          <div style="display:flex;gap:8px;">
-            <button onclick="syncGmail()" id="syncBtn" style="flex:1;padding:11px;background:var(--green);color:#fff;border-radius:var(--r-md);font-size:13px;font-weight:700;border:none;cursor:pointer;">🔄 Nu synchroniseren</button>
-            <button onclick="disconnectGmail()" style="padding:11px 14px;background:rgba(255,59,48,.1);color:var(--red);border-radius:var(--r-md);font-size:13px;font-weight:700;border:none;cursor:pointer;">Ontkoppelen</button>
+          <div id="gmailMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;min-height:14px;"></div>
+        </div>
+
+        <!-- Afzender -->
+        <div class="cfg-section-label">✉️ Afzender</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div class="cfg-row"><span class="cfg-row-lbl">Naam</span><input class="cfg-row-input" id="cfgFromName" placeholder="Camping Cosmopolite" oninput="debounceSave('mail_from_name',this.value)"></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">E-mail</span><input class="cfg-row-input" id="cfgFromEmail" placeholder="info@campingcosmopolite.be" oninput="debounceSave('mail_from_email',this.value)"></div>
+        </div>
+
+        <!-- Mail template -->
+        <div class="cfg-section-label">📝 Bevestigingsmail template
+          <span style="float:right;font-size:11px;font-weight:400;color:var(--lbl4);">Opgeslagen automatisch</span>
+        </div>
+        <div class="cfg-card" style="margin-bottom:12px;">
+          <div style="font-size:11px;color:var(--lbl4);margin-bottom:8px;line-height:1.5;">
+            Variabelen: <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;font-size:10px;">{{voornaam}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;font-size:10px;">{{aankomst}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;font-size:10px;">{{vertrek}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;font-size:10px;">{{bedrag}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;font-size:10px;">{{ogm}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;font-size:10px;">{{nachten}}</code>
+          </div>
+          <input class="cfg-full-input" id="cfgSubjectBev" placeholder="Onderwerp: Bevestiging reservatie #{{volgnummer}}" oninput="debounceSave('tpl_bevestiging_subject',this.value)" style="margin-bottom:8px;">
+          <textarea class="cfg-full-input" id="cfgBodyBev" rows="7" style="resize:vertical;line-height:1.5;" oninput="debounceSave('tpl_bevestiging_body',this.value)"></textarea>
+        </div>
+        <button onclick="toonMailPreview()" style="width:100%;padding:12px;background:var(--bg2);border:none;border-radius:10px;font-size:13px;font-weight:700;color:var(--green);cursor:pointer;margin-bottom:8px;">👁 Voorvertoning met testdata</button>
+        <div id="mailPreviewBox" style="display:none;background:var(--bg2);border-radius:10px;padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.6;color:var(--lbl1);max-height:200px;overflow-y:auto;margin-bottom:4px;border-left:3px solid var(--green);"></div>
+
+        <!-- Resend key -->
+        <div class="cfg-section-label" style="margin-top:16px;">🔑 Resend API Key</div>
+        <div class="cfg-card" style="margin-bottom:8px;">
+          <input class="cfg-full-input" id="cfgResendKey" type="password" placeholder="re_••••••••" style="margin-bottom:6px;">
+          <div style="font-size:11px;color:var(--lbl4);">Gratis tot 3.000 mails/maand — <b>resend.com</b> → API Keys</div>
+        </div>
+        <button onclick="saveApiKeys()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;" id="saveApiBtn">Opslaan</button>
+        <div id="apiSaveMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;min-height:16px;"></div>
+      </div>
+
+      <!-- TAB: BETALING -->
+      <div id="stab-panel-betaling" style="display:none;">
+        <div class="cfg-section-label">💳 Mollie (online betaling)</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;padding:4px 0 14px;">
+            <div style="width:44px;height:44px;background:rgba(88,86,214,.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">💳</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--lbl1);">Mollie betalingen</div>
+              <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">€0.29 + % per geslaagde betaling</div>
+            </div>
+          </div>
+          <input class="cfg-full-input" id="cfgMollieKey" type="password" placeholder="test_••••• of live_•••••" style="margin-bottom:6px;">
+          <div style="font-size:11px;color:var(--lbl4);margin-bottom:14px;"><b>mollie.com</b> → Dashboard → Developers → API Keys</div>
+          <button onclick="saveMollieKey()" style="width:100%;padding:12px;background:#5856D6;color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;" id="saveMollieBtn">Sleutel opslaan</button>
+          <div id="mollieSaveMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;min-height:16px;"></div>
+        </div>
+
+        <div class="cfg-section-label">ℹ️ Hoe werkt het?</div>
+        <div class="cfg-card">
+          <div style="font-size:13px;color:var(--lbl2);line-height:1.7;">
+            <div style="margin-bottom:8px;">1️⃣ Klik <b>Betaallink</b> bij een boeking</div>
+            <div style="margin-bottom:8px;">2️⃣ Klant ontvangt link via e-mail</div>
+            <div style="margin-bottom:8px;">3️⃣ Klant betaalt online via Bancontact, Visa…</div>
+            <div>4️⃣ Boeking springt automatisch op <span style="background:rgba(88,86,214,.1);color:#5856D6;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700;">Betaald</span> ✅</div>
           </div>
         </div>
-
-        <div id="gmailMsg" style="font-size:12.5px;color:var(--lbl3);margin-top:10px;min-height:16px;"></div>
       </div>
 
-      <div style="height:1px;background:var(--sep);margin:20px 0;"></div>
-
-      <!-- Bevestigingsmail templates -->
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">✉️ Automatische bevestigingsmail</div>
-        <div style="font-size:12px;color:var(--lbl3);margin-bottom:12px;line-height:1.5;">Beschikbare variabelen: <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{voornaam}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{aankomst}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{vertrek}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{nachten}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{personen}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{bedrag}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{ogm}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{from_name}}</code></div>
-        <div class="qpe-field"><div class="qpe-lbl">Afzendernaam</div><input class="qpe-input" id="cfgFromName" placeholder="Camping Cosmopolite" oninput="debounceSave('mail_from_name',this.value)"></div>
-        <div class="qpe-field"><div class="qpe-lbl">Afzender e-mail</div><input class="qpe-input" id="cfgFromEmail" placeholder="info@campingcosmopolite.be" oninput="debounceSave('mail_from_email',this.value)"></div>
-        <div class="qpe-field"><div class="qpe-lbl">Onderwerp</div><input class="qpe-input" id="cfgSubjectBev" placeholder="Bevestiging reservatie — Camping Cosmopolite #{{volgnummer}}" oninput="debounceSave('tpl_bevestiging_subject',this.value)"></div>
-        <div class="qpe-field">
-          <div class="qpe-lbl">Berichttekst</div>
-          <textarea class="qpe-input" id="cfgBodyBev" rows="8" style="resize:vertical;line-height:1.5;" oninput="debounceSave('tpl_bevestiging_body',this.value)"></textarea>
-        </div>
-        <button onclick="toonMailPreview()" style="width:100%;padding:10px;background:var(--bg);border:1.5px solid var(--sep);border-radius:var(--r-md);font-size:13px;font-weight:700;color:var(--green);cursor:pointer;margin-bottom:8px;">👁 Voorvertoning met testdata</button>
-        <div id="mailPreviewBox" style="display:none;background:#f9f9f9;border:1px solid var(--sep);border-radius:var(--r-md);padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.6;color:var(--lbl1);max-height:220px;overflow-y:auto;margin-bottom:4px;"></div>
-      </div>
-
-      <div style="height:1px;background:var(--sep);margin:20px 0;"></div>
-
-      <!-- API Keys -->
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">🔑 API Sleutels</div>
-        <div class="qpe-field">
-          <div class="qpe-lbl">Resend API Key <span style="font-weight:400;color:var(--lbl4)">(automatische mails)</span></div>
-          <input class="qpe-input" id="cfgResendKey" type="password" placeholder="re_••••••••">
-          <div style="font-size:11px;color:var(--lbl4);margin-top:4px;">Gratis account op <b>resend.com</b> → API Keys → Create</div>
-        </div>
-        <div class="qpe-field">
-          <div class="qpe-lbl">Mollie API Key <span style="font-weight:400;color:var(--lbl4)">(online betaling)</span></div>
-          <input class="qpe-input" id="cfgMollieKey" type="password" placeholder="test_••••• of live_•••••">
-          <div style="font-size:11px;color:var(--lbl4);margin-top:4px;"><b>mollie.com</b> → Dashboard → Developers → API Keys</div>
-        </div>
-        <button onclick="saveApiKeys()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:var(--r-md);font-size:14px;font-weight:700;border:none;cursor:pointer;" id="saveApiBtn">Sleutels opslaan</button>
-        <div id="apiSaveMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;"></div>
-      </div>
-
-      <div style="height:1px;background:var(--sep);margin:20px 0;"></div>
-
-      <!-- Account -->
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">👤 Account</div>
-        <div style="background:var(--bg);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-size:14px;font-weight:600;color:var(--lbl1);" id="settingsUserEmail">—</div>
-            <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">Ingelogd</div>
+      <!-- TAB: ACCOUNT -->
+      <div id="stab-panel-account" style="display:none;">
+        <div class="cfg-section-label">👤 Ingelogd als</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:44px;height:44px;background:var(--green);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;font-weight:800;" id="settingsUserAvatar">K</div>
+            <div>
+              <div style="font-size:15px;font-weight:700;color:var(--lbl1);" id="settingsUserEmail">—</div>
+              <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">Beheerder</div>
+            </div>
           </div>
-          <button onclick="doLogout()" style="padding:8px 14px;background:rgba(255,59,48,.1);color:var(--red);border-radius:20px;font-size:13px;font-weight:700;border:none;cursor:pointer;">Uitloggen</button>
+        </div>
+        <div class="cfg-section-label">🔒 Sessie</div>
+        <div class="cfg-card">
+          <button onclick="doLogout()" style="width:100%;padding:13px;background:rgba(255,59,48,.08);color:var(--red);border-radius:10px;font-size:15px;font-weight:700;border:none;cursor:pointer;text-align:left;">Uitloggen →</button>
+        </div>
+        <div class="cfg-section-label" style="margin-top:16px;">ℹ️ Over</div>
+        <div class="cfg-card">
+          <div class="cfg-row"><span class="cfg-row-lbl">Versie</span><span style="font-size:13px;color:var(--lbl3);">1.0.0</span></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">Platform</span><span style="font-size:13px;color:var(--lbl3);">Camping Cosmopolite</span></div>
         </div>
       </div>
 
@@ -1154,18 +1217,20 @@ const TODAY=new Date().toISOString().split('T')[0];
    te bevestigen met Karen zodra het exacte safaritent-tarief gekend is. */
 const PRICES={
   basis:{Tent:15,Caravan:15,Camper:15,Stacaravan:15,Safaritent:15},
-  volwassene:7,kind:5,hond:3,extraAuto:2,elektriciteit:6,afvalPer6:2,toeristentaks:1
+  volwassene:7,kind:5,baby:0,hond:3,extraAuto:2,elektriciteit:6,afvalPer6:2,toeristentaks:1
 };
 function calcPrice(o){
   const basis=PRICES.basis[o.type]??15;
-  const personen=(o.volwassenen||0)+(o.kinderen||0);
-  const afval=Math.ceil(personen/6)*PRICES.afvalPer6;
-  const taks=personen*PRICES.toeristentaks;
-  const perNacht=basis+(o.volwassenen||0)*PRICES.volwassene+(o.kinderen||0)*PRICES.kind+(o.hond?PRICES.hond:0)+(o.extraAuto?PRICES.extraAuto:0)+afval+taks;
+  const volw=o.volwassenen||0, kind=o.kinderen||0, baby=o.baby||0;
+  const totaalPersonen=volw+kind+baby;
+  const afval=Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6;
+  const taks=volw*PRICES.toeristentaks;  // alleen 12+
+  const extraAutos=Math.max(0,(o.autos||1)-1);  // eerste auto gratis
+  const perNacht=basis+volw*PRICES.volwassene+kind*PRICES.kind+baby*PRICES.baby+(o.hond?PRICES.hond:0)+extraAutos*PRICES.extraAuto+afval+taks;
   const nights=Math.max(o.nights||0,0);
   const elek=o.elektriciteit?PRICES.elektriciteit:0;
   const totaal=Math.round((perNacht*nights+elek)*100)/100;
-  return{basis,afval,taks,perNacht,nights,elek,totaal,personen};
+  return{basis,afval,taks,perNacht,nights,elek,totaal,personen:totaalPersonen,extraAutos};
 }
 function genRef(idOrBooking){
   if(typeof idOrBooking==='object')return idOrBooking.ogm||(idOrBooking.volgnummer?`#${idOrBooking.volgnummer}`:'—');
@@ -1629,14 +1694,23 @@ async function saveEdit(){
 
 /* ═══════════ PRIJS LIVE ═══════════ */
 function priceBreakdownHtml(p){
-  if(!p)return'<div class="price-row"><span>Vul aankomst, vertrek en type in…</span></div>';
+  if(!p)return'<div class="price-row muted"><span>Vul aankomst, vertrek en type in om prijs te berekenen…</span></div>';
+  const personenKost=(p.perNacht-p.basis-p.afval-p.taks-(p.extraAutos||0)*PRICES.extraAuto-(p.hond?PRICES.hond:0))*p.nights;
   return`
-    <div class="price-row"><span>Basis (${p.nights} nacht${p.nights===1?'':'en'})</span><span>€${(p.basis*p.nights).toFixed(2)}</span></div>
-    <div class="price-row"><span>Personen (${p.personen}p × ${p.nights}n)</span><span>€${((p.perNacht-p.basis-p.afval-p.taks)*p.nights).toFixed(2)}</span></div>
-    <div class="price-row"><span>Afvalbijdrage</span><span>€${(p.afval*p.nights).toFixed(2)}</span></div>
-    <div class="price-row"><span>Toeristentaks</span><span>€${(p.taks*p.nights).toFixed(2)}</span></div>
-    ${p.elek?`<div class="price-row"><span>Elektriciteit (eenmalig)</span><span>€${p.elek.toFixed(2)}</span></div>`:''}
+    <div class="price-row"><span>🏕️ Verblijf (${p.nights} nacht${p.nights===1?'':'en'})</span><span>€${(p.basis*p.nights).toFixed(2)}</span></div>
+    <div class="price-row"><span>👥 Personen (${p.personen}p × ${p.nights}n)</span><span>€${personenKost.toFixed(2)}</span></div>
+    ${p.extraAutos>0?`<div class="price-row"><span>🚗 Extra auto's (${p.extraAutos} × ${p.nights}n)</span><span>€${(p.extraAutos*PRICES.extraAuto*p.nights).toFixed(2)}</span></div>`:''}
+    ${p.hond?`<div class="price-row"><span>🐕 Hond (${p.nights}n)</span><span>€${(PRICES.hond*p.nights).toFixed(2)}</span></div>`:''}
+    <div class="price-row"><span>🗑️ Afvalbijdrage (${p.personen}p)</span><span>€${(p.afval*p.nights).toFixed(2)}</span></div>
+    <div class="price-row"><span>🏛️ Toeristentaks</span><span>€${(p.taks*p.nights).toFixed(2)}</span></div>
+    ${p.elek?`<div class="price-row"><span>⚡ Elektriciteit (eenmalig)</span><span>€${p.elek.toFixed(2)}</span></div>`:''}
     <div class="price-row total"><span>Totaal</span><span>€${p.totaal.toFixed(2)}</span></div>`
+}
+function stepField(id,delta){
+  const el=document.getElementById(id);
+  const min=parseInt(el.min)||0,max=parseInt(el.max)||99;
+  el.value=Math.min(max,Math.max(min,(parseInt(el.value)||0)+delta));
+  updatePriceLive();updatePriceLiveEdit();
 }
 function readPriceInputs(prefix){
   const g=id=>document.getElementById(prefix+id);
@@ -1646,7 +1720,9 @@ function readPriceInputs(prefix){
     type,nights:nightCount(aankomst,vertrek),
     volwassenen:parseInt(g('Volwassenen').value)||0,
     kinderen:parseInt(g('Kinderen').value)||0,
-    hond:g('Hond').checked,extraAuto:g('ExtraAuto').checked,elektriciteit:g('Elektriciteit').checked
+    baby:parseInt(g('Baby')?.value)||0,
+    autos:parseInt(g('Autos')?.value)||1,
+    hond:g('Hond').checked,elektriciteit:g('Elektriciteit').checked
   })
 }
 function updatePriceLive(){
@@ -1679,6 +1755,8 @@ async function addBooking(){
   const plaat=document.getElementById('fPlaat').value.trim();
   const volwassenen=parseInt(document.getElementById('fVolwassenen').value)||0;
   const kinderen=parseInt(document.getElementById('fKinderen').value)||0;
+  const baby=parseInt(document.getElementById('fBaby').value)||0;
+  const autos=parseInt(document.getElementById('fAutos').value)||1;
   const aankomst=document.getElementById('fAankomst').value;
   const vertrek=document.getElementById('fVertrek').value;
   const type=document.getElementById('fType').value;
@@ -1686,26 +1764,26 @@ async function addBooking(){
   const bedrag=parseFloat(document.getElementById('fBedrag').value)||0;
   const nota=document.getElementById('fNota').value.trim();
   const hond=document.getElementById('fHond').checked;
-  const extraAuto=document.getElementById('fExtraAuto').checked;
   const elektriciteit=document.getElementById('fElektriciteit').checked;
   if(!naam){toast('⚠️ Naam is verplicht');return}
   if(!aankomst||!vertrek){toast('⚠️ Aankomst- en vertrekdatum zijn verplicht');return}
   if(aankomst>=vertrek){toast('⚠️ Vertrek moet na aankomst zijn');return}
   if(!type){toast('⚠️ Kies een type verblijf');return}
-  if(volwassenen+kinderen<1){toast('⚠️ Minstens 1 persoon is verplicht');return}
+  if(volwassenen+kinderen+baby<1){toast('⚠️ Minstens 1 persoon is verplicht');return}
   const counts=typeToCounts(type);
   const {data:client,error:cErr}=await sb.from('clients').insert({naam,nummerplaten:plaat,email:`onbekend+${Date.now()}@cosmopolite.local`}).select().single();
   if(cErr){toast('⚠️ Klant aanmaken mislukt: '+cErr.message);return}
   const {error:bErr}=await sb.from('bookings').insert({
     client_id:client.id,aankomst,vertrek,tenten:counts.tenten,campers:counts.campers,
-    volwassenen,kinderen,honden:hond?1:0,autos:extraAuto?2:1,elektriciteit,
+    volwassenen,kinderen,baby,honden:hond?1:0,autos,elektriciteit,
     bron,bedrag_totaal:bedrag,nota,status:'aanvraag'
   });
   if(bErr){toast('⚠️ Boeking opslaan mislukt: '+bErr.message);return}
   ['fNaam','fPlaat','fAankomst','fVertrek','fBedrag','fNota','fID'].forEach(f=>document.getElementById(f).value='');
   document.getElementById('fVolwassenen').value=2;document.getElementById('fKinderen').value=0;
+  document.getElementById('fBaby').value=0;document.getElementById('fAutos').value=1;
   document.getElementById('fType').value='';document.getElementById('fBron').value='';
-  document.getElementById('fHond').checked=false;document.getElementById('fExtraAuto').checked=false;document.getElementById('fElektriciteit').checked=false;
+  document.getElementById('fHond').checked=false;document.getElementById('fElektriciteit').checked=false;
   document.getElementById('fFotoPreview').classList.remove('show');fFotoData=null;
   document.getElementById('priceBreakdown').innerHTML=priceBreakdownHtml(null);
   toast('✅ Boeking opgeslagen!');showView('boekingen',null);
@@ -1818,7 +1896,39 @@ function svgBars(values,labels,colors,h=140){
   });
   return`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;max-width:100%;">${bars}</svg>`
 }
+async function renderFunnel(){
+  const since=new Date(Date.now()-30*86400000).toISOString();
+  const {data:events}=await sb.from('analytics_events').select('event,session_id,created_at').gte('created_at',since);
+  if(!events?.length){document.getElementById('funnelChart').innerHTML='<div style="padding:20px;text-align:center;color:var(--lbl4);font-size:13px;">Nog geen data — tracking start zodra bezoekers het formulier openen.</div>';return}
+  const sessions=new Set(events.map(e=>e.session_id).filter(Boolean));
+  const count=ev=>new Set(events.filter(e=>e.event===ev).map(e=>e.session_id)).size;
+  const steps=[
+    {label:'Formulier bezocht',icon:'👁️',n:sessions.size},
+    {label:'Begon invullen',icon:'✏️',n:count('form_start')},
+    {label:'Datum gekozen',icon:'📅',n:count('field_focus')},
+    {label:'Reservatie verzonden',icon:'✅',n:count('submit')},
+  ];
+  const top=steps[0].n||1;
+  let html='';
+  steps.forEach((s,i)=>{
+    const pct=Math.round(s.n/top*100);
+    const drop=i>0?Math.round((1-s.n/steps[i-1].n)*100):0;
+    html+=`
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+          <div style="font-size:13px;font-weight:600;color:var(--lbl1);">${s.icon} ${s.label}</div>
+          <div style="font-size:13px;font-weight:800;color:var(--lbl1);">${s.n} <span style="font-weight:400;color:var(--lbl4);font-size:11px;">${i>0&&steps[i-1].n?`(−${drop}%)`:''}</span></div>
+        </div>
+        <div style="background:var(--bg2);border-radius:6px;height:10px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:${i===3?'var(--green)':'var(--blue)'};border-radius:6px;transition:width .5s;"></div>
+        </div>
+      </div>`;
+  });
+  document.getElementById('funnelChart').innerHTML=html;
+}
+
 function renderAnalytics(){
+  renderFunnel();
   // Omzet per maand (op basis van aankomstdatum)
   const months=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
   const revenue=new Array(12).fill(0);
@@ -1848,11 +1958,88 @@ function renderAnalytics(){
   document.getElementById('chartOccupancy').innerHTML=`<div style="text-align:center;padding:10px 0;"><div style="font-size:36px;font-weight:800;color:var(--green);letter-spacing:-1px;">${avg}</div><div style="font-size:12px;color:var(--lbl3);margin-top:2px;">gem. bezette plaatsen/dag deze maand</div></div>`
 }
 
-/* ═══════════ CALENDAR ═══════════ */
+/* ═══════════ GANTT KALENDER ═══════════ */
+let ganttStart=null;
+const GANTT_DAYS=21;
+const GANTT_COLORS={bevestigd:'#34C759',aanvraag:'#FF9500',ingecheckt:'#007AFF',betaald:'#5856D6',wachtlijst:'#8E8E93',geannuleerd:'#FF3B30'};
+
+function ganttToday(){ganttStart=new Date(TODAY);ganttStart.setHours(0,0,0,0);renderCalendar()}
+function ganttShift(days){if(!ganttStart)ganttStart=new Date(TODAY);ganttStart.setDate(ganttStart.getDate()+days);renderCalendar()}
+
+function renderCalendar(){
+  if(!ganttStart){ganttStart=new Date(TODAY);ganttStart.setDate(ganttStart.getDate()-3)}
+  const DAY=86400000;
+  const endDate=new Date(ganttStart.getTime()+GANTT_DAYS*DAY);
+  const NL_MONTHS=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+  const NL_DAYS=['zo','ma','di','wo','do','vr','za'];
+  document.getElementById('ganttRangeLabel').textContent=
+    `${ganttStart.getDate()} ${NL_MONTHS[ganttStart.getMonth()]} – ${new Date(endDate-DAY).getDate()} ${NL_MONTHS[new Date(endDate-DAY).getMonth()]}`;
+
+  // Actieve boekingen in range (exclude geannuleerd)
+  const active=bookings.filter(b=>{
+    if(b.status==='geannuleerd')return false;
+    const a=new Date(b.aankomst),v=new Date(b.vertrek);
+    return a<endDate&&v>ganttStart;
+  });
+
+  // Header: datum labels
+  let headerHtml='<div style="display:flex;margin-left:110px;margin-bottom:4px;">';
+  for(let i=0;i<GANTT_DAYS;i+=3){
+    const d=new Date(ganttStart.getTime()+i*DAY);
+    headerHtml+=`<div style="flex:3;font-size:10px;color:var(--lbl4);font-weight:600;">${d.getDate()} ${NL_MONTHS[d.getMonth()]}</div>`
+  }
+  headerHtml+='</div>';
+
+  // Day columns background (weekend highlight + today)
+  let colBg='<div style="position:absolute;top:0;bottom:0;left:110px;right:0;display:flex;pointer-events:none;">';
+  for(let i=0;i<GANTT_DAYS;i++){
+    const d=new Date(ganttStart.getTime()+i*DAY);
+    const dow=d.getDay();
+    const isToday=d.toISOString().slice(0,10)===TODAY;
+    const bg=isToday?'rgba(52,199,89,.12)':dow===0||dow===6?'rgba(0,0,0,.03)':'transparent';
+    const border=isToday?'border-left:2px solid var(--green);':'';
+    colBg+=`<div style="flex:1;background:${bg};${border}"></div>`
+  }
+  colBg+='</div>';
+
+  // Rows
+  let rowsHtml='';
+  if(!active.length){
+    rowsHtml='<div style="padding:32px;text-align:center;color:var(--lbl4);font-size:14px;">Geen boekingen in deze periode</div>';
+  } else {
+    active.forEach(b=>{
+      const a=new Date(b.aankomst),v=new Date(b.vertrek);
+      const startOff=Math.max(0,(a-ganttStart)/DAY);
+      const endOff=Math.min(GANTT_DAYS,(v-ganttStart)/DAY);
+      const width=((endOff-startOff)/GANTT_DAYS)*100;
+      const left=(startOff/GANTT_DAYS)*100;
+      const color=GANTT_COLORS[b.status]||'#8E8E93';
+      const namen=b.naam||'—';
+      const nachten=Math.round((v-a)/DAY);
+      rowsHtml+=`
+        <div style="display:flex;align-items:center;height:38px;border-bottom:.5px solid var(--sep);position:relative;cursor:pointer;" onclick="openBookingDetail('${b.id}')">
+          <div style="width:110px;flex-shrink:0;padding-right:8px;overflow:hidden;">
+            <div style="font-size:12px;font-weight:700;color:var(--lbl1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${namen}</div>
+            <div style="font-size:10px;color:var(--lbl4);">${nachten}n · ${b.personen||'?'}p</div>
+          </div>
+          <div style="flex:1;position:relative;height:26px;">
+            <div style="position:absolute;left:${left}%;width:${width}%;height:100%;background:${color};border-radius:6px;display:flex;align-items:center;padding:0 8px;overflow:hidden;transition:opacity .15s;" onmouseenter="this.style.opacity='.8'" onmouseleave="this.style.opacity='1'">
+              <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${namen}${b.plaat?' · '+b.plaat:''}</span>
+            </div>
+          </div>
+        </div>`;
+    });
+  }
+
+  const wrapper=document.getElementById('ganttChart');
+  wrapper.innerHTML=headerHtml+'<div style="position:relative;">'+colBg+'<div style="position:relative;">'+rowsHtml+'</div></div>';
+}
+
+/* ═══════════ OLD MONTH CALENDAR (kept for day-detail sheet) ═══════════ */
 function prevMonth(){calMonth--;if(calMonth<0){calMonth=11;calYear--}renderCalendar()}
 function nextMonth(){calMonth++;if(calMonth>11){calMonth=0;calYear++}renderCalendar()}
 
-function renderCalendar(){
+function renderCalendar_monthView(){
   const DAYS=['Ma','Di','Wo','Do','Vr','Za','Zo'];
   const MONTHS=['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
   document.getElementById('calMonth').textContent=`${MONTHS[calMonth]} ${calYear}`;
@@ -2175,14 +2362,19 @@ async function saveSetting(key,value){
 async function loadSettings(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session) return;
+  const email=session.user.email||'';
+  const emailEl=document.getElementById('settingsUserEmail');
+  const avatarEl=document.getElementById('settingsUserAvatar');
+  if(emailEl) emailEl.textContent=email;
+  if(avatarEl) avatarEl.textContent=(email[0]||'K').toUpperCase();
   const {data}=await sb.from('settings').select('key,value').eq('user_id',session.user.id);
   const cfg={};
   (data||[]).forEach(s=>cfg[s.key]=s.value);
   if(cfg.mail_from_name)   document.getElementById('cfgFromName').value=cfg.mail_from_name;
   if(cfg.mail_from_email)  document.getElementById('cfgFromEmail').value=cfg.mail_from_email;
   if(cfg.tpl_bevestiging_subject) document.getElementById('cfgSubjectBev').value=cfg.tpl_bevestiging_subject;
-  if(cfg.tpl_bevestiging_body)    document.getElementById('cfgBodyBev').value=cfg.tpl_bevestiging_body;
-  else document.getElementById('cfgBodyBev').value=`Beste {{voornaam}},\n\nBedankt voor je reservatie bij Camping Cosmopolite!\n\nAankomst:  {{aankomst}}\nVertrek:   {{vertrek}}\nNachten:   {{nachten}}\nPersonen:  {{personen}}\nBedrag:    {{bedrag}}\nBetaalreferentie: {{ogm}}\n\nGelieve het bedrag te betalen met bovenstaande referentie.\n\nTot binnenkort!\n{{from_name}}`;
+  if(cfg.tpl_bevestiging_body) document.getElementById('cfgBodyBev').value=cfg.tpl_bevestiging_body;
+  else document.getElementById('cfgBodyBev').value=`Beste {{voornaam}},\n\nBedankt voor je reservatie bij Camping Cosmopolite!\n\nAankomst:  {{aankomst}}\nVertrek:   {{vertrek}}\nNachten:   {{nachten}}\nPersonen:  {{personen}}\nBedrag:    {{bedrag}}\nBetaalreferentie (OGM): {{ogm}}\n\nGelieve het bedrag te betalen met bovenstaande referentie.\n\nTot binnenkort!\n\nVriendelijke groeten,\n{{from_name}}`;
 }
 function toonMailPreview(){
   const body=document.getElementById('cfgBodyBev').value;
@@ -2192,6 +2384,32 @@ function toonMailPreview(){
   const box=document.getElementById('mailPreviewBox');
   box.textContent=preview;
   box.style.display=box.style.display==='none'?'block':'none';
+}
+function switchSettingsTab(tab){
+  ['mail','betaling','account'].forEach(t=>{
+    document.getElementById('stab-'+t).classList.toggle('on',t===tab);
+    document.getElementById('stab-panel-'+t).style.display=t===tab?'block':'none';
+  });
+}
+async function saveMollieKey(){
+  const key=document.getElementById('cfgMollieKey').value.trim();
+  const btn=document.getElementById('saveMollieBtn');
+  const msg=document.getElementById('mollieSaveMsg');
+  if(!key){msg.textContent='⚠️ Vul een Mollie sleutel in';return}
+  btn.textContent='Opslaan…';btn.disabled=true;
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/save-api-keys`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({mollie_key:key}),
+    });
+    const d=await res.json();
+    if(d.error) throw new Error(d.error);
+    msg.textContent='✅ Mollie sleutel opgeslagen!';msg.style.color='var(--green)';
+    document.getElementById('cfgMollieKey').value='';
+  }catch(err){msg.textContent='⚠️ '+err.message;msg.style.color='var(--red)';}
+  finally{btn.textContent='Sleutel opslaan';btn.disabled=false;}
 }
 async function saveApiKeys(){
   const resend=document.getElementById('cfgResendKey').value.trim();
