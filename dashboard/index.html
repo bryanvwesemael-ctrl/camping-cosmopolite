@@ -323,6 +323,27 @@ select{color:var(--lbl1)}
 /* Mail preview */
 .mail-box{margin:0 16px;background:var(--bg);border-radius:var(--r-md);padding:14px;font-size:13px;line-height:1.6;color:var(--lbl1);white-space:pre-wrap;max-height:280px;overflow-y:auto}
 
+/* Mail view */
+.mail-filter-row{display:flex;gap:8px;padding:12px 16px 4px;overflow-x:auto;scrollbar-width:none}
+.mail-filter-row::-webkit-scrollbar{display:none}
+.mf-pill{padding:6px 13px;border-radius:20px;font-size:12.5px;font-weight:600;color:var(--lbl3);background:var(--bg);white-space:nowrap;flex-shrink:0;border:1.5px solid transparent;cursor:pointer}
+.mf-pill.on{background:var(--green);color:#fff;border-color:var(--green)}
+.mail-group{margin:0 16px 16px}
+.mail-group-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.mail-group-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0}
+.mail-group-name{font-size:15px;font-weight:800;color:var(--lbl1)}
+.mail-group-meta{font-size:11.5px;color:var(--lbl3);margin-top:1px}
+.mail-item{background:var(--card);border-radius:var(--r-md);padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s}
+.mail-item:active{transform:scale(.98)}
+.mail-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.mail-item-subj{font-size:13.5px;font-weight:700;color:var(--lbl1);flex:1}
+.mail-item-badge{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:10px;flex-shrink:0;white-space:nowrap}
+.badge-concept{background:rgba(255,149,0,.15);color:#CC7700}
+.badge-verzonden{background:rgba(52,199,89,.15);color:#1B7A3E}
+.mail-item-date{font-size:11px;color:var(--lbl4);margin-top:4px}
+.mail-item-preview{font-size:12px;color:var(--lbl3);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mail-empty{text-align:center;padding:48px 24px;color:var(--lbl3);font-size:14px}
+
 /* Evening alert */
 .eve-icon{font-size:40px;text-align:center;margin:6px 0 10px}
 
@@ -662,6 +683,17 @@ select{color:var(--lbl1)}
   </div>
   <div style="height:8px;"></div>
 </section>
+
+<section class="view" id="view-mail">
+  <div class="mail-filter-row">
+    <div class="mf-pill on" id="mf-all" onclick="setMailFilter('all',this)">Alle</div>
+    <div class="mf-pill" id="mf-concept" onclick="setMailFilter('concept',this)">📝 Concept</div>
+    <div class="mf-pill" id="mf-verzonden" onclick="setMailFilter('verzonden',this)">✅ Verzonden</div>
+  </div>
+  <div id="mailViewContent" style="padding-top:8px;">
+    <div class="mail-empty">Laden…</div>
+  </div>
+</section>
 </main>
 
 <!-- TAB BAR -->
@@ -693,6 +725,10 @@ select{color:var(--lbl1)}
   <div class="ti" id="tab-analytics" onclick="showView('analytics',null)">
     <div class="ti-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18.7 8 13 13.7l-3-3L4 16"/></svg></div>
     <span class="ti-lbl">Analytics</span>
+  </div>
+  <div class="ti" id="tab-mail" onclick="showView('mail',null)">
+    <div class="ti-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+    <span class="ti-lbl">Mail</span>
   </div>
 </nav>
 
@@ -835,6 +871,21 @@ select{color:var(--lbl1)}
     <div class="sh-handle"></div>
     <div class="sh-hd"><span class="sh-title" id="shDayTitle">Dag</span><button class="sh-close" onclick="closeSheet('shDayDetail')">✕</button></div>
     <div class="sh-body"><div class="day-ev-list" id="dayEvList"></div></div>
+  </div>
+</div>
+
+<!-- Mail Item Detail -->
+<div class="sh-overlay" id="shMailItem" onclick="closeSheetOnOverlay(event,'shMailItem')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-hd"><span class="sh-title" id="shMailItemTitle">Mail</span><button class="sh-close" onclick="closeSheet('shMailItem')">✕</button></div>
+    <div class="sh-body">
+      <div style="padding:0 20px 6px;font-size:12.5px;color:var(--lbl3);" id="shMailItemMeta"></div>
+      <div class="mail-box" id="shMailItemBody" style="max-height:360px;"></div>
+      <div style="padding:14px 16px 4px;" id="shMailItemMarkBtn">
+        <button class="btn-full btn-primary" style="width:100%;margin:0;">✅ Markeer als verzonden</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1010,6 +1061,7 @@ async function loadData(){
   renderDashboard();renderBookingList();renderWieIsEr();
   if(document.getElementById('view-kalender').classList.contains('on'))renderCalendar();
   if(document.getElementById('view-analytics').classList.contains('on'))renderAnalytics();
+  if(document.getElementById('view-mail').classList.contains('on'))loadMailView();
   checkEveningAlert();
 }
 
@@ -1815,6 +1867,96 @@ document.getElementById('registerDate').value=TODAY;
 setHeroDate();
 setInterval(checkEveningAlert,60000);
 checkSession();
+
+/* ═══════════ MAIL VIEW ═══════════ */
+let mailFilter='all';
+let allComms=[];
+
+function setMailFilter(f,el){
+  mailFilter=f;
+  document.querySelectorAll('.mf-pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  renderMailView();
+}
+
+async function loadMailView(){
+  document.getElementById('mailViewContent').innerHTML='<div class="mail-empty">Laden…</div>';
+  const {data,error}=await sb.from('communicatie')
+    .select('*,bookings(id,volgnummer,aankomst,vertrek,client_id,clients(naam,email))')
+    .order('created_at',{ascending:false});
+  if(error){document.getElementById('mailViewContent').innerHTML='<div class="mail-empty">⚠️ Kon mails niet laden</div>';return}
+  allComms=data||[];
+  renderMailView();
+}
+
+function renderMailView(){
+  const filtered=mailFilter==='all'?allComms:allComms.filter(c=>c.status===mailFilter);
+  const wrap=document.getElementById('mailViewContent');
+  if(!filtered.length){wrap.innerHTML='<div class="mail-empty">Geen e-mails gevonden</div>';return}
+
+  // Groepeer per klant (client_id of naam)
+  const groups={};
+  filtered.forEach(c=>{
+    const naam=c.bookings?.clients?.naam||'Onbekende klant';
+    const clientKey=c.bookings?.client_id||naam;
+    if(!groups[clientKey])groups[clientKey]={naam,email:c.bookings?.clients?.email||'',items:[],volgnummers:new Set()};
+    groups[clientKey].items.push(c);
+    if(c.bookings?.volgnummer)groups[clientKey].volgnummers.add(c.bookings.volgnummer);
+  });
+
+  const COLORS=['#1B8A5B','#007AFF','#AF52DE','#FF9500','#FF3B30','#2B5C8A'];
+  let html='';
+  Object.values(groups).forEach((g,gi)=>{
+    const initials=g.naam.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const color=COLORS[gi%COLORS.length];
+    const refs=[...g.volgnummers].map(n=>`#${n}`).join(', ')||'';
+    html+=`<div class="mail-group">
+      <div class="mail-group-hd">
+        <div class="mail-group-av" style="background:${color}">${initials}</div>
+        <div>
+          <div class="mail-group-name">${g.naam}</div>
+          <div class="mail-group-meta">${g.email}${refs?' · '+refs:''}</div>
+        </div>
+      </div>`;
+    g.items.forEach(c=>{
+      const badge=c.status==='verzonden'
+        ?'<span class="mail-item-badge badge-verzonden">✅ Verzonden</span>'
+        :'<span class="mail-item-badge badge-concept">📝 Concept</span>';
+      const preview=(c.inhoud||'').replace(/\n/g,' ').slice(0,80)+'…';
+      const dt=new Date(c.created_at).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      html+=`<div class="mail-item" onclick="openMailItem('${c.id}')">
+        <div class="mail-item-top">
+          <div class="mail-item-subj">${c.onderwerp||'(geen onderwerp)'}</div>
+          ${badge}
+        </div>
+        <div class="mail-item-date">${dt}</div>
+        <div class="mail-item-preview">${preview}</div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  wrap.innerHTML=html;
+}
+
+function openMailItem(id){
+  const c=allComms.find(x=>x.id===id);if(!c)return;
+  const naam=c.bookings?.clients?.naam||'Onbekende klant';
+  const isConcept=c.status==='concept';
+  document.getElementById('shMailItemTitle').textContent=c.onderwerp||'(geen onderwerp)';
+  document.getElementById('shMailItemMeta').textContent=naam+' · '+new Date(c.created_at).toLocaleString('nl-BE');
+  document.getElementById('shMailItemBody').textContent=c.inhoud||'';
+  document.getElementById('shMailItemMarkBtn').style.display=isConcept?'block':'none';
+  document.getElementById('shMailItemMarkBtn').onclick=()=>markMailVerzonden(id);
+  openSheet('shMailItem');
+}
+
+async function markMailVerzonden(id){
+  const {error}=await sb.from('communicatie').update({status:'verzonden',verzonden_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('⚠️ Opslaan mislukt');return}
+  toast('✅ Gemarkeerd als verzonden');
+  closeSheet('shMailItem');
+  loadMailView();
+}
 </script>
 </body>
 </html>
