@@ -877,6 +877,55 @@ select{color:var(--lbl1)}
   </div>
 </div>
 
+<!-- Gast Toevoegen Sheet -->
+<div class="sh-overlay" id="shAddGuest" onclick="closeSheetOnOverlay(event,'shAddGuest')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-hd"><span class="sh-title">👤 Gast toevoegen</span><button class="sh-close" onclick="closeSheet('shAddGuest')">✕</button></div>
+    <div class="sh-body">
+      <form id="addGuestForm" style="padding:0 16px 24px;" onsubmit="event.preventDefault();saveGuest()">
+        <input type="hidden" id="addGuestBookingId">
+        <div class="qpe-field">
+          <div class="qpe-lbl">Naam *</div>
+          <input class="qpe-input" id="gNaam" placeholder="Voornaam Achternaam" required>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="qpe-field">
+            <div class="qpe-lbl">Geboortedatum</div>
+            <input class="qpe-input" id="gGeboortedatum" type="date">
+          </div>
+          <div class="qpe-field">
+            <div class="qpe-lbl">Nationaliteit</div>
+            <input class="qpe-input" id="gNationaliteit" placeholder="bv. Belgisch">
+          </div>
+        </div>
+        <div class="qpe-field">
+          <div class="qpe-lbl">ID-nummer / Paspoortnummer</div>
+          <input class="qpe-input" id="gIdNummer" placeholder="AB123456">
+        </div>
+        <div class="qpe-field">
+          <div class="qpe-lbl">Nummerplaat</div>
+          <input class="qpe-input" id="gNummerplaat" placeholder="1-ABC-123">
+        </div>
+        <div class="qpe-field">
+          <div class="qpe-lbl">Foto ID-kaart</div>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <span style="padding:8px 14px;background:var(--bg);border-radius:var(--r-sm);font-size:13px;font-weight:600;color:var(--green);">📷 Neem foto</span>
+            <input type="file" id="gFoto" accept="image/*" capture="environment" style="display:none" onchange="document.getElementById('guestFotoPreview').style.display='block';document.getElementById('guestFotoPreview').src=URL.createObjectURL(this.files[0])">
+            <img id="guestFotoPreview" style="width:44px;height:44px;border-radius:10px;object-fit:cover;display:none;">
+          </label>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0 16px;">
+          <input type="checkbox" id="gHoofdgast" style="width:18px;height:18px;">
+          <label for="gHoofdgast" style="font-size:14px;font-weight:600;color:var(--lbl1);">Hoofdgast (verantwoordelijke)</label>
+        </div>
+        <div id="addGuestMsg" style="font-size:13px;color:var(--red);margin-bottom:10px;"></div>
+        <button id="saveGuestBtn" type="submit" style="width:100%;padding:14px;background:var(--green);color:#fff;border-radius:var(--r-md);font-size:15px;font-weight:700;border:none;cursor:pointer;">Gast opslaan</button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- Instellingen Sheet -->
 <div class="sh-overlay" id="shSettings" onclick="closeSheetOnOverlay(event,'shSettings')">
   <div class="sheet">
@@ -1295,11 +1344,28 @@ function openBookingDetail(id){
       <div class="ctrl-item"><input type="checkbox" id="ctrlKent" ${ctrl.kenteken?'checked':''} onchange="toggleControle('${b.id}','kenteken',this.checked)"><label for="ctrlKent">Nummerplaat genoteerd</label></div>
       <div class="ctrl-item"><input type="checkbox" id="ctrlPers" ${ctrl.personen?'checked':''} onchange="toggleControle('${b.id}','personen',this.checked)"><label for="ctrlPers">Aantal personen bevestigd</label></div>
     </div>
+    <div class="sg mt16">
+      <div class="sg-lbl">👥 Gasten <span style="font-weight:500;color:var(--lbl4);font-size:11px;">(politie/brandweer register)</span></div>
+      <button onclick="openAddGuestSheet('${b.id}')" style="margin:0 16px 10px;padding:8px 14px;background:var(--green);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:700;border:none;cursor:pointer;display:block;">+ Gast toevoegen</button>
+    </div>
+    <div id="gastenList" style="padding:0 16px 4px;">Laden…</div>
+
+    <div class="sg mt16">
+      <div class="sg-lbl">📸 Foto's</div>
+      <label style="margin:0 16px 10px;padding:8px 14px;background:var(--bg);border:1.5px dashed var(--sep);border-radius:var(--r-sm);font-size:13px;font-weight:600;color:var(--green);cursor:pointer;display:block;text-align:center;">
+        + Foto('s) toevoegen
+        <input type="file" accept="image/*" multiple capture="environment" style="display:none" onchange="uploadBookingFotos('${b.id}',this)">
+      </label>
+    </div>
+    <div id="fotoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 16px 16px;">Laden…</div>
+
     <div class="sg mt16"><div class="sg-lbl">📧 E-mailgeschiedenis</div></div>
     <div id="commHistory" style="padding:0 16px 16px;font-size:13px;color:var(--lbl3);">Laden…</div>
     <div style="height:16px;"></div>`;
   openSheet('shDetail');
-  loadCommHistory(b.id)
+  loadCommHistory(b.id);
+  loadGasten(b.id);
+  loadFotos(b.id);
 }
 async function loadCommHistory(bookingId){
   const el=document.getElementById('commHistory');if(!el)return;
@@ -1860,30 +1926,80 @@ function splitNaam(naam){
 function registerEntries(date){
   return bookings.filter(b=>b.aankomst<=date&&b.vertrek>date&&b.status!=='geannuleerd')
 }
-function renderRegister(date){
-  const list=registerEntries(date);
+async function renderRegister(date){
+  const activeBookings=registerEntries(date);
   const wrap=document.getElementById('registerTableWrap');if(!wrap)return;
-  if(!list.length){wrap.innerHTML='<div class="oc-none" style="padding:20px 0;">Geen gasten geregistreerd op deze datum</div>';return}
-  wrap.innerHTML=`<table class="reg-table" style="width:100%;border-collapse:collapse;font-size:12.5px;">
-    <thead><tr style="text-align:left;border-bottom:1px solid var(--sep);">
-      <th style="padding:7px 6px;">#</th><th style="padding:7px 6px;">Voornaam</th><th style="padding:7px 6px;">Achternaam</th>
-      <th style="padding:7px 6px;">Geboortedatum</th><th style="padding:7px 6px;">Nationaliteit</th>
-      <th style="padding:7px 6px;">ID-nummer</th><th style="padding:7px 6px;">Woonplaats</th>
-      <th style="padding:7px 6px;">Aankomst</th><th style="padding:7px 6px;">Vertrek</th>
-    </tr></thead><tbody>
-    ${list.map(b=>{const n=splitNaam(b.naam);return`<tr style="border-bottom:.5px solid var(--sep2);">
-      <td style="padding:7px 6px;color:var(--lbl4);">#${b.volgnummer??'—'}</td>
-      <td style="padding:7px 6px;font-weight:600;">${n.voornaam}</td>
-      <td style="padding:7px 6px;font-weight:600;">${n.achternaam}</td>
-      <td style="padding:7px 6px;">${b.geboortedatum?fmtDateLong(b.geboortedatum):'—'}</td>
-      <td style="padding:7px 6px;">${b.nationaliteit||'—'}</td>
-      <td style="padding:7px 6px;">${b.idnr||'—'}</td>
-      <td style="padding:7px 6px;">${b.woonplaats||'—'}</td>
-      <td style="padding:7px 6px;">${fmtDateLong(b.aankomst)}</td>
-      <td style="padding:7px 6px;">${fmtDateLong(b.vertrek)}</td>
-    </tr>`}).join('')}
-    </tbody></table>
-    <div style="font-size:11px;color:var(--lbl4);margin-top:8px;">${list.length} gast${list.length!==1?'en':''} geregistreerd op ${fmtDateLong(date)} · ${list.filter(b=>!b.idnr).length} zonder ID-nummer</div>`
+  if(!activeBookings.length){wrap.innerHTML='<div class="oc-none" style="padding:20px 0;">Geen gasten geregistreerd op deze datum</div>';return}
+  wrap.innerHTML='<div style="padding:12px 0;color:var(--lbl3);font-size:13px;">Laden…</div>';
+
+  // Haal gasten op voor alle actieve boekingen
+  const bookingIds=activeBookings.map(b=>b.id);
+  const {data:gasten}=await sb.from('gasten').select('*').in('booking_id',bookingIds);
+  const gastenByBooking={};
+  (gasten||[]).forEach(g=>{
+    if(!gastenByBooking[g.booking_id])gastenByBooking[g.booking_id]=[];
+    gastenByBooking[g.booking_id].push(g);
+  });
+
+  // Bouw rijen: hoofdgast (uit boeking) + extra gasten
+  const rows=[];
+  activeBookings.forEach(b=>{
+    const n=splitNaam(b.naam);
+    const extraGasten=gastenByBooking[b.id]||[];
+    const hasGasten=extraGasten.length>0;
+    // Hoofdgast uit boeking zelf
+    rows.push({
+      volgnummer:b.volgnummer, voornaam:n.voornaam, achternaam:n.achternaam,
+      geboortedatum:b.geboortedatum, nationaliteit:b.nationaliteit,
+      idnr:b.idnr, nummerplaat:b.plaat, woonplaats:b.woonplaats,
+      aankomst:b.aankomst, vertrek:b.vertrek,
+      rol:hasGasten?'Hoofdgast':'—', warning:!b.idnr
+    });
+    // Extra gasten uit gasten-tabel
+    extraGasten.forEach(g=>{
+      const gn=splitNaam(g.naam);
+      rows.push({
+        volgnummer:b.volgnummer, voornaam:gn.voornaam, achternaam:gn.achternaam,
+        geboortedatum:g.geboortedatum, nationaliteit:g.nationaliteit,
+        idnr:g.id_nummer, nummerplaat:g.nummerplaat, woonplaats:'',
+        aankomst:b.aankomst, vertrek:b.vertrek,
+        rol:g.is_hoofdgast?'Hoofdgast':'Meereizend', warning:!g.id_nummer
+      });
+    });
+  });
+
+  const missingId=rows.filter(r=>r.warning).length;
+  wrap.innerHTML=`
+    ${missingId>0?`<div style="background:rgba(255,149,0,.12);border:1px solid rgba(255,149,0,.3);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:#CC7700;">⚠️ ${missingId} gast${missingId>1?'en':''} zonder ID-nummer</div>`:''}
+    <div style="overflow-x:auto;">
+    <table class="reg-table" style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap;">
+      <thead><tr style="text-align:left;border-bottom:1.5px solid var(--sep);background:var(--bg);">
+        <th style="padding:8px 6px;">#</th>
+        <th style="padding:8px 6px;">Voornaam</th>
+        <th style="padding:8px 6px;">Achternaam</th>
+        <th style="padding:8px 6px;">Geboortedatum</th>
+        <th style="padding:8px 6px;">Nationaliteit</th>
+        <th style="padding:8px 6px;">ID-nummer</th>
+        <th style="padding:8px 6px;">Nummerplaat</th>
+        <th style="padding:8px 6px;">Aankomst</th>
+        <th style="padding:8px 6px;">Vertrek</th>
+        <th style="padding:8px 6px;">Rol</th>
+      </tr></thead><tbody>
+      ${rows.map(r=>`<tr style="border-bottom:.5px solid var(--sep2);${r.warning?'background:rgba(255,59,48,.04);':''}">
+        <td style="padding:7px 6px;color:var(--lbl4);">#${r.volgnummer??'—'}</td>
+        <td style="padding:7px 6px;font-weight:600;">${r.voornaam||'—'}</td>
+        <td style="padding:7px 6px;font-weight:600;">${r.achternaam||'—'}</td>
+        <td style="padding:7px 6px;">${r.geboortedatum?fmtDateLong(r.geboortedatum):'—'}</td>
+        <td style="padding:7px 6px;">${r.nationaliteit||'—'}</td>
+        <td style="padding:7px 6px;${!r.idnr?'color:var(--red);font-weight:600;':''}">${r.idnr||'❌ ontbreekt'}</td>
+        <td style="padding:7px 6px;font-family:monospace;">${r.nummerplaat||'—'}</td>
+        <td style="padding:7px 6px;">${fmtDateLong(r.aankomst)}</td>
+        <td style="padding:7px 6px;">${fmtDateLong(r.vertrek)}</td>
+        <td style="padding:7px 6px;color:var(--lbl3);font-size:11px;">${r.rol}</td>
+      </tr>`).join('')}
+      </tbody>
+    </table></div>
+    <div style="font-size:11px;color:var(--lbl4);margin-top:8px;">${rows.length} pers. geregistreerd op ${fmtDateLong(date)} (${activeBookings.length} boekingen)</div>`
 }
 function printRegister(){
   const date=document.getElementById('registerDate').value||TODAY;
@@ -1926,6 +2042,104 @@ function exportRegisterCSV(){
 
 /* ═══════════ INIT ═══════════ */
 document.getElementById('presenceBtn').onclick=renderPresenceAndOpen;
+/* ═══════════ GASTEN ═══════════ */
+async function loadGasten(bookingId){
+  const el=document.getElementById('gastenList');if(!el)return;
+  const {data,error}=await sb.from('gasten').select('*').eq('booking_id',bookingId).order('is_hoofdgast',{ascending:false}).order('created_at');
+  if(error){el.textContent='Kon gasten niet laden';return}
+  if(!data||!data.length){el.innerHTML='<div style="padding:4px 0 12px;font-size:13px;color:var(--lbl4);">Nog geen gasten toegevoegd</div>';return}
+  el.innerHTML=data.map(g=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:.5px solid var(--sep);">
+      ${g.foto_url?`<img src="${g.foto_url}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+        :`<div style="width:38px;height:38px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">👤</div>`}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:700;color:var(--lbl1);">${g.naam}${g.is_hoofdgast?' <span style="font-size:10px;background:var(--green);color:#fff;padding:2px 6px;border-radius:8px;margin-left:4px;">Hoofd</span>':''}</div>
+        <div style="font-size:11.5px;color:var(--lbl3);margin-top:1px;">${[g.geboortedatum?fmtDateLong(g.geboortedatum):'',g.nationaliteit||'',g.id_nummer||''].filter(Boolean).join(' · ')||'Geen details'}</div>
+        ${g.nummerplaat?`<div style="font-size:11px;color:var(--lbl4);font-family:monospace;">${g.nummerplaat}</div>`:''}
+      </div>
+      <button onclick="deleteGast('${g.id}','${bookingId}')" style="color:var(--red);font-size:18px;padding:4px;background:none;border:none;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>`).join('')
+}
+
+async function deleteGast(gastId,bookingId){
+  await sb.from('gasten').delete().eq('id',gastId);
+  loadGasten(bookingId);
+}
+
+function openAddGuestSheet(bookingId){
+  document.getElementById('addGuestBookingId').value=bookingId;
+  document.getElementById('addGuestForm').reset();
+  document.getElementById('guestFotoPreview').style.display='none';
+  document.getElementById('addGuestMsg').textContent='';
+  openSheet('shAddGuest');
+}
+
+async function saveGuest(){
+  const bookingId=document.getElementById('addGuestBookingId').value;
+  const naam=document.getElementById('gNaam').value.trim();
+  if(!naam){document.getElementById('addGuestMsg').textContent='⚠️ Naam verplicht';return}
+  const btn=document.getElementById('saveGuestBtn');
+  btn.textContent='Opslaan…';btn.disabled=true;
+  try{
+    const geboortedatum=document.getElementById('gGeboortedatum').value||null;
+    const nationaliteit=document.getElementById('gNationaliteit').value.trim()||null;
+    const id_nummer=document.getElementById('gIdNummer').value.trim()||null;
+    const nummerplaat=document.getElementById('gNummerplaat').value.trim()||null;
+    const is_hoofdgast=document.getElementById('gHoofdgast').checked;
+    const fotoFile=document.getElementById('gFoto').files[0];
+    let foto_url=null;
+    if(fotoFile){
+      const {data:ins}=await sb.from('gasten').insert({booking_id:bookingId,naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast}).select().single();
+      const ext=fotoFile.name.split('.').pop();
+      const {error:upErr}=await sb.storage.from('id-fotos').upload(`gasten/${ins.id}/id.${ext}`,fotoFile,{upsert:true});
+      if(!upErr) await sb.from('gasten').update({foto_url:`gasten/${ins.id}/id.${ext}`}).eq('id',ins.id);
+    }else{
+      await sb.from('gasten').insert({booking_id:bookingId,naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast,foto_url});
+    }
+    closeSheet('shAddGuest');
+    loadGasten(bookingId);
+    toast('✅ Gast toegevoegd');
+  }catch(err){
+    document.getElementById('addGuestMsg').textContent='⚠️ '+err.message;
+  }finally{btn.textContent='Opslaan';btn.disabled=false;}
+}
+
+/* ═══════════ BOOKING FOTO'S ═══════════ */
+async function loadFotos(bookingId){
+  const el=document.getElementById('fotoGrid');if(!el)return;
+  const {data}=await sb.from('booking_fotos').select('*').eq('booking_id',bookingId).order('created_at');
+  if(!data||!data.length){el.innerHTML='<div style="grid-column:1/-1;font-size:13px;color:var(--lbl4);padding:4px 0 12px;">Nog geen foto\'s</div>';return}
+  const urls=await Promise.all(data.map(async f=>{
+    const {data:sd}=await sb.storage.from('booking-fotos').createSignedUrl(f.url,3600);
+    return {id:f.id,url:sd?.signedUrl||'',label:f.label,bookingId};
+  }));
+  el.innerHTML=urls.map(f=>`
+    <div style="position:relative;">
+      <img src="${f.url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--r-sm);cursor:pointer;" onclick="window.open('${f.url}','_blank')" loading="lazy">
+      <button onclick="deleteFoto('${f.id}','${f.bookingId}')" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>`).join('')
+}
+
+async function uploadBookingFotos(bookingId,input){
+  const files=[...input.files];if(!files.length)return;
+  toast(`⏳ ${files.length} foto${files.length>1?'\'s':''} uploaden…`);
+  for(const file of files){
+    const ext=file.name.split('.').pop();
+    const path=`${bookingId}/${Date.now()}.${ext}`;
+    const {error:upErr}=await sb.storage.from('booking-fotos').upload(path,file);
+    if(!upErr) await sb.from('booking_fotos').insert({booking_id:bookingId,url:path});
+  }
+  loadFotos(bookingId);
+  toast(`✅ ${files.length} foto${files.length>1?'\'s':''} opgeslagen`);
+}
+
+async function deleteFoto(fotoId,bookingId){
+  const {data}=await sb.from('booking_fotos').select('url').eq('id',fotoId).single();
+  if(data) await sb.storage.from('booking-fotos').remove([data.url]);
+  await sb.from('booking_fotos').delete().eq('id',fotoId);
+  loadFotos(bookingId);
+}
+
 /* ═══════════ GMAIL OAUTH ═══════════ */
 const GOOGLE_CLIENT_ID='54730723430-j707rj00757gkh5f0hsfu9peh645tp32.apps.googleusercontent.com';
 const GMAIL_SCOPES='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email';
