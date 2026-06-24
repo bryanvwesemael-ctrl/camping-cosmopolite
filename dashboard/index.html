@@ -420,6 +420,9 @@ select{color:var(--lbl1)}
     <button class="hd-btn" onclick="openSearch()">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     </button>
+    <button class="hd-btn" onclick="openSheet('shSettings')" title="Instellingen">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
     <button class="hd-btn" onclick="doLogout()" title="Uitloggen">
       <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
     </button>
@@ -871,6 +874,66 @@ select{color:var(--lbl1)}
     <div class="sh-handle"></div>
     <div class="sh-hd"><span class="sh-title" id="shDayTitle">Dag</span><button class="sh-close" onclick="closeSheet('shDayDetail')">✕</button></div>
     <div class="sh-body"><div class="day-ev-list" id="dayEvList"></div></div>
+  </div>
+</div>
+
+<!-- Instellingen Sheet -->
+<div class="sh-overlay" id="shSettings" onclick="closeSheetOnOverlay(event,'shSettings')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-hd"><span class="sh-title">⚙️ Instellingen</span><button class="sh-close" onclick="closeSheet('shSettings')">✕</button></div>
+    <div class="sh-body" style="padding:0 16px 24px;">
+
+      <!-- Gmail sectie -->
+      <div style="margin-top:8px;">
+        <div style="font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">📧 Gmail koppeling</div>
+
+        <!-- Niet gekoppeld -->
+        <div id="gmailDisconnected">
+          <div style="background:var(--bg);border-radius:var(--r-md);padding:16px;margin-bottom:12px;">
+            <div style="font-size:15px;font-weight:700;color:var(--lbl1);margin-bottom:4px;">Gmail niet gekoppeld</div>
+            <div style="font-size:13px;color:var(--lbl3);line-height:1.5;">Koppel je Gmail zodat alle e-mails met klanten automatisch worden bijgehouden in het mailverkeer-overzicht.</div>
+          </div>
+          <button onclick="connectGmail()" style="width:100%;padding:13px;background:#fff;border:1.5px solid var(--sep);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:700;color:var(--lbl1);cursor:pointer;">
+            <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 5.457l5.546 4.986L40.09 5.457v9.18l-5.546 5.548-5.546-5.548z"/><path fill="#34A853" d="M40.09 14.637v18.728L24 40.543 7.91 33.365V14.637l5.546 5.548L24 26.18l10.544-5.995z"/><path fill="#4A90D9" d="M7.91 5.457l10.544 9.18-10.544 5.548z"/><path fill="#FBBC05" d="M40.09 5.457v9.18l-10.544 5.548 10.544-9.18z"/><path fill="#EA4335" d="M24 26.18L7.91 14.637v18.728L24 40.543z"/></svg>
+            Koppel Gmail account
+          </button>
+        </div>
+
+        <!-- Gekoppeld -->
+        <div id="gmailConnected" style="display:none;">
+          <div style="background:rgba(27,138,91,.07);border:1.5px solid rgba(27,138,91,.2);border-radius:var(--r-md);padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;">
+            <div style="font-size:28px;">✅</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--green);">Gmail gekoppeld</div>
+              <div style="font-size:12.5px;color:var(--lbl3);margin-top:2px;" id="gmailConnectedEmail">—</div>
+              <div style="font-size:11.5px;color:var(--lbl4);margin-top:2px;" id="gmailSyncStatus">Nog niet gesynchroniseerd</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="syncGmail()" id="syncBtn" style="flex:1;padding:11px;background:var(--green);color:#fff;border-radius:var(--r-md);font-size:13px;font-weight:700;border:none;cursor:pointer;">🔄 Nu synchroniseren</button>
+            <button onclick="disconnectGmail()" style="padding:11px 14px;background:rgba(255,59,48,.1);color:var(--red);border-radius:var(--r-md);font-size:13px;font-weight:700;border:none;cursor:pointer;">Ontkoppelen</button>
+          </div>
+        </div>
+
+        <div id="gmailMsg" style="font-size:12.5px;color:var(--lbl3);margin-top:10px;min-height:16px;"></div>
+      </div>
+
+      <div style="height:1px;background:var(--sep);margin:20px 0;"></div>
+
+      <!-- Account -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">👤 Account</div>
+        <div style="background:var(--bg);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--lbl1);" id="settingsUserEmail">—</div>
+            <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">Ingelogd</div>
+          </div>
+          <button onclick="doLogout()" style="padding:8px 14px;background:rgba(255,59,48,.1);color:var(--red);border-radius:20px;font-size:13px;font-weight:700;border:none;cursor:pointer;">Uitloggen</button>
+        </div>
+      </div>
+
+    </div>
   </div>
 </div>
 
@@ -1863,10 +1926,113 @@ function exportRegisterCSV(){
 
 /* ═══════════ INIT ═══════════ */
 document.getElementById('presenceBtn').onclick=renderPresenceAndOpen;
+/* ═══════════ GMAIL OAUTH ═══════════ */
+const GOOGLE_CLIENT_ID='JOUW_GOOGLE_CLIENT_ID_HIER'; // ← later invullen
+const GMAIL_SCOPES='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email';
+const REDIRECT_URI=window.location.origin+window.location.pathname;
+
+function connectGmail(){
+  const url=new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id',GOOGLE_CLIENT_ID);
+  url.searchParams.set('redirect_uri',REDIRECT_URI);
+  url.searchParams.set('response_type','code');
+  url.searchParams.set('scope',GMAIL_SCOPES);
+  url.searchParams.set('access_type','offline');
+  url.searchParams.set('prompt','consent');
+  url.searchParams.set('state','gmail_connect');
+  window.location.href=url.toString();
+}
+
+async function handleOAuthCallback(){
+  const params=new URLSearchParams(window.location.search);
+  const code=params.get('code');
+  const state=params.get('state');
+  if(!code||state!=='gmail_connect') return;
+  // Verwijder code uit URL
+  window.history.replaceState({},'',window.location.pathname);
+  // Wacht tot sessie geladen is voor we de fetch doen
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){toast('⚠️ Log eerst in voor je Gmail koppelt');return}
+  setGmailMsg('Gmail koppelen…');
+  try{
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/gmail-oauth`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({code,redirect_uri:REDIRECT_URI}),
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error);
+    toast('✅ Gmail gekoppeld: '+data.email);
+    openSheet('shSettings');
+    loadGmailStatus();
+    syncGmail();
+  }catch(err){
+    setGmailMsg('⚠️ '+err.message);
+  }
+}
+
+async function loadGmailStatus(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session) return;
+  const {data}=await sb.from('integrations').select('email,updated_at').eq('provider','gmail').maybeSingle();
+  if(data){
+    document.getElementById('gmailDisconnected').style.display='none';
+    document.getElementById('gmailConnected').style.display='block';
+    document.getElementById('gmailConnectedEmail').textContent=data.email||'';
+    const dt=new Date(data.updated_at).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('gmailSyncStatus').textContent='Laatste sync: '+dt;
+    document.getElementById('settingsUserEmail').textContent=session.user.email||'';
+  }else{
+    document.getElementById('gmailDisconnected').style.display='block';
+    document.getElementById('gmailConnected').style.display='none';
+    document.getElementById('settingsUserEmail').textContent=session.user?.email||'';
+  }
+}
+
+async function syncGmail(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session) return;
+  const btn=document.getElementById('syncBtn');
+  if(btn){btn.textContent='⏳ Bezig…';btn.disabled=true;}
+  setGmailMsg('Mails ophalen…');
+  try{
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/gmail-sync`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error);
+    const msg=data.synced>0?`✅ ${data.synced} nieuwe mail${data.synced===1?'':'s'} gesynchroniseerd`:'✅ Alles up-to-date';
+    setGmailMsg(msg);
+    toast(msg);
+    loadGmailStatus();
+    if(document.getElementById('view-mail').classList.contains('on')) loadMailView();
+  }catch(err){
+    setGmailMsg('⚠️ '+err.message);
+  }finally{
+    if(btn){btn.textContent='🔄 Nu synchroniseren';btn.disabled=false;}
+  }
+}
+
+async function disconnectGmail(){
+  if(!confirm('Gmail ontkoppelen?')) return;
+  await sb.from('integrations').delete().eq('provider','gmail');
+  document.getElementById('gmailDisconnected').style.display='block';
+  document.getElementById('gmailConnected').style.display='none';
+  setGmailMsg('Gmail ontkoppeld.');
+}
+
+function setGmailMsg(msg){
+  const el=document.getElementById('gmailMsg');
+  if(el) el.textContent=msg;
+}
+
 document.getElementById('registerDate').value=TODAY;
 setHeroDate();
 setInterval(checkEveningAlert,60000);
 checkSession();
+handleOAuthCallback();
+loadGmailStatus();
 
 /* ═══════════ MAIL VIEW ═══════════ */
 let mailFilter='all';
