@@ -621,11 +621,12 @@ textarea.cfg-full-input{resize:vertical}
     <div class="sg"><div class="sg-lbl">Verblijf</div><div class="cells">
       <div class="cell"><div class="cell-icon ci-green">📅</div><div class="cell-body"><div class="cell-lbl">Aankomst</div><input type="date" id="fAankomst" oninput="updatePriceLive()"></div></div>
       <div class="cell"><div class="cell-icon ci-orange">📅</div><div class="cell-body"><div class="cell-lbl">Vertrek</div><input type="date" id="fVertrek" oninput="updatePriceLive()"></div></div>
-      <div class="cell"><div class="cell-icon ci-purple">🏕️</div><div class="cell-body"><div class="cell-lbl">Type verblijf</div><select id="fType" onchange="updatePriceLive()"><option value="">Kies type…</option><option>Tent</option><option>Caravan</option><option>Camper</option><option>Stacaravan</option><option>Safaritent</option></select></div></div>
+      <div class="cell"><div class="cell-icon ci-green">⛺</div><div class="cell-body"><div class="cell-lbl">Tenten <span style="font-weight:400;color:var(--lbl4)">€15/nacht</span></div><div class="num-stepper"><button onclick="stepField('fTenten',-1)">−</button><input type="number" id="fTenten" value="1" min="0" max="20" oninput="updatePriceLive()"><button onclick="stepField('fTenten',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-blue">🚐</div><div class="cell-body"><div class="cell-lbl">Campers/Caravans <span style="font-weight:400;color:var(--lbl4)">€15/nacht</span></div><div class="num-stepper"><button onclick="stepField('fCampers',-1)">−</button><input type="number" id="fCampers" value="0" min="0" max="20" oninput="updatePriceLive()"><button onclick="stepField('fCampers',1)">+</button></div></div></div>
     </div></div>
 
     <div class="sg"><div class="sg-lbl">Extra's</div><div class="cells">
-      <div class="cell"><div class="cell-icon ci-orange">🐕</div><div class="cell-body" style="flex-direction:row;align-items:center;justify-content:space-between;"><div class="cell-lbl">Hond mee <span style="font-weight:400;color:var(--lbl4)">+€3/nacht</span></div><label class="toggle-sw"><input type="checkbox" id="fHond" onchange="updatePriceLive()"><span></span></label></div></div>
+      <div class="cell"><div class="cell-icon ci-orange">🐕</div><div class="cell-body"><div class="cell-lbl">Honden <span style="font-weight:400;color:var(--lbl4)">€3/hond/nacht</span></div><div class="num-stepper"><button onclick="stepField('fHonden',-1)">−</button><input type="number" id="fHonden" value="0" min="0" max="5" oninput="updatePriceLive()"><button onclick="stepField('fHonden',1)">+</button></div></div></div>
       <div class="cell"><div class="cell-icon ci-green">⚡</div><div class="cell-body" style="flex-direction:row;align-items:center;justify-content:space-between;"><div class="cell-lbl">Elektriciteit <span style="font-weight:400;color:var(--lbl4)">+€6 eenmalig</span></div><label class="toggle-sw"><input type="checkbox" id="fElektriciteit" onchange="updatePriceLive()"><span></span></label></div></div>
     </div></div>
 
@@ -1216,21 +1217,23 @@ const TODAY=new Date().toISOString().split('T')[0];
    dezelfde basis als de andere types (basis + per volwassene/kind) —
    te bevestigen met Karen zodra het exacte safaritent-tarief gekend is. */
 const PRICES={
-  basis:{Tent:15,Caravan:15,Camper:15,Stacaravan:15,Safaritent:15},
+  eenheid:15,  // tent/caravan/camper per nacht
   volwassene:7,kind:5,baby:0,hond:3,extraAuto:2,elektriciteit:6,afvalPer6:2,toeristentaks:1
 };
 function calcPrice(o){
-  const basis=PRICES.basis[o.type]??15;
+  const eenheden=(o.tenten||0)+(o.campers||0);
+  const basis=eenheden*PRICES.eenheid;
   const volw=o.volwassenen||0, kind=o.kinderen||0, baby=o.baby||0;
   const totaalPersonen=volw+kind+baby;
   const afval=Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6;
-  const taks=volw*PRICES.toeristentaks;  // alleen 12+
-  const extraAutos=Math.max(0,(o.autos||1)-1);  // eerste auto gratis
-  const perNacht=basis+volw*PRICES.volwassene+kind*PRICES.kind+baby*PRICES.baby+(o.hond?PRICES.hond:0)+extraAutos*PRICES.extraAuto+afval+taks;
+  const taks=volw*PRICES.toeristentaks;
+  const extraAutos=Math.max(0,(o.autos||1)-1);
+  const honden=o.honden||0;
+  const perNacht=basis+volw*PRICES.volwassene+kind*PRICES.kind+honden*PRICES.hond+extraAutos*PRICES.extraAuto+afval+taks;
   const nights=Math.max(o.nights||0,0);
   const elek=o.elektriciteit?PRICES.elektriciteit:0;
   const totaal=Math.round((perNacht*nights+elek)*100)/100;
-  return{basis,afval,taks,perNacht,nights,elek,totaal,personen:totaalPersonen,extraAutos};
+  return{basis,afval,taks,perNacht,nights,elek,totaal,personen:totaalPersonen,extraAutos,honden,eenheden};
 }
 function genRef(idOrBooking){
   if(typeof idOrBooking==='object')return idOrBooking.ogm||(idOrBooking.volgnummer?`#${idOrBooking.volgnummer}`:'—');
@@ -1694,13 +1697,13 @@ async function saveEdit(){
 
 /* ═══════════ PRIJS LIVE ═══════════ */
 function priceBreakdownHtml(p){
-  if(!p)return'<div class="price-row muted"><span>Vul aankomst, vertrek en type in om prijs te berekenen…</span></div>';
-  const personenKost=(p.perNacht-p.basis-p.afval-p.taks-(p.extraAutos||0)*PRICES.extraAuto-(p.hond?PRICES.hond:0))*p.nights;
+  if(!p)return'<div class="price-row muted"><span>Vul aankomst, vertrek en eenheden in om prijs te berekenen…</span></div>';
+  const personenKost=(volw,kind)=>(volw*PRICES.volwassene+kind*PRICES.kind)*p.nights;
   return`
-    <div class="price-row"><span>🏕️ Verblijf (${p.nights} nacht${p.nights===1?'':'en'})</span><span>€${(p.basis*p.nights).toFixed(2)}</span></div>
-    <div class="price-row"><span>👥 Personen (${p.personen}p × ${p.nights}n)</span><span>€${personenKost.toFixed(2)}</span></div>
-    ${p.extraAutos>0?`<div class="price-row"><span>🚗 Extra auto's (${p.extraAutos} × ${p.nights}n)</span><span>€${(p.extraAutos*PRICES.extraAuto*p.nights).toFixed(2)}</span></div>`:''}
-    ${p.hond?`<div class="price-row"><span>🐕 Hond (${p.nights}n)</span><span>€${(PRICES.hond*p.nights).toFixed(2)}</span></div>`:''}
+    <div class="price-row"><span>🏕️ Verblijf — ${p.eenheden} eenheid${p.eenheden===1?'':'en'} × ${p.nights} nacht${p.nights===1?'':'en'}</span><span>€${(p.basis*p.nights).toFixed(2)}</span></div>
+    <div class="price-row"><span>👥 Personen (${p.personen}p × ${p.nights}n)</span><span>€${((p.perNacht-p.basis-p.afval-p.taks-(p.extraAutos||0)*PRICES.extraAuto-(p.honden||0)*PRICES.hond)*p.nights).toFixed(2)}</span></div>
+    ${(p.honden||0)>0?`<div class="price-row"><span>🐕 Honden (${p.honden} × ${p.nights}n)</span><span>€${(p.honden*PRICES.hond*p.nights).toFixed(2)}</span></div>`:''}
+    ${(p.extraAutos||0)>0?`<div class="price-row"><span>🚗 Extra auto's (${p.extraAutos} × ${p.nights}n)</span><span>€${(p.extraAutos*PRICES.extraAuto*p.nights).toFixed(2)}</span></div>`:''}
     <div class="price-row"><span>🗑️ Afvalbijdrage (${p.personen}p)</span><span>€${(p.afval*p.nights).toFixed(2)}</span></div>
     <div class="price-row"><span>🏛️ Toeristentaks</span><span>€${(p.taks*p.nights).toFixed(2)}</span></div>
     ${p.elek?`<div class="price-row"><span>⚡ Elektriciteit (eenmalig)</span><span>€${p.elek.toFixed(2)}</span></div>`:''}
@@ -1714,15 +1717,19 @@ function stepField(id,delta){
 }
 function readPriceInputs(prefix){
   const g=id=>document.getElementById(prefix+id);
-  const aankomst=g('Aankomst').value,vertrek=g('Vertrek').value,type=g('Type').value;
-  if(!aankomst||!vertrek||!type||aankomst>=vertrek)return null;
+  const aankomst=g('Aankomst')?.value,vertrek=g('Vertrek')?.value;
+  if(!aankomst||!vertrek||aankomst>=vertrek)return null;
+  const tenten=parseInt(g('Tenten')?.value)||0;
+  const campers=parseInt(g('Campers')?.value)||0;
+  if(tenten+campers<1)return null;
   return calcPrice({
-    type,nights:nightCount(aankomst,vertrek),
-    volwassenen:parseInt(g('Volwassenen').value)||0,
-    kinderen:parseInt(g('Kinderen').value)||0,
+    tenten,campers,nights:nightCount(aankomst,vertrek),
+    volwassenen:parseInt(g('Volwassenen')?.value)||0,
+    kinderen:parseInt(g('Kinderen')?.value)||0,
     baby:parseInt(g('Baby')?.value)||0,
     autos:parseInt(g('Autos')?.value)||1,
-    hond:g('Hond').checked,elektriciteit:g('Elektriciteit').checked
+    honden:parseInt(g('Honden')?.value)||0,
+    elektriciteit:g('Elektriciteit')?.checked
   })
 }
 function updatePriceLive(){
@@ -1757,33 +1764,38 @@ async function addBooking(){
   const kinderen=parseInt(document.getElementById('fKinderen').value)||0;
   const baby=parseInt(document.getElementById('fBaby').value)||0;
   const autos=parseInt(document.getElementById('fAutos').value)||1;
+  const tenten=parseInt(document.getElementById('fTenten').value)||0;
+  const campers=parseInt(document.getElementById('fCampers').value)||0;
+  const honden=parseInt(document.getElementById('fHonden').value)||0;
   const aankomst=document.getElementById('fAankomst').value;
   const vertrek=document.getElementById('fVertrek').value;
-  const type=document.getElementById('fType').value;
   const bron=document.getElementById('fBron').value;
   const bedrag=parseFloat(document.getElementById('fBedrag').value)||0;
   const nota=document.getElementById('fNota').value.trim();
-  const hond=document.getElementById('fHond').checked;
   const elektriciteit=document.getElementById('fElektriciteit').checked;
   if(!naam){toast('⚠️ Naam is verplicht');return}
   if(!aankomst||!vertrek){toast('⚠️ Aankomst- en vertrekdatum zijn verplicht');return}
   if(aankomst>=vertrek){toast('⚠️ Vertrek moet na aankomst zijn');return}
-  if(!type){toast('⚠️ Kies een type verblijf');return}
+  if(tenten+campers<1){toast('⚠️ Voeg minstens 1 tent of camper toe');return}
   if(volwassenen+kinderen+baby<1){toast('⚠️ Minstens 1 persoon is verplicht');return}
-  const counts=typeToCounts(type);
   const {data:client,error:cErr}=await sb.from('clients').insert({naam,nummerplaten:plaat,email:`onbekend+${Date.now()}@cosmopolite.local`}).select().single();
   if(cErr){toast('⚠️ Klant aanmaken mislukt: '+cErr.message);return}
   const {error:bErr}=await sb.from('bookings').insert({
-    client_id:client.id,aankomst,vertrek,tenten:counts.tenten,campers:counts.campers,
-    volwassenen,kinderen,baby,honden:hond?1:0,autos,elektriciteit,
+    client_id:client.id,aankomst,vertrek,tenten,campers,
+    volwassenen,kinderen,baby,honden,autos,elektriciteit,
     bron,bedrag_totaal:bedrag,nota,status:'aanvraag'
   });
   if(bErr){toast('⚠️ Boeking opslaan mislukt: '+bErr.message);return}
-  ['fNaam','fPlaat','fAankomst','fVertrek','fBedrag','fNota','fID'].forEach(f=>document.getElementById(f).value='');
-  document.getElementById('fVolwassenen').value=2;document.getElementById('fKinderen').value=0;
-  document.getElementById('fBaby').value=0;document.getElementById('fAutos').value=1;
-  document.getElementById('fType').value='';document.getElementById('fBron').value='';
-  document.getElementById('fHond').checked=false;document.getElementById('fElektriciteit').checked=false;
+  ['fNaam','fPlaat','fAankomst','fVertrek','fBedrag','fNota','fID'].forEach(f=>document.getElementById(f)&&(document.getElementById(f).value=''));
+  document.getElementById('fVolwassenen').value=2;
+  document.getElementById('fKinderen').value=0;
+  document.getElementById('fBaby').value=0;
+  document.getElementById('fAutos').value=1;
+  document.getElementById('fTenten').value=1;
+  document.getElementById('fCampers').value=0;
+  document.getElementById('fHonden').value=0;
+  document.getElementById('fBron').value='';
+  document.getElementById('fElektriciteit').checked=false;
   document.getElementById('fFotoPreview').classList.remove('show');fFotoData=null;
   document.getElementById('priceBreakdown').innerHTML=priceBreakdownHtml(null);
   toast('✅ Boeking opgeslagen!');showView('boekingen',null);
@@ -1960,71 +1972,84 @@ function renderAnalytics(){
 
 /* ═══════════ GANTT KALENDER ═══════════ */
 let ganttStart=null;
-const GANTT_DAYS=21;
+const GANTT_DAYS=18;
+const GANTT_ROW=46;
+const GANTT_NAME_W=120;
 const GANTT_COLORS={bevestigd:'#34C759',aanvraag:'#FF9500',ingecheckt:'#007AFF',betaald:'#5856D6',wachtlijst:'#8E8E93',geannuleerd:'#FF3B30'};
+const NL_MONTHS_S=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+const NL_DAYS_S=['zo','ma','di','wo','do','vr','za'];
 
-function ganttToday(){ganttStart=new Date(TODAY);ganttStart.setHours(0,0,0,0);renderCalendar()}
-function ganttShift(days){if(!ganttStart)ganttStart=new Date(TODAY);ganttStart.setDate(ganttStart.getDate()+days);renderCalendar()}
+function ganttToday(){ganttStart=new Date(TODAY);ganttStart.setDate(ganttStart.getDate()-2);ganttStart.setHours(0,0,0,0);renderCalendar()}
+function ganttShift(d){if(!ganttStart){ganttToday();return}ganttStart=new Date(ganttStart.getTime()+d*86400000);renderCalendar()}
 
 function renderCalendar(){
-  if(!ganttStart){ganttStart=new Date(TODAY);ganttStart.setDate(ganttStart.getDate()-3)}
+  if(!ganttStart){ganttToday();return}
   const DAY=86400000;
   const endDate=new Date(ganttStart.getTime()+GANTT_DAYS*DAY);
-  const NL_MONTHS=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
-  const NL_DAYS=['zo','ma','di','wo','do','vr','za'];
+  const last=new Date(endDate.getTime()-DAY);
   document.getElementById('ganttRangeLabel').textContent=
-    `${ganttStart.getDate()} ${NL_MONTHS[ganttStart.getMonth()]} – ${new Date(endDate-DAY).getDate()} ${NL_MONTHS[new Date(endDate-DAY).getMonth()]}`;
+    `${ganttStart.getDate()} ${NL_MONTHS_S[ganttStart.getMonth()]} – ${last.getDate()} ${NL_MONTHS_S[last.getMonth()]} ${last.getFullYear()}`;
 
-  // Actieve boekingen in range (exclude geannuleerd)
   const active=bookings.filter(b=>{
     if(b.status==='geannuleerd')return false;
-    const a=new Date(b.aankomst),v=new Date(b.vertrek);
-    return a<endDate&&v>ganttStart;
-  });
+    return new Date(b.aankomst)<endDate && new Date(b.vertrek)>ganttStart;
+  }).sort((a,b)=>a.aankomst.localeCompare(b.aankomst));
 
-  // Header: datum labels
-  let headerHtml='<div style="display:flex;margin-left:110px;margin-bottom:4px;">';
-  for(let i=0;i<GANTT_DAYS;i+=3){
+  // Build header row
+  let dayHeaderTop='', dayHeaderBot='';
+  for(let i=0;i<GANTT_DAYS;i++){
     const d=new Date(ganttStart.getTime()+i*DAY);
-    headerHtml+=`<div style="flex:3;font-size:10px;color:var(--lbl4);font-weight:600;">${d.getDate()} ${NL_MONTHS[d.getMonth()]}</div>`
+    const dow=d.getDay();
+    const ds=d.toISOString().slice(0,10);
+    const isToday=ds===TODAY;
+    const isWe=dow===0||dow===6;
+    const lbl1Color=isToday?'#1B8A5B':isWe?'#FF3B30':'var(--lbl4)';
+    const lbl2Color=isToday?'#1B8A5B':isWe?'#FF3B30':'var(--lbl1)';
+    dayHeaderTop+=`<div style="flex:1;text-align:center;font-size:9px;font-weight:700;color:${lbl1Color};text-transform:uppercase;letter-spacing:.3px;">${NL_DAYS_S[dow]}</div>`;
+    dayHeaderBot+=`<div style="flex:1;text-align:center;font-size:13px;font-weight:${isToday?'800':'600'};color:${lbl2Color};${isToday?'background:var(--green);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;':''}">${d.getDate()}</div>`;
   }
-  headerHtml+='</div>';
 
-  // Day columns background (weekend highlight + today)
-  let colBg='<div style="position:absolute;top:0;bottom:0;left:110px;right:0;display:flex;pointer-events:none;">';
+  // Build column background overlay
+  let colBg='';
   for(let i=0;i<GANTT_DAYS;i++){
     const d=new Date(ganttStart.getTime()+i*DAY);
     const dow=d.getDay();
     const isToday=d.toISOString().slice(0,10)===TODAY;
-    const bg=isToday?'rgba(52,199,89,.12)':dow===0||dow===6?'rgba(0,0,0,.03)':'transparent';
-    const border=isToday?'border-left:2px solid var(--green);':'';
-    colBg+=`<div style="flex:1;background:${bg};${border}"></div>`
+    if(isToday){
+      colBg+=`<div style="position:absolute;left:calc(${GANTT_NAME_W}px + (100% - ${GANTT_NAME_W}px)*${i}/${GANTT_DAYS});width:calc((100% - ${GANTT_NAME_W}px)/${GANTT_DAYS});top:0;bottom:0;background:rgba(27,138,91,.06);border-left:2px solid var(--green);pointer-events:none;z-index:0;"></div>`;
+    } else if(dow===0||dow===6){
+      colBg+=`<div style="position:absolute;left:calc(${GANTT_NAME_W}px + (100% - ${GANTT_NAME_W}px)*${i}/${GANTT_DAYS});width:calc((100% - ${GANTT_NAME_W}px)/${GANTT_DAYS});top:0;bottom:0;background:rgba(0,0,0,.025);pointer-events:none;z-index:0;"></div>`;
+    }
   }
-  colBg+='</div>';
 
-  // Rows
+  // Build rows
   let rowsHtml='';
   if(!active.length){
-    rowsHtml='<div style="padding:32px;text-align:center;color:var(--lbl4);font-size:14px;">Geen boekingen in deze periode</div>';
+    rowsHtml=`<div style="padding:40px 16px;text-align:center;">
+      <div style="font-size:32px;margin-bottom:8px;">📭</div>
+      <div style="font-size:14px;color:var(--lbl3);">Geen boekingen in deze periode</div>
+    </div>`;
   } else {
-    active.forEach(b=>{
-      const a=new Date(b.aankomst),v=new Date(b.vertrek);
-      const startOff=Math.max(0,(a-ganttStart)/DAY);
-      const endOff=Math.min(GANTT_DAYS,(v-ganttStart)/DAY);
-      const width=((endOff-startOff)/GANTT_DAYS)*100;
-      const left=(startOff/GANTT_DAYS)*100;
+    active.forEach((b,idx)=>{
+      const a=new Date(b.aankomst), v=new Date(b.vertrek);
+      const startOff=Math.max(0,(a.getTime()-ganttStart.getTime())/DAY);
+      const endOff=Math.min(GANTT_DAYS,(v.getTime()-ganttStart.getTime())/DAY);
+      const wPct=((endOff-startOff)/GANTT_DAYS)*100;
+      const lPct=((startOff)/GANTT_DAYS)*100;
       const color=GANTT_COLORS[b.status]||'#8E8E93';
-      const namen=b.naam||'—';
       const nachten=Math.round((v-a)/DAY);
+      const personen=(b.volwassenen||0)+(b.kinderen||0)+(b.baby||0);
+      const rowBg=idx%2===0?'transparent':'rgba(0,0,0,.015)';
+      const statusDot=`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-right:5px;flex-shrink:0;"></span>`;
       rowsHtml+=`
-        <div style="display:flex;align-items:center;height:38px;border-bottom:.5px solid var(--sep);position:relative;cursor:pointer;" onclick="openBookingDetail('${b.id}')">
-          <div style="width:110px;flex-shrink:0;padding-right:8px;overflow:hidden;">
-            <div style="font-size:12px;font-weight:700;color:var(--lbl1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${namen}</div>
-            <div style="font-size:10px;color:var(--lbl4);">${nachten}n · ${b.personen||'?'}p</div>
+        <div style="display:flex;align-items:center;height:${GANTT_ROW}px;border-bottom:.5px solid var(--sep);background:${rowBg};position:relative;cursor:pointer;" onclick="openBookingDetail('${b.id}')">
+          <div style="width:${GANTT_NAME_W}px;flex-shrink:0;padding:0 10px 0 14px;z-index:1;">
+            <div style="display:flex;align-items:center;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-right:6px;flex-shrink:0;"></span><span style="font-size:12.5px;font-weight:700;color:var(--lbl1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;">${b.naam||'—'}</span></div>
+            <div style="font-size:10.5px;color:var(--lbl4);margin-top:1px;padding-left:13px;">${nachten}n · ${personen}p</div>
           </div>
-          <div style="flex:1;position:relative;height:26px;">
-            <div style="position:absolute;left:${left}%;width:${width}%;height:100%;background:${color};border-radius:6px;display:flex;align-items:center;padding:0 8px;overflow:hidden;transition:opacity .15s;" onmouseenter="this.style.opacity='.8'" onmouseleave="this.style.opacity='1'">
-              <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${namen}${b.plaat?' · '+b.plaat:''}</span>
+          <div style="flex:1;position:relative;height:${GANTT_ROW-12}px;">
+            <div style="position:absolute;left:${lPct}%;width:${Math.max(wPct,.5)}%;top:50%;transform:translateY(-50%);height:28px;background:${color};border-radius:7px;display:flex;align-items:center;padding:0 9px;overflow:hidden;box-shadow:0 2px 6px ${color}44;" title="${b.naam} · ${b.aankomst} → ${b.vertrek}">
+              <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.naam||'—'}${b.plaat?' · '+b.plaat:''}</span>
             </div>
           </div>
         </div>`;
@@ -2032,7 +2057,16 @@ function renderCalendar(){
   }
 
   const wrapper=document.getElementById('ganttChart');
-  wrapper.innerHTML=headerHtml+'<div style="position:relative;">'+colBg+'<div style="position:relative;">'+rowsHtml+'</div></div>';
+  const headerW=`calc(100% - ${GANTT_NAME_W}px)`;
+  wrapper.innerHTML=`
+    <div style="display:flex;align-items:flex-end;margin-bottom:2px;">
+      <div style="width:${GANTT_NAME_W}px;flex-shrink:0;"></div>
+      <div style="flex:1;">
+        <div style="display:flex;">${dayHeaderTop}</div>
+        <div style="display:flex;align-items:center;margin-top:2px;">${dayHeaderBot}</div>
+      </div>
+    </div>
+    <div style="position:relative;border-top:.5px solid var(--sep);">${colBg}<div style="position:relative;">${rowsHtml}</div></div>`;
 }
 
 /* ═══════════ OLD MONTH CALENDAR (kept for day-detail sheet) ═══════════ */
