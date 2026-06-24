@@ -1,0 +1,454 @@
+﻿<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reserveer je verblijf — Camping Cosmopolite</title>
+<style>
+:root{
+  --bg:#F2F2F7; --card:#FFFFFF; --sep:rgba(60,60,67,.12);
+  --lbl1:#1C1C1E; --lbl2:#3C3C43; --lbl3:#6E6E73; --lbl4:#AEAEB2;
+  --green:#1B8A5B; --green2:#147047; --green-deep:#0D5035;
+  --green-soft:#E6F4ED; --orange:#FF9500; --red:#FF3B30;
+  --font:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;
+  --r-sm:10px; --r-md:14px; --r-lg:18px; --r-xl:22px;
+  --shadow:0 2px 12px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.05);
+  --shadow2:0 8px 32px rgba(0,0,0,.14),0 2px 8px rgba(0,0,0,.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--lbl1);-webkit-font-smoothing:antialiased;min-height:100%;padding-bottom:120px}
+input,select,button{font-family:inherit}
+button{cursor:pointer;border:none;background:none}
+
+.demo-banner{background:linear-gradient(90deg,#0D5035,#1B8A5B);color:#fff;text-align:center;font-size:11px;font-weight:600;padding:7px 16px;letter-spacing:.3px}
+
+.browser-bar{background:#e9e9ee;border-radius:10px 10px 0 0;padding:9px 14px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--sep)}
+.browser-bar .dot{width:9px;height:9px;border-radius:50%;background:#d0d0d6;display:inline-block}
+.browser-bar .url{margin-left:10px;font-size:11.5px;color:var(--lbl3);background:#fff;border-radius:6px;padding:3px 10px;flex:1}
+
+.hero{background:linear-gradient(155deg,#1A4D3A 0%,#1B8A5B 55%,#22A86F 100%);padding:28px 20px 44px;position:relative;overflow:hidden;text-align:center}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 85% 15%,rgba(255,255,255,.08) 0%,transparent 50%),radial-gradient(ellipse at 10% 90%,rgba(0,0,0,.15) 0%,transparent 55%);pointer-events:none}
+.hero-logo{font-size:34px;margin-bottom:6px;position:relative;z-index:1}
+.hero h1{color:#fff;font-size:23px;font-weight:800;letter-spacing:-.4px;position:relative;z-index:1}
+.hero p{color:rgba(255,255,255,.75);font-size:13px;margin-top:6px;position:relative;z-index:1}
+
+.wrap{max-width:560px;margin:-24px auto 0;padding:0 16px;position:relative;z-index:5}
+
+.card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:20px 18px;margin-bottom:14px}
+.card h2{font-size:14.5px;font-weight:700;color:var(--green-deep);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--lbl3);margin-bottom:6px}
+.field input[type=date]{width:100%;padding:10px 12px;border:1px solid var(--sep);border-radius:var(--r-sm);font-size:14.5px;color:var(--lbl1);background:var(--bg)}
+
+.nights-pill{display:inline-flex;align-items:center;gap:6px;background:var(--green-soft);color:var(--green-deep);font-size:12.5px;font-weight:700;padding:6px 12px;border-radius:20px;margin-top:2px}
+
+.stepper-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--sep)}
+.stepper-row:last-child{border-bottom:none}
+.sr-info .sr-title{font-size:14px;font-weight:600;color:var(--lbl1)}
+.sr-info .sr-sub{font-size:11.5px;color:var(--lbl3);margin-top:1px}
+.stepper{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.stp-btn{width:30px;height:30px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:var(--green-deep);transition:transform .1s}
+.stp-btn:active{transform:scale(.9);background:var(--green-soft)}
+.stp-val{min-width:22px;text-align:center;font-size:15px;font-weight:700;color:var(--lbl1)}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
+.toggle-row .sr-info .sr-title{font-size:14px;font-weight:600}
+.switch{width:48px;height:28px;border-radius:16px;background:var(--sep);position:relative;transition:background .2s;flex-shrink:0}
+.switch.on{background:var(--green)}
+.switch::after{content:'';position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+.switch.on::after{left:22px}
+
+.price-card{background:linear-gradient(155deg,#1A4D3A,#1B8A5B);color:#fff;border-radius:var(--r-lg);padding:20px 18px;box-shadow:var(--shadow2)}
+.price-card h2{color:rgba(255,255,255,.85);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px}
+.pl{display:flex;justify-content:space-between;font-size:13.5px;color:rgba(255,255,255,.82);padding:5px 0}
+.pl b{color:#fff;font-weight:700}
+.pl-sep{border-top:1px solid rgba(255,255,255,.2);margin:8px 0}
+.pl-sub{display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:#fff;padding:6px 0}
+.pl-total{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;padding-top:12px;border-top:1px solid rgba(255,255,255,.25)}
+.pl-total .lbl{font-size:13.5px;font-weight:700;color:rgba(255,255,255,.85)}
+.pl-total .val{font-size:30px;font-weight:800;letter-spacing:-.5px}
+
+.note{font-size:11.5px;color:var(--lbl3);line-height:1.5;padding:0 4px;margin-top:4px}
+.note b{color:var(--lbl2)}
+
+.submit-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.92);backdrop-filter:blur(20px) saturate(180%);border-top:.5px solid var(--sep);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0));z-index:50}
+.submit-inner{max-width:560px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.submit-total{flex-shrink:0}
+.submit-total .l{font-size:10.5px;color:var(--lbl3);font-weight:600}
+.submit-total .v{font-size:18px;font-weight:800;color:var(--green-deep)}
+.submit-btn{flex:1;background:var(--green);color:#fff;font-size:15px;font-weight:700;padding:13px 16px;border-radius:14px;text-align:center;box-shadow:0 4px 14px rgba(27,138,91,.35)}
+.submit-btn:active{opacity:.85}
+
+.toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-20px);background:#1C1C1E;color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow2);opacity:0;transition:all .25s;z-index:999;max-width:90%;text-align:center}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:900;padding:20px}
+.confirm-overlay.on{display:flex}
+.confirm-card{background:#fff;border-radius:var(--r-xl);padding:28px 24px;max-width:380px;width:100%;text-align:center;box-shadow:var(--shadow2)}
+.confirm-icon{font-size:40px;margin-bottom:8px}
+.confirm-card h2{font-size:19px;font-weight:800;color:var(--green-deep);margin-bottom:8px}
+.confirm-sub{font-size:13px;color:var(--lbl3);line-height:1.5;margin-bottom:18px}
+.confirm-ref{background:var(--green-soft);border-radius:var(--r-md);padding:12px 14px;margin-bottom:14px}
+.confirm-ref-lbl{font-size:11px;font-weight:700;color:var(--green-deep);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px}
+.confirm-ref-val{font-size:17px;font-weight:800;color:var(--green-deep);letter-spacing:.3px;font-family:monospace}
+.confirm-total{display:flex;justify-content:space-between;font-size:14px;color:var(--lbl2);margin-bottom:18px;padding:0 4px}
+.confirm-total b{color:var(--lbl1);font-size:16px}
+.confirm-close{width:100%;background:var(--green);color:#fff;font-weight:700;font-size:14.5px;padding:12px;border-radius:12px}
+
+.submit-btn.loading{opacity:.6;pointer-events:none}
+</style>
+</head>
+<body>
+
+
+<div class="hero">
+  <div class="hero-logo">🏕️</div>
+  <h1>Reserveer je verblijf</h1>
+  <p>Vul je gegevens in en bekijk meteen je richtprijs</p>
+</div>
+
+<div class="wrap">
+
+  <!-- Periode -->
+  <div class="card">
+    <h2>📅 Periode</h2>
+    <div class="row2">
+      <div class="field">
+        <label>Aankomst</label>
+        <input type="date" id="fAankomst" value="2026-06-24" onchange="calc()">
+      </div>
+      <div class="field">
+        <label>Vertrek</label>
+        <input type="date" id="fVertrek" value="2026-06-27" onchange="calc()">
+      </div>
+    </div>
+    <span class="nights-pill" id="nightsPill">3 nachten</span>
+  </div>
+
+  <!-- Standplaats -->
+  <div class="card">
+    <h2>⛺ Standplaats</h2>
+    <div class="stepper-row">
+      <div class="sr-info"><div class="sr-title">Tent</div><div class="sr-sub">€15 / nacht per tent</div></div>
+      <div class="stepper"><button class="stp-btn" onclick="step('tenten',-1)">−</button><span class="stp-val" id="v-tenten">1</span><button class="stp-btn" onclick="step('tenten',1)">+</button></div>
+    </div>
+    <div class="stepper-row">
+      <div class="sr-info"><div class="sr-title">Camper / Caravan</div><div class="sr-sub">€15 / nacht per stuk</div></div>
+      <div class="stepper"><button class="stp-btn" onclick="step('campers',-1)">−</button><span class="stp-val" id="v-campers">0</span><button class="stp-btn" onclick="step('campers',1)">+</button></div>
+    </div>
+  </div>
+
+  <!-- Personen -->
+  <div class="card">
+    <h2>👥 Personen</h2>
+    <div class="stepper-row">
+      <div class="sr-info"><div class="sr-title">Volwassenen</div><div class="sr-sub">€7 / nacht — vanaf 12 jaar, incl. toeristentaks</div></div>
+      <div class="stepper"><button class="stp-btn" onclick="step('volwassenen',-1)">−</button><span class="stp-val" id="v-volwassenen">2</span><button class="stp-btn" onclick="step('volwassenen',1)">+</button></div>
+    </div>
+    <div class="stepper-row">
+      <div class="sr-info"><div class="sr-title">Kinderen 3–11 jaar</div><div class="sr-sub">€5 / nacht — geen toeristentaks</div></div>
+      <div class="stepper"><button class="stp-btn" onclick="step('kinderen',-1)">−</button><span class="stp-val" id="v-kinderen">0</span><button class="stp-btn" onclick="step('kinderen',1)">+</button></div>
+    </div>
+    <div class="stepper-row">
+      <div class="sr-info"><div class="sr-title">Kinderen onder 3 jaar</div><div class="sr-sub">Gratis</div></div>
+      <div class="stepper"><button class="stp-btn" onclick="step('baby',-1)">−</button><span class="stp-val" id="v-baby">0</span><button class="stp-btn" onclick="step('baby',1)">+</button></div>
+    </div>
+  </div>
+
+  <!-- Extra's -->
+  <div class="card">
+    <h2>➕ Extra's</h2>
+    <div class="stepper-row">
+      <div class="sr-info"><div class="sr-title">Hond</div><div class="sr-sub">€3 / nacht per hond</div></div>
+      <div class="stepper"><button class="stp-btn" onclick="step('honden',-1)">−</button><span class="stp-val" id="v-honden">0</span><button class="stp-btn" onclick="step('honden',1)">+</button></div>
+    </div>
+    <div class="stepper-row">
+      <div class="sr-info"><div class="sr-title">Auto's</div><div class="sr-sub">1e auto gratis, elke volgende €2 / nacht</div></div>
+      <div class="stepper"><button class="stp-btn" onclick="step('autos',-1)">−</button><span class="stp-val" id="v-autos">1</span><button class="stp-btn" onclick="step('autos',1)">+</button></div>
+    </div>
+    <div class="toggle-row">
+      <div class="sr-info"><div class="sr-title">Elektriciteit</div><div class="sr-sub">€6 eenmalig per aanvraag</div></div>
+      <div class="switch" id="swElek" onclick="toggleElek()"></div>
+    </div>
+  </div>
+
+  <!-- Gegevens -->
+  <div class="card">
+    <h2>🪪 Jouw gegevens</h2>
+    <div class="field">
+      <label>Naam (hoofdboeker)</label>
+      <input type="text" id="fNaam" placeholder="bv. Renaut Driss" oninput="calc()">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>E-mailadres</label>
+        <input type="email" id="fEmail" placeholder="naam@voorbeeld.be" oninput="calc()">
+      </div>
+      <div class="field">
+        <label>Telefoonnummer</label>
+        <input type="tel" id="fTel" placeholder="+32 4...">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>ID-kaart / paspoortnr. <span style="font-weight:400;color:var(--lbl4)">(optioneel)</span></label>
+        <input type="text" id="fID" placeholder="mag ook bij aankomst">
+      </div>
+      <div class="field">
+        <label>Nummerplaat(en)</label>
+        <input type="text" id="fPlaat" placeholder="1-ABC-123, 2-XYZ-789">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Geboortedatum <span style="font-weight:400;color:var(--lbl4)">(optioneel)</span></label>
+        <input type="date" id="fGeboorte">
+      </div>
+      <div class="field">
+        <label>Nationaliteit <span style="font-weight:400;color:var(--lbl4)">(optioneel)</span></label>
+        <input type="text" id="fNationaliteit" placeholder="bv. Belgisch">
+      </div>
+    </div>
+    <div class="field">
+      <label>Woonplaats <span style="font-weight:400;color:var(--lbl4)">(optioneel)</span></label>
+      <input type="text" id="fWoonplaats" placeholder="Stad, land">
+    </div>
+    <div class="field">
+      <label>Foto van ID-kaart <span style="font-weight:400;color:var(--lbl4)">(optioneel, mag ook bij aankomst)</span></label>
+      <input type="file" id="fIDFoto" accept="image/*" capture="environment" style="width:100%;padding:9px 0;font-size:13px">
+    </div>
+    <div class="field" style="margin-bottom:10px">
+      <label>Opmerkingen <span style="font-weight:400;color:var(--lbl4)">(optioneel)</span></label>
+      <input type="text" id="fNota" placeholder="bv. late aankomst, rustige plek...">
+    </div>
+    <div class="toggle-row">
+      <div class="sr-info"><div class="sr-title">Akkoord met verwerking gegevens</div><div class="sr-sub">Nodig om je aanvraag te kunnen bevestigen</div></div>
+      <div class="switch" id="swAkkoord" onclick="toggleAkkoord()"></div>
+    </div>
+  </div>
+
+  <!-- Prijsoverzicht -->
+  <div class="price-card">
+    <h2>Prijsoverzicht</h2>
+    <div id="priceLines"></div>
+    <div class="pl-sub" id="plPerNacht"><span>Totaal per nacht</span><span>—</span></div>
+    <div class="pl" id="plNachtenLine"><span>× nachten</span><span>—</span></div>
+    <div class="pl" id="plElekLine"><span>Elektriciteit (eenmalig)</span><span>—</span></div>
+    <div class="pl-total">
+      <span class="lbl">Totaal te betalen</span>
+      <span class="val" id="totaalVal">€0</span>
+    </div>
+  </div>
+
+  <p class="note">📌 Dit is een <b>richtprijs</b>, geen definitieve factuur. Na het versturen van je aanvraag bevestigen wij de boeking en het exacte bedrag per e-mail. Toeristentaks geldt vanaf 12 jaar; kinderen van 12 jaar of ouder rekenen mee als volwassene.</p>
+
+</div>
+
+<!-- Bevestigingsscherm na succesvolle aanvraag -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-card">
+    <div class="confirm-icon">✅</div>
+    <h2>Aanvraag verzonden!</h2>
+    <p class="confirm-sub">We bevestigen je boeking zo snel mogelijk per e-mail. Bewaar onderstaande referentie — die gebruik je bij betaling.</p>
+    <div class="confirm-ref">
+      <div class="confirm-ref-lbl">Gestructureerde mededeling</div>
+      <div class="confirm-ref-val" id="confirmOgm">—</div>
+    </div>
+    <div class="confirm-total">
+      <span>Richtprijs</span><b id="confirmTotaal">€0</b>
+    </div>
+    <button class="confirm-close" onclick="closeConfirm()">Sluiten</button>
+  </div>
+</div>
+
+<div class="submit-bar">
+  <div class="submit-inner">
+    <div class="submit-total">
+      <div class="l">Totaal</div>
+      <div class="v" id="barTotaal">€0</div>
+    </div>
+    <button class="submit-btn" onclick="submitForm()">Verstuur aanvraag →</button>
+  </div>
+</div>
+
+<div class="toast" id="toastEl"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+/* ═══════════ SUPABASE ═══════════
+   Publieke (anon) sleutel — mag veilig in de browser staan, deze mag enkel
+   nieuwe aanvragen INSERTEN (zie RLS-policies), nooit bestaande data lezen. */
+const SUPABASE_URL='https://whubbowuqhjdkdequbmb.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWJib3d1cWhqZGtkZXF1Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjM3NTYsImV4cCI6MjA5Nzc5OTc1Nn0.1S-eme0sMmC_25H-XnZ9r3AMKFSSxnpRx3-GRefSyzs';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+/* Belgische gestructureerde mededeling (OGM/VCS): 10 cijfers + modulo-97 controle. */
+function ogmReference(volgnummer){
+  const base=String(volgnummer).padStart(10,'0');
+  let check=parseInt(base,10)%97;
+  if(check===0) check=97;
+  const full=base+String(check).padStart(2,'0');
+  return `+++${full.slice(0,3)}/${full.slice(3,7)}/${full.slice(7,12)}+++`;
+}
+
+const PRICES={tent:15,camper:15,volwassene:7,kind:5,hond:3,extraAuto:2,elektriciteit:6,afvalPer6:2,toeristentaks:1};
+let state={tenten:1,campers:0,volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,elek:false,akkoord:false};
+
+function step(key,delta){
+  const min = key==='volwassenen' ? 1 : 0;
+  state[key]=Math.max(min,(state[key]||0)+delta);
+  document.getElementById('v-'+key).textContent=state[key];
+  calc();
+}
+function toggleElek(){
+  state.elek=!state.elek;
+  document.getElementById('swElek').classList.toggle('on',state.elek);
+  calc();
+}
+function toggleAkkoord(){
+  state.akkoord=!state.akkoord;
+  document.getElementById('swAkkoord').classList.toggle('on',state.akkoord);
+}
+function nightCount(){
+  const a=new Date(document.getElementById('fAankomst').value);
+  const v=new Date(document.getElementById('fVertrek').value);
+  const n=Math.round((v-a)/86400000);
+  return n>0?n:0;
+}
+function fmt(n){return '€'+n.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2})}
+
+function calc(){
+  const nights=nightCount();
+  document.getElementById('nightsPill').textContent = nights>0 ? `${nights} nacht${nights===1?'':'en'}` : 'Kies geldige data';
+
+  const totaalPersonen = state.volwassenen + state.kinderen + state.baby;
+  const tentenKost = state.tenten*PRICES.tent;
+  const campersKost = state.campers*PRICES.camper;
+  const volwKost = state.volwassenen*PRICES.volwassene;
+  const kindKost = state.kinderen*PRICES.kind;
+  const hondKost = state.honden*PRICES.hond;
+  const extraAutoKost = Math.max(0,state.autos-1)*PRICES.extraAuto;
+  const afvalKost = Math.ceil(totaalPersonen/6)*PRICES.afvalPer6;
+  const taksKost = state.volwassenen*PRICES.toeristentaks;
+
+  const perNacht = tentenKost+campersKost+volwKost+kindKost+hondKost+extraAutoKost+afvalKost+taksKost;
+  const elekKost = state.elek ? PRICES.elektriciteit : 0;
+  const totaal = Math.round((perNacht*nights + elekKost)*100)/100;
+
+  const lines=[];
+  if(state.tenten>0) lines.push([`Tent (${state.tenten} × €${PRICES.tent})`, tentenKost]);
+  if(state.campers>0) lines.push([`Camper/Caravan (${state.campers} × €${PRICES.camper})`, campersKost]);
+  if(state.volwassenen>0) lines.push([`Volwassenen (${state.volwassenen} × €${PRICES.volwassene})`, volwKost]);
+  if(state.kinderen>0) lines.push([`Kinderen 3-11 (${state.kinderen} × €${PRICES.kind})`, kindKost]);
+  if(state.honden>0) lines.push([`Hond (${state.honden} × €${PRICES.hond})`, hondKost]);
+  if(extraAutoKost>0) lines.push([`Extra auto's (${state.autos-1} × €${PRICES.extraAuto})`, extraAutoKost]);
+  if(afvalKost>0) lines.push([`Bijdrage afval (${totaalPersonen} pers.)`, afvalKost]);
+  if(taksKost>0) lines.push([`Toeristentaks (${state.volwassenen} × €${PRICES.toeristentaks})`, taksKost]);
+
+  document.getElementById('priceLines').innerHTML = lines.map(([l,v])=>`<div class="pl"><span>${l}</span><b>${fmt(v)}</b></div>`).join('') || '<div class="pl"><span>Vul de velden hierboven in…</span><span>—</span></div>';
+  document.getElementById('plPerNacht').innerHTML = `<span>Totaal per nacht</span><span>${fmt(perNacht)}</span>`;
+  document.getElementById('plNachtenLine').innerHTML = `<span>× ${nights} nacht${nights===1?'':'en'}</span><span>${fmt(perNacht*nights)}</span>`;
+  document.getElementById('plElekLine').style.display = state.elek ? 'flex' : 'none';
+  document.getElementById('plElekLine').innerHTML = `<span>Elektriciteit (eenmalig)</span><span>${fmt(elekKost)}</span>`;
+  document.getElementById('totaalVal').textContent = fmt(totaal);
+  document.getElementById('barTotaal').textContent = fmt(totaal);
+}
+
+function toast(msg){
+  const el=document.getElementById('toastEl');
+  el.textContent=msg; el.classList.add('on');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('on'),2600);
+}
+function showConfirm(ogm,totaal){
+  document.getElementById('confirmOgm').textContent=ogm;
+  document.getElementById('confirmTotaal').textContent=totaal;
+  document.getElementById('confirmOverlay').classList.add('on');
+}
+function closeConfirm(){
+  document.getElementById('confirmOverlay').classList.remove('on');
+  location.reload();
+}
+
+async function submitForm(){
+  const nights=nightCount();
+  const naam=document.getElementById('fNaam').value.trim();
+  const email=document.getElementById('fEmail').value.trim();
+  const tel=document.getElementById('fTel').value.trim();
+  const idnr=document.getElementById('fID').value.trim();
+  const plaat=document.getElementById('fPlaat').value.trim();
+  const geboorte=document.getElementById('fGeboorte').value || null;
+  const nationaliteit=document.getElementById('fNationaliteit').value.trim();
+  const woonplaats=document.getElementById('fWoonplaats').value.trim();
+  const nota=document.getElementById('fNota').value.trim();
+  const idFotoFile=document.getElementById('fIDFoto').files[0];
+
+  if(nights<=0){ toast('⚠️ Controleer je aankomst- en vertrekdatum'); return; }
+  if(!naam){ toast('⚠️ Vul je naam in'); document.getElementById('fNaam').focus(); return; }
+  if(!email || !email.includes('@')){ toast('⚠️ Vul een geldig e-mailadres in'); document.getElementById('fEmail').focus(); return; }
+  if(!state.akkoord){ toast('⚠️ Bevestig akkoord met verwerking van je gegevens'); return; }
+
+  const btn=document.querySelector('.submit-btn');
+  btn.classList.add('loading'); btn.textContent='Bezig met versturen…';
+
+  try{
+    // 1. Klant aanmaken
+    const {data:client,error:clientErr}=await sb.from('clients').insert({
+      naam, email, telefoon:tel||null, id_nummer:idnr||null, nummerplaten:plaat||null,
+      geboortedatum:geboorte, nationaliteit:nationaliteit||null, woonplaats:woonplaats||null
+    }).select().single();
+    if(clientErr) throw clientErr;
+
+    // 2. ID-foto uploaden (optioneel)
+    if(idFotoFile){
+      const ext=idFotoFile.name.split('.').pop();
+      const path=`${client.id}/id.${ext}`;
+      const {error:upErr}=await sb.storage.from('id-fotos').upload(path,idFotoFile,{upsert:true});
+      if(!upErr){
+        await sb.from('clients').update({id_foto_url:path}).eq('id',client.id);
+      }
+    }
+
+    // 3. Boeking aanmaken
+    const totaalPersonen=state.volwassenen+state.kinderen+state.baby;
+    const perNachtNow=(state.tenten*PRICES.tent)+(state.campers*PRICES.camper)+(state.volwassenen*PRICES.volwassene)+(state.kinderen*PRICES.kind)+(state.honden*PRICES.hond)+(Math.max(0,state.autos-1)*PRICES.extraAuto)+(Math.ceil(totaalPersonen/6)*PRICES.afvalPer6)+(state.volwassenen*PRICES.toeristentaks);
+    const totaalNow=Math.round((perNachtNow*nights+(state.elek?PRICES.elektriciteit:0))*100)/100;
+
+    const {data:booking,error:bookErr}=await sb.from('bookings').insert({
+      client_id:client.id,
+      aankomst:document.getElementById('fAankomst').value,
+      vertrek:document.getElementById('fVertrek').value,
+      tenten:state.tenten, campers:state.campers, volwassenen:state.volwassenen,
+      kinderen:state.kinderen, baby:state.baby, honden:state.honden, autos:state.autos,
+      elektriciteit:state.elek, bedrag_per_nacht:perNachtNow, bedrag_totaal:totaalNow,
+      nota:nota||null, bron:'website', status:'aanvraag'
+    }).select().single();
+    if(bookErr) throw bookErr;
+
+    // 4. OGM-referentie genereren en opslaan
+    const ogm=ogmReference(booking.volgnummer);
+    await sb.from('bookings').update({ogm_referentie:ogm}).eq('id',booking.id);
+
+    // 5. Conceptmail klaarzetten voor Karen (semi-automatisch, zij verstuurt na nazicht)
+    await sb.from('communicatie').insert({
+      booking_id:booking.id, richting:'uitgaand', status:'concept',
+      template_key:'bevestiging_aanvraag',
+      onderwerp:`Bevestiging aanvraag — ${naam}`,
+      inhoud:`Beste ${naam},\n\nBedankt voor je aanvraag bij Camping Cosmopolite van ${document.getElementById('fAankomst').value} tot ${document.getElementById('fVertrek').value}.\n\nRichtprijs: ${fmt(totaalNow)}\nBetaalreferentie: ${ogm}\n\nTot binnenkort!\nCamping Cosmopolite`
+    });
+
+    showConfirm(ogm, fmt(totaalNow));
+  }catch(err){
+    console.error(err);
+    toast('⚠️ Er ging iets mis bij het versturen — probeer opnieuw of bel ons');
+    btn.classList.remove('loading'); btn.textContent='Verstuur aanvraag →';
+  }
+}
+
+calc();
+</script>
+</body>
+</html>
+
