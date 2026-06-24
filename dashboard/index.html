@@ -407,7 +407,14 @@ select{color:var(--lbl1)}
 /* ── price row extras ── */
 .price-row.muted{color:var(--lbl4);font-size:13px;font-style:italic}
 
-/* ── settings tabs ── */
+/* ── settings sidebar nav ── */
+.stnav-section{font-size:10px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.5px;padding:16px 16px 4px;}
+.stnav-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:none;border:none;font-size:13.5px;font-weight:600;color:var(--lbl2);cursor:pointer;text-align:left;border-right:3px solid transparent;transition:all .15s;}
+.stnav-item:hover{background:var(--bg2);color:var(--lbl1);}
+.stnav-item.on{background:rgba(27,138,91,.08);color:var(--green);border-right-color:var(--green);}
+.stnav-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+
+/* ── settings tabs (legacy) ── */
 .stab{flex:1;padding:8px 4px;background:none;border:none;font-size:12px;font-weight:600;color:var(--lbl3);cursor:pointer;border-bottom:2.5px solid transparent;transition:.2s;white-space:nowrap}
 .stab.on{color:var(--green);border-bottom-color:var(--green)}
 
@@ -455,7 +462,7 @@ textarea.cfg-full-input{resize:vertical}
     <button class="hd-btn" onclick="openSearch()">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     </button>
-    <button class="hd-btn" onclick="openSheet('shSettings')" title="Instellingen">
+    <button class="hd-btn" onclick="openSettingsOverlay()" title="Instellingen">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
     <button class="hd-btn" onclick="doLogout()" title="Uitloggen">
@@ -964,21 +971,228 @@ textarea.cfg-full-input{resize:vertical}
 </div>
 
 <!-- Instellingen Sheet -->
-<div class="sh-overlay" id="shSettings" onclick="closeSheetOnOverlay(event,'shSettings')">
-  <div class="sheet" style="max-height:95vh;">
-    <div class="sh-handle"></div>
-    <div class="sh-hd"><span class="sh-title">Instellingen</span><button class="sh-close" onclick="closeSheet('shSettings')">✕</button></div>
+<!-- ══════════════════════════════════════════════════ -->
+<!-- INSTELLINGEN — full-screen sidebar overlay       -->
+<!-- ══════════════════════════════════════════════════ -->
+<div id="settingsOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg2);">
+  <!-- Header -->
+  <div style="display:flex;align-items:center;padding:16px 16px 0;border-bottom:.5px solid var(--sep);background:var(--bg);position:sticky;top:0;z-index:10;">
+    <button onclick="closeSettingsOverlay()" style="width:34px;height:34px;border:none;background:var(--bg2);border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:12px;">←</button>
+    <span style="font-size:17px;font-weight:700;color:var(--lbl1);" id="settingsPageTitle">Instellingen</span>
+  </div>
 
-    <!-- Settings tab nav -->
-    <div style="display:flex;gap:0;padding:0 16px 12px;border-bottom:.5px solid var(--sep);">
-      <button class="stab on" id="stab-mail" onclick="switchSettingsTab('mail')">✉️ Mail</button>
-      <button class="stab" id="stab-betaling" onclick="switchSettingsTab('betaling')">💳 Betaling</button>
-      <button class="stab" id="stab-account" onclick="switchSettingsTab('account')">👤 Account</button>
-    </div>
+  <!-- Two-pane layout: sidebar + content -->
+  <div style="display:flex;height:calc(100% - 57px);overflow:hidden;">
 
-    <div class="sh-body" style="padding:16px 16px 32px;">
+    <!-- Sidebar nav -->
+    <nav id="settingsSidebar" style="width:200px;flex-shrink:0;background:var(--bg);border-right:.5px solid var(--sep);overflow-y:auto;padding:12px 0;">
+      <div class="stnav-section">Communicatie</div>
+      <button class="stnav-item on" id="stnav-mail" onclick="switchSettingsPage('mail')"><span class="stnav-icon" style="background:#007AFF;">✉️</span>Mail</button>
+      <div class="stnav-section">Betalingen</div>
+      <button class="stnav-item" id="stnav-betaling" onclick="switchSettingsPage('betaling')"><span class="stnav-icon" style="background:#5856D6;">💳</span>Mollie</button>
+      <div class="stnav-section">Beheer</div>
+      <button class="stnav-item" id="stnav-gebruikers" onclick="switchSettingsPage('gebruikers')"><span class="stnav-icon" style="background:#FF9500;">👥</span>Gebruikers</button>
+      <button class="stnav-item" id="stnav-tarieven" onclick="switchSettingsPage('tarieven')"><span class="stnav-icon" style="background:#34C759;">💶</span>Tarieven</button>
+      <div class="stnav-section">Profiel</div>
+      <button class="stnav-item" id="stnav-account" onclick="switchSettingsPage('account')"><span class="stnav-icon" style="background:#8E8E93;">👤</span>Account</button>
+    </nav>
 
-      <!-- TAB: MAIL -->
+    <!-- Content area -->
+    <div style="flex:1;overflow-y:auto;padding:16px 20px 40px;" id="settingsContent">
+
+      <!-- PAGE: MAIL -->
+      <div id="stpage-mail">
+        <!-- Gmail koppeling -->
+        <div class="cfg-section-label">📧 Gmail-koppeling</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div id="gmailDisconnected">
+            <div style="display:flex;align-items:center;gap:14px;padding:4px 0 14px;">
+              <div style="width:44px;height:44px;background:rgba(234,67,53,.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">📧</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:var(--lbl1);">Gmail niet gekoppeld</div>
+                <div style="font-size:12px;color:var(--lbl3);margin-top:2px;line-height:1.4;">Klantmails automatisch bijhouden</div>
+              </div>
+            </div>
+            <button onclick="connectGmail()" style="width:100%;padding:12px;background:var(--bg2);border:none;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:700;color:var(--lbl1);cursor:pointer;">
+              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 5.457l5.546 4.986L40.09 5.457v9.18l-5.546 5.548-5.546-5.548z"/><path fill="#34A853" d="M40.09 14.637v18.728L24 40.543 7.91 33.365V14.637l5.546 5.548L24 26.18l10.544-5.995z"/><path fill="#4A90D9" d="M7.91 5.457l10.544 9.18-10.544 5.548z"/><path fill="#FBBC05" d="M40.09 5.457v9.18l-10.544 5.548 10.544-9.18z"/><path fill="#EA4335" d="M24 26.18L7.91 14.637v18.728L24 40.543z"/></svg>
+              Koppel Gmail account
+            </button>
+          </div>
+          <div id="gmailConnected" style="display:none;">
+            <div style="display:flex;align-items:center;gap:12px;padding:4px 0 14px;">
+              <div style="width:44px;height:44px;background:rgba(27,138,91,.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">✅</div>
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:700;color:var(--green);">Gmail gekoppeld</div>
+                <div style="font-size:12px;color:var(--lbl3);margin-top:1px;" id="gmailConnectedEmail">—</div>
+                <div style="font-size:11px;color:var(--lbl4);margin-top:1px;" id="gmailSyncStatus"></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="syncGmail()" id="syncBtn" style="flex:1;padding:11px;background:var(--green);color:#fff;border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;">🔄 Synchroniseer</button>
+              <button onclick="disconnectGmail()" style="padding:11px 14px;background:rgba(255,59,48,.1);color:var(--red);border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;">Ontkoppelen</button>
+            </div>
+          </div>
+          <div id="gmailMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;min-height:14px;"></div>
+        </div>
+
+        <!-- Afzender -->
+        <div class="cfg-section-label">✉️ Afzender</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div class="cfg-row"><span class="cfg-row-lbl">Naam</span><input class="cfg-row-input" id="cfgFromName" placeholder="Camping Cosmopolite" oninput="debounceSave('mail_from_name',this.value)"></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">E-mail</span><input class="cfg-row-input" id="cfgFromEmail" placeholder="info@campingcosmopolite.be" oninput="debounceSave('mail_from_email',this.value)"></div>
+        </div>
+
+        <!-- Template -->
+        <div class="cfg-section-label">📝 Bevestigingsmail template<span style="float:right;font-size:11px;font-weight:400;color:var(--lbl4);">Opgeslagen automatisch</span></div>
+        <div class="cfg-card" style="margin-bottom:12px;">
+          <div style="font-size:11px;color:var(--lbl4);margin-bottom:8px;line-height:1.6;">
+            Variabelen: <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{voornaam}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{aankomst}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{vertrek}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{bedrag}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{ogm}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{nachten}}</code>
+          </div>
+          <input class="cfg-full-input" id="cfgSubjectBev" placeholder="Onderwerp…" oninput="debounceSave('tpl_bevestiging_subject',this.value)" style="margin-bottom:8px;">
+          <textarea class="cfg-full-input" id="cfgBodyBev" rows="9" style="resize:vertical;line-height:1.5;" oninput="debounceSave('tpl_bevestiging_body',this.value)"></textarea>
+        </div>
+        <button onclick="toonMailPreview()" style="width:100%;padding:12px;background:var(--bg);border:1.5px solid var(--sep);border-radius:10px;font-size:13px;font-weight:700;color:var(--green);cursor:pointer;margin-bottom:8px;">👁 Voorvertoning met testdata</button>
+        <div id="mailPreviewBox" style="display:none;background:var(--bg2);border-radius:10px;padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.6;color:var(--lbl1);max-height:220px;overflow-y:auto;border-left:3px solid var(--green);margin-bottom:4px;"></div>
+
+        <!-- Resend key -->
+        <div class="cfg-section-label" style="margin-top:20px;">🔑 Resend API Key</div>
+        <div class="cfg-card" style="margin-bottom:8px;">
+          <input class="cfg-full-input" id="cfgResendKey" type="password" placeholder="re_••••••••" style="margin-bottom:6px;">
+          <div style="font-size:11px;color:var(--lbl4);">Gratis tot 3.000 mails/maand — <b>resend.com</b> → API Keys</div>
+        </div>
+        <button onclick="saveApiKeys()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;" id="saveApiBtn">Opslaan</button>
+        <div id="apiSaveMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;min-height:16px;"></div>
+      </div>
+
+      <!-- PAGE: BETALING -->
+      <div id="stpage-betaling" style="display:none;">
+        <div class="cfg-section-label">💳 Mollie betalingen</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;padding:4px 0 14px;">
+            <div style="width:44px;height:44px;background:rgba(88,86,214,.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">💳</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--lbl1);">Mollie</div>
+              <div style="font-size:12px;color:var(--lbl3);">€0.29 + % per geslaagde betaling</div>
+            </div>
+          </div>
+          <input class="cfg-full-input" id="cfgMollieKey" type="password" placeholder="test_••••• of live_•••••" style="margin-bottom:6px;">
+          <div style="font-size:11px;color:var(--lbl4);margin-bottom:14px;"><b>mollie.com</b> → Dashboard → Developers → API Keys</div>
+          <button onclick="saveMollieKey()" style="width:100%;padding:12px;background:#5856D6;color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;" id="saveMollieBtn">Sleutel opslaan</button>
+          <div id="mollieSaveMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;min-height:16px;"></div>
+        </div>
+        <div class="cfg-section-label">ℹ️ Hoe werkt het?</div>
+        <div class="cfg-card">
+          <div style="font-size:13px;color:var(--lbl2);line-height:1.8;">
+            <div>1️⃣ Klik <b>Betaallink</b> bij een boeking</div>
+            <div>2️⃣ Klant ontvangt link via e-mail</div>
+            <div>3️⃣ Klant betaalt online via Bancontact, Visa…</div>
+            <div>4️⃣ Boeking springt automatisch op <b style="color:#5856D6;">Betaald</b> ✅</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: GEBRUIKERS -->
+      <div id="stpage-gebruikers" style="display:none;">
+        <div class="cfg-section-label">👥 Toegang verlenen</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div style="font-size:13px;color:var(--lbl3);margin-bottom:14px;line-height:1.5;">Voeg een medewerker toe. Ze ontvangen een uitnodigingsmail en kunnen zelf een wachtwoord instellen.</div>
+          <div class="cfg-row" style="margin-bottom:8px;"><span class="cfg-row-lbl">E-mailadres</span><input class="cfg-row-input" id="inviteEmail" placeholder="naam@voorbeeld.be" type="email"></div>
+          <div class="cfg-sep" style="margin-bottom:8px;"></div>
+          <div class="cfg-row">
+            <span class="cfg-row-lbl">Rol</span>
+            <select class="cfg-row-input" id="inviteRole" style="text-align:right;">
+              <option value="staff">Medewerker</option>
+              <option value="admin">Beheerder</option>
+            </select>
+          </div>
+          <button onclick="inviteUser()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;margin-top:14px;" id="inviteBtn">📨 Uitnodiging sturen</button>
+          <div id="inviteMsg" style="font-size:12px;margin-top:8px;text-align:center;min-height:16px;"></div>
+        </div>
+        <div class="cfg-section-label">👤 Huidige gebruikers</div>
+        <div class="cfg-card" id="usersList">
+          <div style="color:var(--lbl4);font-size:13px;padding:8px 0;">Laden…</div>
+        </div>
+      </div>
+
+      <!-- PAGE: TARIEVEN -->
+      <div id="stpage-tarieven" style="display:none;">
+        <div class="cfg-section-label">💶 Huidige tarieven</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div style="font-size:12px;color:var(--lbl3);margin-bottom:12px;">Aanpassingen gelden direct voor nieuwe berekeningen.</div>
+          <div class="cfg-row"><span class="cfg-row-lbl">⛺ Tent / Camper</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarTent" type="number" value="15" min="0" step="0.5" oninput="updateTarief('eenheid',this.value)" style="width:60px;text-align:right;"></div></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">🧑 Volwassene /nacht</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarVolw" type="number" value="7" min="0" step="0.5" oninput="updateTarief('volwassene',this.value)" style="width:60px;text-align:right;"></div></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">🧒 Kind 3–11 /nacht</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarKind" type="number" value="5" min="0" step="0.5" oninput="updateTarief('kind',this.value)" style="width:60px;text-align:right;"></div></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">🐕 Hond /nacht</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarHond" type="number" value="3" min="0" step="0.5" oninput="updateTarief('hond',this.value)" style="width:60px;text-align:right;"></div></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">🚗 Extra auto /nacht</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarAuto" type="number" value="2" min="0" step="0.5" oninput="updateTarief('extraAuto',this.value)" style="width:60px;text-align:right;"></div></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">⚡ Elektriciteit</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarElek" type="number" value="6" min="0" step="0.5" oninput="updateTarief('elektriciteit',this.value)" style="width:60px;text-align:right;"></div></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">🗑️ Afval / 6 pers.</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarAfval" type="number" value="2" min="0" step="0.5" oninput="updateTarief('afvalPer6',this.value)" style="width:60px;text-align:right;"></div></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">🏛️ Toeristentaks /volw.</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarTaks" type="number" value="1" min="0" step="0.1" oninput="updateTarief('toeristentaks',this.value)" style="width:60px;text-align:right;"></div></div>
+        </div>
+        <button onclick="saveTarieven()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;" id="saveTarBtn">Tarieven opslaan</button>
+        <div id="tarMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;min-height:16px;"></div>
+      </div>
+
+      <!-- PAGE: ACCOUNT -->
+      <div id="stpage-account" style="display:none;">
+        <!-- Profiel -->
+        <div class="cfg-section-label">👤 Mijn profiel</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:14px;padding:4px 0;">
+            <div style="width:52px;height:52px;background:var(--green);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;font-weight:800;flex-shrink:0;" id="settingsUserAvatar">K</div>
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--lbl1);" id="settingsUserEmail">—</div>
+              <div style="font-size:12px;color:var(--lbl3);margin-top:2px;" id="settingsUserRole">Medewerker</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wachtwoord wijzigen -->
+        <div class="cfg-section-label">🔑 Wachtwoord wijzigen</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div class="cfg-row" style="margin-bottom:0;">
+            <span class="cfg-row-lbl">Nieuw wachtwoord</span>
+            <input class="cfg-row-input" id="newPassword" type="password" placeholder="Min. 8 tekens">
+          </div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row">
+            <span class="cfg-row-lbl">Bevestigen</span>
+            <input class="cfg-row-input" id="newPassword2" type="password" placeholder="Herhaal wachtwoord">
+          </div>
+          <button onclick="changePassword()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;margin-top:14px;" id="changePwBtn">Wachtwoord opslaan</button>
+          <div id="pwMsg" style="font-size:12px;margin-top:8px;text-align:center;min-height:16px;"></div>
+        </div>
+
+        <!-- Wachtwoord vergeten -->
+        <div class="cfg-section-label">📧 Wachtwoord vergeten?</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <div style="font-size:13px;color:var(--lbl3);margin-bottom:12px;line-height:1.5;">Stuur een herstelmail naar je e-mailadres. Je kunt dan klikken op de link om een nieuw wachtwoord in te stellen.</div>
+          <button onclick="sendPasswordReset()" style="width:100%;padding:12px;background:var(--bg2);border:none;border-radius:10px;font-size:14px;font-weight:700;color:var(--lbl1);cursor:pointer;" id="resetPwBtn">📨 Herstelmail sturen</button>
+          <div id="resetPwMsg" style="font-size:12px;margin-top:8px;text-align:center;min-height:16px;"></div>
+        </div>
+
+        <!-- Sessie -->
+        <div class="cfg-section-label">🔒 Sessie</div>
+        <div class="cfg-card">
+          <button onclick="doLogout()" style="width:100%;padding:13px;background:rgba(255,59,48,.08);color:var(--red);border-radius:10px;font-size:15px;font-weight:700;border:none;cursor:pointer;text-align:left;">Uitloggen →</button>
+        </div>
+      </div>
+
+    </div><!-- /settingsContent -->
+  </div><!-- /two-pane -->
+</div><!-- /settingsOverlay -->
+
+<!-- PLACEHOLDER (hidden) for old openSheet('shSettings') call -->
+<div class="sh-overlay" id="shSettings" style="display:none!important;">
+  <div class="sheet"><div class="sh-handle"></div>
+    <div class="sh-body" style="padding:0 16px 24px;">
       <div id="stab-panel-mail">
 
         <!-- Gmail koppeling card -->
@@ -2397,18 +2611,32 @@ async function loadSettings(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session) return;
   const email=session.user.email||'';
-  const emailEl=document.getElementById('settingsUserEmail');
-  const avatarEl=document.getElementById('settingsUserAvatar');
-  if(emailEl) emailEl.textContent=email;
-  if(avatarEl) avatarEl.textContent=(email[0]||'K').toUpperCase();
+  ['settingsUserEmail'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=email;});
+  ['settingsUserAvatar'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(email[0]||'K').toUpperCase();});
+
+  // Rol ophalen
+  const {data:roleRow}=await sb.from('user_roles').select('role').eq('user_id',session.user.id).maybeSingle();
+  const roleLabel=roleRow?.role==='admin'?'Beheerder':'Medewerker';
+  const roleEl=document.getElementById('settingsUserRole');
+  if(roleEl) roleEl.textContent=roleLabel;
+
+  // Alle instellingen ophalen
   const {data}=await sb.from('settings').select('key,value').eq('user_id',session.user.id);
   const cfg={};
   (data||[]).forEach(s=>cfg[s.key]=s.value);
-  if(cfg.mail_from_name)   document.getElementById('cfgFromName').value=cfg.mail_from_name;
-  if(cfg.mail_from_email)  document.getElementById('cfgFromEmail').value=cfg.mail_from_email;
-  if(cfg.tpl_bevestiging_subject) document.getElementById('cfgSubjectBev').value=cfg.tpl_bevestiging_subject;
-  if(cfg.tpl_bevestiging_body) document.getElementById('cfgBodyBev').value=cfg.tpl_bevestiging_body;
-  else document.getElementById('cfgBodyBev').value=`Beste {{voornaam}},\n\nBedankt voor je reservatie bij Camping Cosmopolite!\n\nAankomst:  {{aankomst}}\nVertrek:   {{vertrek}}\nNachten:   {{nachten}}\nPersonen:  {{personen}}\nBedrag:    {{bedrag}}\nBetaalreferentie (OGM): {{ogm}}\n\nGelieve het bedrag te betalen met bovenstaande referentie.\n\nTot binnenkort!\n\nVriendelijke groeten,\n{{from_name}}`;
+
+  // Mail instellingen
+  if(cfg.mail_from_name)  {const el=document.getElementById('cfgFromName');if(el)el.value=cfg.mail_from_name;}
+  if(cfg.mail_from_email) {const el=document.getElementById('cfgFromEmail');if(el)el.value=cfg.mail_from_email;}
+  if(cfg.tpl_bevestiging_subject){const el=document.getElementById('cfgSubjectBev');if(el)el.value=cfg.tpl_bevestiging_subject;}
+  const bodyEl=document.getElementById('cfgBodyBev');
+  if(bodyEl) bodyEl.value=cfg.tpl_bevestiging_body||`Beste {{voornaam}},\n\nBedankt voor je reservatie bij Camping Cosmopolite!\n\nAankomst:  {{aankomst}}\nVertrek:   {{vertrek}}\nNachten:   {{nachten}}\nPersonen:  {{personen}}\nBedrag:    {{bedrag}}\nBetaalreferentie (OGM): {{ogm}}\n\nGelieve het bedrag te betalen met bovenstaande referentie.\n\nTot binnenkort!\n\nVriendelijke groeten,\n{{from_name}}`;
+
+  // Tarieven laden vanuit DB (indien aanwezig)
+  const tarMap={tarief_eenheid:'eenheid',tarief_volwassene:'volwassene',tarief_kind:'kind',
+    tarief_hond:'hond',tarief_extraAuto:'extraAuto',tarief_elektriciteit:'elektriciteit',
+    tarief_afvalPer6:'afvalPer6',tarief_toeristentaks:'toeristentaks'};
+  Object.entries(tarMap).forEach(([k,pk])=>{if(cfg[k])PRICES[pk]=parseFloat(cfg[k])||PRICES[pk];});
 }
 function toonMailPreview(){
   const body=document.getElementById('cfgBodyBev').value;
@@ -2419,11 +2647,129 @@ function toonMailPreview(){
   box.textContent=preview;
   box.style.display=box.style.display==='none'?'block':'none';
 }
-function switchSettingsTab(tab){
-  ['mail','betaling','account'].forEach(t=>{
-    document.getElementById('stab-'+t).classList.toggle('on',t===tab);
-    document.getElementById('stab-panel-'+t).style.display=t===tab?'block':'none';
+/* ═══════════ SETTINGS OVERLAY ═══════════ */
+const SETTINGS_PAGES=['mail','betaling','gebruikers','tarieven','account'];
+function openSettingsOverlay(page='mail'){
+  document.getElementById('settingsOverlay').style.display='flex';
+  document.getElementById('settingsOverlay').style.flexDirection='column';
+  switchSettingsPage(page);
+  loadSettings();
+}
+function closeSettingsOverlay(){
+  document.getElementById('settingsOverlay').style.display='none';
+}
+function switchSettingsPage(page){
+  SETTINGS_PAGES.forEach(p=>{
+    const nav=document.getElementById('stnav-'+p);
+    const panel=document.getElementById('stpage-'+p);
+    if(nav) nav.classList.toggle('on',p===page);
+    if(panel) panel.style.display=p===page?'block':'none';
   });
+  const titles={mail:'Mail',betaling:'Betaling',gebruikers:'Gebruikers',tarieven:'Tarieven',account:'Account'};
+  document.getElementById('settingsPageTitle').textContent=titles[page]||'Instellingen';
+  if(page==='gebruikers') loadUsers();
+  if(page==='tarieven') loadTarieven();
+}
+function switchSettingsTab(tab){ switchSettingsPage(tab); } // legacy alias
+
+/* ═══════════ WACHTWOORD ═══════════ */
+async function changePassword(){
+  const pw1=document.getElementById('newPassword').value;
+  const pw2=document.getElementById('newPassword2').value;
+  const msg=document.getElementById('pwMsg');
+  const btn=document.getElementById('changePwBtn');
+  msg.style.color='var(--lbl3)';
+  if(pw1.length<8){msg.textContent='⚠️ Minimum 8 tekens';msg.style.color='var(--red)';return}
+  if(pw1!==pw2){msg.textContent='⚠️ Wachtwoorden komen niet overeen';msg.style.color='var(--red)';return}
+  btn.textContent='Opslaan…';btn.disabled=true;
+  const {error}=await sb.auth.updateUser({password:pw1});
+  if(error){msg.textContent='⚠️ '+error.message;msg.style.color='var(--red)';}
+  else{msg.textContent='✅ Wachtwoord gewijzigd!';msg.style.color='var(--green)';document.getElementById('newPassword').value='';document.getElementById('newPassword2').value='';}
+  btn.textContent='Wachtwoord opslaan';btn.disabled=false;
+}
+async function sendPasswordReset(){
+  const btn=document.getElementById('resetPwBtn');
+  const msg=document.getElementById('resetPwMsg');
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){msg.textContent='⚠️ Niet ingelogd';return}
+  btn.textContent='Versturen…';btn.disabled=true;
+  const {error}=await sb.auth.resetPasswordForEmail(session.user.email,{
+    redirectTo:'https://camping-cosmopolite.netlify.app/dashboard/'
+  });
+  if(error){msg.textContent='⚠️ '+error.message;msg.style.color='var(--red)';}
+  else{msg.textContent='✅ Herstelmail verzonden naar '+session.user.email;msg.style.color='var(--green)';}
+  btn.textContent='📨 Herstelmail sturen';btn.disabled=false;
+}
+
+/* ═══════════ GEBRUIKERSBEHEER ═══════════ */
+async function inviteUser(){
+  const email=document.getElementById('inviteEmail').value.trim();
+  const role=document.getElementById('inviteRole').value;
+  const btn=document.getElementById('inviteBtn');
+  const msg=document.getElementById('inviteMsg');
+  if(!email){msg.textContent='⚠️ Vul een e-mailadres in';msg.style.color='var(--red)';return}
+  btn.textContent='Versturen…';btn.disabled=true;
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({email,role}),
+    });
+    const d=await res.json();
+    if(d.error) throw new Error(d.error);
+    msg.textContent=`✅ Uitnodiging verstuurd naar ${d.email}`;msg.style.color='var(--green)';
+    document.getElementById('inviteEmail').value='';
+    setTimeout(()=>loadUsers(),1200);
+  }catch(err){msg.textContent='⚠️ '+err.message;msg.style.color='var(--red)';}
+  finally{btn.textContent='📨 Uitnodiging sturen';btn.disabled=false;}
+}
+async function loadUsers(){
+  const el=document.getElementById('usersList');
+  if(!el) return;
+  const {data,error}=await sb.from('user_roles').select('user_id,role,created_at');
+  if(error||!data?.length){el.innerHTML='<div style="color:var(--lbl4);font-size:13px;padding:8px 0;">Geen extra gebruikers gevonden.</div>';return}
+  el.innerHTML=data.map(u=>`
+    <div class="cfg-row">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--lbl1);">${u.user_id.slice(0,8)}…</div>
+        <div style="font-size:11px;color:var(--lbl4);margin-top:1px;">Toegevoegd ${new Date(u.created_at).toLocaleDateString('nl-BE')}</div>
+      </div>
+      <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${u.role==='admin'?'rgba(255,59,48,.1)':'rgba(27,138,91,.1)'};color:${u.role==='admin'?'var(--red)':'var(--green)'};">${u.role==='admin'?'Beheerder':'Medewerker'}</span>
+    </div>
+    ${data.indexOf(u)<data.length-1?'<div class="cfg-sep"></div>':''}`).join('');
+}
+
+/* ═══════════ TARIEVEN ═══════════ */
+function loadTarieven(){
+  document.getElementById('tarTent').value=PRICES.eenheid;
+  document.getElementById('tarVolw').value=PRICES.volwassene;
+  document.getElementById('tarKind').value=PRICES.kind;
+  document.getElementById('tarHond').value=PRICES.hond;
+  document.getElementById('tarAuto').value=PRICES.extraAuto;
+  document.getElementById('tarElek').value=PRICES.elektriciteit;
+  document.getElementById('tarAfval').value=PRICES.afvalPer6;
+  document.getElementById('tarTaks').value=PRICES.toeristentaks;
+}
+function updateTarief(key,val){
+  PRICES[key]=parseFloat(val)||0;
+  updatePriceLive();
+}
+async function saveTarieven(){
+  const btn=document.getElementById('saveTarBtn');
+  const msg=document.getElementById('tarMsg');
+  btn.textContent='Opslaan…';btn.disabled=true;
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const pairs=[['tarief_eenheid',PRICES.eenheid],['tarief_volwassene',PRICES.volwassene],
+      ['tarief_kind',PRICES.kind],['tarief_hond',PRICES.hond],['tarief_extraAuto',PRICES.extraAuto],
+      ['tarief_elektriciteit',PRICES.elektriciteit],['tarief_afvalPer6',PRICES.afvalPer6],['tarief_toeristentaks',PRICES.toeristentaks]];
+    for(const [key,value] of pairs){
+      await sb.from('settings').upsert({user_id:session.user.id,key,value:String(value),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
+    }
+    msg.textContent='✅ Tarieven opgeslagen!';msg.style.color='var(--green)';
+  }catch(err){msg.textContent='⚠️ '+err.message;msg.style.color='var(--red)';}
+  finally{btn.textContent='Tarieven opslaan';btn.disabled=false;setTimeout(()=>msg.textContent='',3000);}
 }
 async function saveMollieKey(){
   const key=document.getElementById('cfgMollieKey').value.trim();
@@ -2588,13 +2934,23 @@ function connectGmail(){
 }
 
 async function handleOAuthCallback(){
+  // Wachtwoord-reset via e-mail link (#access_token + type=recovery in hash)
+  const hash=new URLSearchParams(window.location.hash.replace('#',''));
+  if(hash.get('type')==='recovery'){
+    const accessToken=hash.get('access_token');
+    if(accessToken){
+      await sb.auth.setSession({access_token:accessToken,refresh_token:hash.get('refresh_token')||''});
+      window.history.replaceState({},'',window.location.pathname);
+      toast('🔑 Stel hieronder je nieuw wachtwoord in');
+      setTimeout(()=>openSettingsOverlay('account'),600);
+      return;
+    }
+  }
   const params=new URLSearchParams(window.location.search);
   const code=params.get('code');
   const state=params.get('state');
   if(!code||state!=='gmail_connect') return;
-  // Verwijder code uit URL
   window.history.replaceState({},'',window.location.pathname);
-  // Wacht tot sessie geladen is voor we de fetch doen
   const {data:{session}}=await sb.auth.getSession();
   if(!session){toast('⚠️ Log eerst in voor je Gmail koppelt');return}
   setGmailMsg('Gmail koppelen…');
@@ -2607,7 +2963,7 @@ async function handleOAuthCallback(){
     const data=await res.json();
     if(data.error) throw new Error(data.error);
     toast('✅ Gmail gekoppeld: '+data.email);
-    openSheet('shSettings');
+    openSettingsOverlay('mail');
     loadGmailStatus();
     syncGmail();
   }catch(err){
