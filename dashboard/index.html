@@ -376,9 +376,10 @@ select{color:var(--lbl1)}
   <div style="max-width:340px;width:100%;text-align:center;">
     <div style="font-size:44px;margin-bottom:10px;">🏕️</div>
     <div style="font-size:21px;font-weight:800;color:var(--lbl1);margin-bottom:4px;">Cosmopolite Beheer</div>
-    <div style="font-size:13.5px;color:var(--lbl3);margin-bottom:22px;">Log in met je e-mailadres — je krijgt een inloglink</div>
+    <div style="font-size:13.5px;color:var(--lbl3);margin-bottom:22px;">Log in met je e-mailadres en wachtwoord</div>
     <input type="email" id="loginEmail" placeholder="karen@campingcosmopolite.be" style="width:100%;padding:13px 14px;border-radius:var(--r-md);border:1px solid var(--sep);font-size:16px;outline:none;margin-bottom:10px;background:var(--card)">
-    <button class="btn-full btn-primary" style="width:100%;margin:0;" onclick="sendMagicLink()">Stuur inloglink →</button>
+    <input type="password" id="loginPassword" placeholder="Wachtwoord" style="width:100%;padding:13px 14px;border-radius:var(--r-md);border:1px solid var(--sep);font-size:16px;outline:none;margin-bottom:10px;background:var(--card)" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-full btn-primary" style="width:100%;margin:0;" onclick="doLogin()">Inloggen →</button>
     <div id="loginMsg" style="font-size:13px;color:var(--lbl3);margin-top:14px;min-height:18px;"></div>
   </div>
 </div>
@@ -888,13 +889,15 @@ const SUPABASE_URL='https://whubbowuqhjdkdequbmb.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWJib3d1cWhqZGtkZXF1Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjM3NTYsImV4cCI6MjA5Nzc5OTc1Nn0.1S-eme0sMmC_25H-XnZ9r3AMKFSSxnpRx3-GRefSyzs';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
-async function sendMagicLink(){
+async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
+  const pw=document.getElementById('loginPassword').value;
   const msg=document.getElementById('loginMsg');
   if(!email||!email.includes('@')){msg.textContent='⚠️ Vul een geldig e-mailadres in';msg.style.color='var(--red)';return}
-  msg.style.color='var(--lbl3)';msg.textContent='Bezig met versturen…';
-  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.href}});
-  msg.textContent=error?`⚠️ ${error.message}`:'✅ Check je mailbox voor de inloglink!';
+  if(!pw){msg.textContent='⚠️ Vul je wachtwoord in';msg.style.color='var(--red)';return}
+  msg.style.color='var(--lbl3)';msg.textContent='Bezig…';
+  const {error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){msg.textContent=`⚠️ ${error.message==='Invalid login credentials'?'Ongeldig e-mailadres of wachtwoord':error.message}`;msg.style.color='var(--red)';}
 }
 async function doLogout(){await sb.auth.signOut();location.reload()}
 
