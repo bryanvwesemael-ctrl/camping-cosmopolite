@@ -803,6 +803,8 @@ select{color:var(--lbl1)}
         <div class="sts-opt" onclick="setStatus('bevestigd')"><div class="sts-icon">✅</div><div class="sts-lbl">Bevestigd</div></div>
         <div class="sts-opt" onclick="setStatus('ingecheckt')"><div class="sts-icon">🏕️</div><div class="sts-lbl">Ingecheckt</div></div>
         <div class="sts-opt" onclick="setStatus('betaald')"><div class="sts-icon">💶</div><div class="sts-lbl">Betaald</div></div>
+        <div class="sts-opt" onclick="setStatus('wachtlijst')"><div class="sts-icon">🕐</div><div class="sts-lbl">Wachtlijst</div></div>
+        <div class="sts-opt" onclick="setStatus('geannuleerd')"><div class="sts-icon">❌</div><div class="sts-lbl">Geannuleerd</div></div>
       </div>
       <div style="height:8px;"></div>
     </div>
@@ -874,6 +876,20 @@ select{color:var(--lbl1)}
     <div class="sh-handle"></div>
     <div class="sh-hd"><span class="sh-title" id="shDayTitle">Dag</span><button class="sh-close" onclick="closeSheet('shDayDetail')">✕</button></div>
     <div class="sh-body"><div class="day-ev-list" id="dayEvList"></div></div>
+  </div>
+</div>
+
+<!-- QR Check-in Sheet -->
+<div class="sh-overlay" id="shQR" onclick="closeSheetOnOverlay(event,'shQR')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-hd"><span class="sh-title">📱 QR Check-in</span><button class="sh-close" onclick="closeSheet('shQR')">✕</button></div>
+    <div class="sh-body" style="padding:0 20px 28px;text-align:center;">
+      <div style="font-size:13px;color:var(--lbl3);margin-bottom:16px;">Laat de klant deze QR-code scannen bij aankomst. Karen krijgt automatisch een melding.</div>
+      <div id="qrCanvas" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
+      <div id="qrUrl" style="font-size:11px;color:var(--lbl4);word-break:break-all;margin-bottom:16px;"></div>
+      <button onclick="copyQrUrl()" style="width:100%;padding:13px;background:var(--green);color:#fff;border-radius:var(--r-md);font-size:14px;font-weight:700;border:none;cursor:pointer;">📋 Kopieer link</button>
+    </div>
   </div>
 </div>
 
@@ -966,6 +982,42 @@ select{color:var(--lbl1)}
         </div>
 
         <div id="gmailMsg" style="font-size:12.5px;color:var(--lbl3);margin-top:10px;min-height:16px;"></div>
+      </div>
+
+      <div style="height:1px;background:var(--sep);margin:20px 0;"></div>
+
+      <!-- Bevestigingsmail templates -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">✉️ Automatische bevestigingsmail</div>
+        <div style="font-size:12px;color:var(--lbl3);margin-bottom:12px;line-height:1.5;">Beschikbare variabelen: <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{voornaam}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{aankomst}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{vertrek}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{nachten}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{personen}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{bedrag}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{ogm}}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">{{from_name}}</code></div>
+        <div class="qpe-field"><div class="qpe-lbl">Afzendernaam</div><input class="qpe-input" id="cfgFromName" placeholder="Camping Cosmopolite" oninput="debounceSave('mail_from_name',this.value)"></div>
+        <div class="qpe-field"><div class="qpe-lbl">Afzender e-mail</div><input class="qpe-input" id="cfgFromEmail" placeholder="info@campingcosmopolite.be" oninput="debounceSave('mail_from_email',this.value)"></div>
+        <div class="qpe-field"><div class="qpe-lbl">Onderwerp</div><input class="qpe-input" id="cfgSubjectBev" placeholder="Bevestiging reservatie — Camping Cosmopolite #{{volgnummer}}" oninput="debounceSave('tpl_bevestiging_subject',this.value)"></div>
+        <div class="qpe-field">
+          <div class="qpe-lbl">Berichttekst</div>
+          <textarea class="qpe-input" id="cfgBodyBev" rows="8" style="resize:vertical;line-height:1.5;" oninput="debounceSave('tpl_bevestiging_body',this.value)"></textarea>
+        </div>
+        <button onclick="toonMailPreview()" style="width:100%;padding:10px;background:var(--bg);border:1.5px solid var(--sep);border-radius:var(--r-md);font-size:13px;font-weight:700;color:var(--green);cursor:pointer;margin-bottom:8px;">👁 Voorvertoning met testdata</button>
+        <div id="mailPreviewBox" style="display:none;background:#f9f9f9;border:1px solid var(--sep);border-radius:var(--r-md);padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.6;color:var(--lbl1);max-height:220px;overflow-y:auto;margin-bottom:4px;"></div>
+      </div>
+
+      <div style="height:1px;background:var(--sep);margin:20px 0;"></div>
+
+      <!-- API Keys -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">🔑 API Sleutels</div>
+        <div class="qpe-field">
+          <div class="qpe-lbl">Resend API Key <span style="font-weight:400;color:var(--lbl4)">(automatische mails)</span></div>
+          <input class="qpe-input" id="cfgResendKey" type="password" placeholder="re_••••••••">
+          <div style="font-size:11px;color:var(--lbl4);margin-top:4px;">Gratis account op <b>resend.com</b> → API Keys → Create</div>
+        </div>
+        <div class="qpe-field">
+          <div class="qpe-lbl">Mollie API Key <span style="font-weight:400;color:var(--lbl4)">(online betaling)</span></div>
+          <input class="qpe-input" id="cfgMollieKey" type="password" placeholder="test_••••• of live_•••••">
+          <div style="font-size:11px;color:var(--lbl4);margin-top:4px;"><b>mollie.com</b> → Dashboard → Developers → API Keys</div>
+        </div>
+        <button onclick="saveApiKeys()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:var(--r-md);font-size:14px;font-weight:700;border:none;cursor:pointer;" id="saveApiBtn">Sleutels opslaan</button>
+        <div id="apiSaveMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;"></div>
       </div>
 
       <div style="height:1px;background:var(--sep);margin:20px 0;"></div>
@@ -1321,6 +1373,11 @@ function openBookingDetail(id){
       <button class="da da-o" onclick="openEditSheet('${b.id}')"><span class="da-icon">✏️</span>Bewerken</button>
       <button class="da da-b" onclick="prepareMail('${b.id}')"><span class="da-icon">📧</span>Mail</button>
       <button class="da da-r" onclick="deleteBooking('${b.id}')"><span class="da-icon">🗑</span>Verwijder</button>
+    </div>
+    <div class="detail-actions" style="margin-top:-6px;">
+      <button class="da da-g" onclick="sendAutoMail('${b.id}','bevestiging')"><span class="da-icon">✉️</span>Bevestig & mail</button>
+      <button class="da da-b" onclick="stuurBetaallink('${b.id}')"><span class="da-icon">💳</span>Betaallink</button>
+      <button class="da" style="background:rgba(88,86,214,.1);color:#5856D6;" onclick="toonQR('${b.id}')"><span class="da-icon">📱</span>QR check-in</button>
     </div>
     <div class="detail-rows">
       <div class="detail-r"><span class="dr-k">E-mail</span><span class="dr-v">${b.email||'—'}</span></div>
@@ -2042,6 +2099,127 @@ function exportRegisterCSV(){
 
 /* ═══════════ INIT ═══════════ */
 document.getElementById('presenceBtn').onclick=renderPresenceAndOpen;
+/* ═══════════ AUTO MAIL + BETAALLINK + QR ═══════════ */
+async function sendAutoMail(bookingId, templateKey){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){toast('⚠️ Niet ingelogd');return}
+  if(!confirm(`Bevestigingsmail sturen naar de klant?`)) return;
+  toast('⏳ Mail versturen…');
+  const res=await fetch(`${SUPABASE_URL}/functions/v1/send-mail`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+    body:JSON.stringify({booking_id:bookingId,template_key:templateKey}),
+  });
+  const data=await res.json();
+  if(data.error){toast('⚠️ '+data.error);return}
+  toast('✅ Mail verzonden!');
+  loadCommHistory(bookingId);
+}
+
+async function stuurBetaallink(bookingId){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){toast('⚠️ Niet ingelogd');return}
+  if(!confirm('Betaallink aanmaken via Mollie en sturen naar klant?')) return;
+  toast('⏳ Betaallink aanmaken…');
+  const res=await fetch(`${SUPABASE_URL}/functions/v1/create-payment`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+    body:JSON.stringify({booking_id:bookingId}),
+  });
+  const data=await res.json();
+  if(data.error){toast('⚠️ '+data.error);return}
+  // Stuur ook mail met betaallink
+  await sendAutoMail(bookingId,'betaallink');
+  navigator.clipboard?.writeText(data.checkout_url);
+  toast('✅ Betaallink aangemaakt & gekopieerd!');
+}
+
+let currentQrUrl='';
+async function toonQR(bookingId){
+  const b=bookings.find(x=>x.id===bookingId);if(!b)return;
+  // Haal checkin_token op (of genereer via update)
+  let {data}=await sb.from('bookings').select('checkin_token').eq('id',bookingId).single();
+  if(!data?.checkin_token){
+    const token=crypto.randomUUID();
+    await sb.from('bookings').update({checkin_token:token}).eq('id',bookingId);
+    data={checkin_token:token};
+  }
+  const url=`${window.location.origin}/check-in/?id=${bookingId}&t=${data.checkin_token}`;
+  currentQrUrl=url;
+  document.getElementById('qrUrl').textContent=url;
+  // Genereer QR
+  const canvas=document.getElementById('qrCanvas');
+  canvas.innerHTML='';
+  const img=document.createElement('img');
+  img.src=`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+  img.style.cssText='width:200px;height:200px;border-radius:12px;';
+  canvas.appendChild(img);
+  openSheet('shQR');
+}
+function copyQrUrl(){
+  navigator.clipboard?.writeText(currentQrUrl);
+  toast('📋 Check-in link gekopieerd!');
+}
+
+/* ═══════════ INSTELLINGEN LADEN/OPSLAAN ═══════════ */
+let saveDebounce={};
+function debounceSave(key,value){
+  clearTimeout(saveDebounce[key]);
+  saveDebounce[key]=setTimeout(()=>saveSetting(key,value),800);
+}
+async function saveSetting(key,value){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session) return;
+  await sb.from('settings').upsert({user_id:session.user.id,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
+}
+async function loadSettings(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session) return;
+  const {data}=await sb.from('settings').select('key,value').eq('user_id',session.user.id);
+  const cfg={};
+  (data||[]).forEach(s=>cfg[s.key]=s.value);
+  if(cfg.mail_from_name)   document.getElementById('cfgFromName').value=cfg.mail_from_name;
+  if(cfg.mail_from_email)  document.getElementById('cfgFromEmail').value=cfg.mail_from_email;
+  if(cfg.tpl_bevestiging_subject) document.getElementById('cfgSubjectBev').value=cfg.tpl_bevestiging_subject;
+  if(cfg.tpl_bevestiging_body)    document.getElementById('cfgBodyBev').value=cfg.tpl_bevestiging_body;
+  else document.getElementById('cfgBodyBev').value=`Beste {{voornaam}},\n\nBedankt voor je reservatie bij Camping Cosmopolite!\n\nAankomst:  {{aankomst}}\nVertrek:   {{vertrek}}\nNachten:   {{nachten}}\nPersonen:  {{personen}}\nBedrag:    {{bedrag}}\nBetaalreferentie: {{ogm}}\n\nGelieve het bedrag te betalen met bovenstaande referentie.\n\nTot binnenkort!\n{{from_name}}`;
+}
+function toonMailPreview(){
+  const body=document.getElementById('cfgBodyBev').value;
+  const from=document.getElementById('cfgFromName').value||'Camping Cosmopolite';
+  const vars={voornaam:'Karen',naam:'Karen Cosmopolite',aankomst:'26 juni 2026',vertrek:'28 juni 2026',nachten:'2',personen:'4',bedrag:'€120',ogm:'+++000/0000/00101+++',from_name:from,volgnummer:'1001'};
+  const preview=body.replace(/\{\{(\w+)\}\}/g,(_,k)=>vars[k]||`{{${k}}}`);
+  const box=document.getElementById('mailPreviewBox');
+  box.textContent=preview;
+  box.style.display=box.style.display==='none'?'block':'none';
+}
+async function saveApiKeys(){
+  const resend=document.getElementById('cfgResendKey').value.trim();
+  const mollie=document.getElementById('cfgMollieKey').value.trim();
+  const btn=document.getElementById('saveApiBtn');
+  const msg=document.getElementById('apiSaveMsg');
+  if(!resend&&!mollie){msg.textContent='⚠️ Vul minstens één sleutel in';return}
+  btn.textContent='Opslaan…';btn.disabled=true;
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    // Stuur keys naar Supabase secrets via een edge function of sla hint op
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/save-api-keys`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({resend_key:resend||null,mollie_key:mollie||null}),
+    });
+    const d=await res.json();
+    if(d.error) throw new Error(d.error);
+    msg.textContent='✅ Sleutels opgeslagen!';
+    msg.style.color='var(--green)';
+    document.getElementById('cfgResendKey').value='';
+    document.getElementById('cfgMollieKey').value='';
+  }catch(err){
+    msg.textContent='⚠️ '+err.message;
+    msg.style.color='var(--red)';
+  }finally{btn.textContent='Sleutels opslaan';btn.disabled=false;}
+}
+
 /* ═══════════ GASTEN ═══════════ */
 async function loadGasten(bookingId){
   const el=document.getElementById('gastenList');if(!el)return;
@@ -2247,6 +2425,7 @@ setInterval(checkEveningAlert,60000);
 checkSession();
 handleOAuthCallback();
 loadGmailStatus();
+loadSettings();
 
 /* ═══════════ MAIL VIEW ═══════════ */
 let mailFilter='all';
