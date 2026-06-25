@@ -10,15 +10,24 @@
 
 
 <!-- ══ LOGIN ══ -->
-<div id="loginScreen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
-  <div style="max-width:340px;width:100%;text-align:center;">
-    <div style="font-size:44px;margin-bottom:10px;">🏕️</div>
-    <div style="font-size:21px;font-weight:800;color:var(--lbl1);margin-bottom:4px;">Cosmopolite Beheer</div>
-    <div style="font-size:13.5px;color:var(--lbl3);margin-bottom:22px;">Log in met je e-mailadres en wachtwoord</div>
-    <input type="email" id="loginEmail" placeholder="karen@campingcosmopolite.be" style="width:100%;padding:13px 14px;border-radius:var(--r-md);border:1px solid var(--sep);font-size:16px;outline:none;margin-bottom:10px;background:var(--card)">
-    <input type="password" id="loginPassword" placeholder="Wachtwoord" style="width:100%;padding:13px 14px;border-radius:var(--r-md);border:1px solid var(--sep);font-size:16px;outline:none;margin-bottom:10px;background:var(--card)" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="btn-full btn-primary" style="width:100%;margin:0;" onclick="doLogin()">Inloggen →</button>
-    <div id="loginMsg" style="font-size:13px;color:var(--lbl3);margin-top:14px;min-height:18px;"></div>
+<div id="loginScreen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,#0D4D33 0%,#1B8A5B 100%);">
+  <div style="max-width:360px;width:100%;text-align:center;">
+    <div style="width:72px;height:72px;background:rgba(255,255,255,.15);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 16px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);">🏕️</div>
+    <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:4px;letter-spacing:-.4px;">Cosmopolite</div>
+    <div style="font-size:14px;color:rgba(255,255,255,.65);margin-bottom:32px;">Beheerportaal · Log in om door te gaan</div>
+    <div style="background:#fff;border-radius:20px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+      <div style="text-align:left;margin-bottom:16px;">
+        <label style="font-size:12px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">E-mailadres</label>
+        <input type="email" id="loginEmail" placeholder="karen@camping.be" style="width:100%;padding:13px 14px;border-radius:12px;border:1.5px solid var(--sep);font-size:15px;outline:none;background:#F9F9FB;color:var(--lbl1);transition:border-color .15s;" onfocus="this.style.borderColor='#1B8A5B'" onblur="this.style.borderColor='var(--sep)'">
+      </div>
+      <div style="text-align:left;margin-bottom:20px;">
+        <label style="font-size:12px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Wachtwoord</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" style="width:100%;padding:13px 14px;border-radius:12px;border:1.5px solid var(--sep);font-size:15px;outline:none;background:#F9F9FB;color:var(--lbl1);transition:border-color .15s;" onfocus="this.style.borderColor='#1B8A5B'" onblur="this.style.borderColor='var(--sep)'" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button style="width:100%;padding:15px;background:linear-gradient(135deg,#1B8A5B,#0D5035);color:#fff;border-radius:12px;font-size:16px;font-weight:700;border:none;cursor:pointer;letter-spacing:-.2px;" onclick="doLogin()">Inloggen →</button>
+      <div id="loginMsg" style="font-size:13px;color:var(--red);margin-top:12px;min-height:16px;"></div>
+    </div>
+    <div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:20px;">Camping Cosmopolite · Reservatiebeheer</div>
   </div>
 </div>
 
@@ -52,6 +61,7 @@
     <button class="dt"     onclick="showView('nieuw',this)">➕ Nieuwe boeking</button>
     <button class="dt"     onclick="showView('kalender',this)">📅 Kalender</button>
     <button class="dt"     onclick="showView('analytics',this)">📈 Analytics</button>
+    <button class="dt"     onclick="showView('mail',this)">✉️ Mail</button>
   </div>
 </header>
 
@@ -187,6 +197,7 @@
 
     <div class="sg"><div class="sg-lbl">Gast</div><div class="cells">
       <div class="cell"><div class="cell-icon ci-green">👤</div><div class="cell-body"><div class="cell-lbl">Naam</div><input type="text" id="fNaam" placeholder="Volledige naam"></div></div>
+      <div class="cell"><div class="cell-icon ci-blue">✉️</div><div class="cell-body"><div class="cell-lbl">E-mailadres <span style="font-weight:400;color:var(--lbl4)">voor bevestigingsmail</span></div><input type="email" id="fEmail" placeholder="gast@email.com"></div></div>
       <div class="cell"><div class="cell-icon ci-blue">🚗</div><div class="cell-body"><div class="cell-lbl">Nummerplaat</div><input type="text" id="fPlaat" placeholder="1-ABC-123" autocapitalize="characters"></div></div>
       <div class="cell"><div class="cell-icon ci-orange">🧑</div><div class="cell-body"><div class="cell-lbl">Volwassenen <span style="font-weight:400;color:var(--lbl4)">€7/nacht + taks</span></div><div class="num-stepper"><button onclick="stepField('fVolwassenen',-1)">−</button><input type="number" id="fVolwassenen" value="2" min="0" max="30" oninput="updatePriceLive()"><button onclick="stepField('fVolwassenen',1)">+</button></div></div></div>
       <div class="cell"><div class="cell-icon ci-orange">🧒</div><div class="cell-body"><div class="cell-lbl">Kinderen 3–11 <span style="font-weight:400;color:var(--lbl4)">€5/nacht</span></div><div class="num-stepper"><button onclick="stepField('fKinderen',-1)">−</button><input type="number" id="fKinderen" value="0" min="0" max="30" oninput="updatePriceLive()"><button onclick="stepField('fKinderen',1)">+</button></div></div></div>

@@ -60,14 +60,14 @@ function calcPrice(o){
   const basis=eenheden*PRICES.eenheid;
   const volw=o.volwassenen||0, kind=o.kinderen||0, baby=o.baby||0;
   const totaalPersonen=volw+kind+baby;
-  const afval=Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6;
+  const afval=Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6; // eenmalig per verblijf
   const taks=volw*PRICES.toeristentaks;
   const extraAutos=Math.max(0,(o.autos||1)-1);
   const honden=o.honden||0;
-  const perNacht=basis+volw*PRICES.volwassene+kind*PRICES.kind+honden*PRICES.hond+extraAutos*PRICES.extraAuto+afval+taks;
+  const perNacht=basis+volw*PRICES.volwassene+kind*PRICES.kind+honden*PRICES.hond+extraAutos*PRICES.extraAuto+taks;
   const nights=Math.max(o.nights||0,0);
   const elek=o.elektriciteit?PRICES.elektriciteit:0;
-  const totaal=Math.round((perNacht*nights+elek)*100)/100;
+  const totaal=Math.round((perNacht*nights+elek+afval)*100)/100;
   return{basis,afval,taks,perNacht,nights,elek,totaal,personen:totaalPersonen,extraAutos,honden,eenheden};
 }
 function genRef(idOrBooking){
@@ -564,10 +564,10 @@ function priceBreakdownHtml(p){
   const personenKost=(volw,kind)=>(volw*PRICES.volwassene+kind*PRICES.kind)*p.nights;
   return`
     <div class="price-row"><span>🏕️ Verblijf — ${p.eenheden} eenheid${p.eenheden===1?'':'en'} × ${p.nights} nacht${p.nights===1?'':'en'}</span><span>€${(p.basis*p.nights).toFixed(2)}</span></div>
-    <div class="price-row"><span>👥 Personen (${p.personen}p × ${p.nights}n)</span><span>€${((p.perNacht-p.basis-p.afval-p.taks-(p.extraAutos||0)*PRICES.extraAuto-(p.honden||0)*PRICES.hond)*p.nights).toFixed(2)}</span></div>
+    <div class="price-row"><span>👥 Personen (${p.personen}p × ${p.nights}n)</span><span>€${((p.perNacht-p.basis-p.taks-(p.extraAutos||0)*PRICES.extraAuto-(p.honden||0)*PRICES.hond)*p.nights).toFixed(2)}</span></div>
     ${(p.honden||0)>0?`<div class="price-row"><span>🐕 Honden (${p.honden} × ${p.nights}n)</span><span>€${(p.honden*PRICES.hond*p.nights).toFixed(2)}</span></div>`:''}
     ${(p.extraAutos||0)>0?`<div class="price-row"><span>🚗 Extra auto's (${p.extraAutos} × ${p.nights}n)</span><span>€${(p.extraAutos*PRICES.extraAuto*p.nights).toFixed(2)}</span></div>`:''}
-    <div class="price-row"><span>🗑️ Afvalbijdrage (${p.personen}p)</span><span>€${(p.afval*p.nights).toFixed(2)}</span></div>
+    <div class="price-row"><span>🗑️ Afvalbijdrage (eenmalig)</span><span>€${p.afval.toFixed(2)}</span></div>
     <div class="price-row"><span>🏛️ Toeristentaks</span><span>€${(p.taks*p.nights).toFixed(2)}</span></div>
     ${p.elek?`<div class="price-row"><span>⚡ Elektriciteit (eenmalig)</span><span>€${p.elek.toFixed(2)}</span></div>`:''}
     <div class="price-row total"><span>Totaal</span><span>€${p.totaal.toFixed(2)}</span></div>`
@@ -622,6 +622,7 @@ function previewFoto(e,prefix){
 /* ═══════════ ADD BOOKING ═══════════ */
 async function addBooking(){
   const naam=document.getElementById('fNaam').value.trim();
+  const email=document.getElementById('fEmail').value.trim();
   const plaat=document.getElementById('fPlaat').value.trim();
   const volwassenen=parseInt(document.getElementById('fVolwassenen').value)||0;
   const kinderen=parseInt(document.getElementById('fKinderen').value)||0;
@@ -632,7 +633,7 @@ async function addBooking(){
   const honden=parseInt(document.getElementById('fHonden').value)||0;
   const aankomst=document.getElementById('fAankomst').value;
   const vertrek=document.getElementById('fVertrek').value;
-  const bron=document.getElementById('fBron').value;
+  const bron=document.getElementById('fBron').value||'telefoon';
   const bedrag=parseFloat(document.getElementById('fBedrag').value)||0;
   const nota=document.getElementById('fNota').value.trim();
   const elektriciteit=document.getElementById('fElektriciteit').checked;
@@ -641,7 +642,8 @@ async function addBooking(){
   if(aankomst>=vertrek){toast('⚠️ Vertrek moet na aankomst zijn');return}
   if(tenten+campers<1){toast('⚠️ Voeg minstens 1 tent of camper toe');return}
   if(volwassenen+kinderen+baby<1){toast('⚠️ Minstens 1 persoon is verplicht');return}
-  const {data:client,error:cErr}=await sb.from('clients').insert({naam,nummerplaten:plaat,email:`onbekend+${Date.now()}@cosmopolite.local`}).select().single();
+  const clientEmail=email||`geen-email+${Date.now()}@cosmopolite.local`;
+  const {data:client,error:cErr}=await sb.from('clients').insert({naam,nummerplaten:plaat,email:clientEmail}).select().single();
   if(cErr){toast('⚠️ Klant aanmaken mislukt: '+cErr.message);return}
   const {error:bErr}=await sb.from('bookings').insert({
     client_id:client.id,aankomst,vertrek,tenten,campers,
@@ -649,7 +651,7 @@ async function addBooking(){
     bron,bedrag_totaal:bedrag,nota,status:'aanvraag'
   });
   if(bErr){toast('⚠️ Boeking opslaan mislukt: '+bErr.message);return}
-  ['fNaam','fPlaat','fAankomst','fVertrek','fBedrag','fNota','fID'].forEach(f=>document.getElementById(f)&&(document.getElementById(f).value=''));
+  ['fNaam','fEmail','fPlaat','fAankomst','fVertrek','fBedrag','fNota','fID'].forEach(f=>document.getElementById(f)&&(document.getElementById(f).value=''));
   document.getElementById('fVolwassenen').value=2;
   document.getElementById('fKinderen').value=0;
   document.getElementById('fBaby').value=0;

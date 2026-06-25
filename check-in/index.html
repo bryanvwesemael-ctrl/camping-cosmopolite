@@ -2,124 +2,122 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Check-in — Camping Cosmopolite</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;background:#F2F2F7;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.card{background:#fff;border-radius:22px;padding:32px 24px;max-width:380px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.12)}
-.logo{font-size:52px;margin-bottom:12px}
-h1{font-size:22px;font-weight:800;color:#1C1C1E;margin-bottom:6px}
-.sub{font-size:14px;color:#6E6E73;margin-bottom:28px;line-height:1.5}
-.info-row{display:flex;justify-content:space-between;padding:11px 0;border-bottom:.5px solid rgba(60,60,67,.12);font-size:14px}
-.info-row:last-of-type{border:none}
-.info-k{color:#6E6E73}
-.info-v{font-weight:700;color:#1C1C1E;text-align:right;max-width:60%}
-.btn{width:100%;padding:16px;background:#1B8A5B;color:#fff;border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer;margin-top:24px;transition:opacity .15s}
-.btn:active{opacity:.8}
-.btn:disabled{opacity:.5;cursor:default}
-.status{margin-top:20px;font-size:14px;color:#6E6E73;min-height:20px}
-.success{background:#E6F4ED;border-radius:16px;padding:24px;margin-top:16px;display:none}
-.success-icon{font-size:48px;margin-bottom:10px}
-.success h2{font-size:20px;font-weight:800;color:#1B8A5B;margin-bottom:6px}
-.success p{font-size:13px;color:#6E6E73;line-height:1.5}
-.error-box{background:#FFE8E8;border-radius:12px;padding:16px;margin-top:16px;display:none;font-size:14px;color:#CC2A20}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(160deg,#0D4D33 0%,#1B8A5B 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#fff;border-radius:24px;padding:32px 24px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center}
+.logo{font-size:48px;margin-bottom:12px}
+.brand{font-size:20px;font-weight:800;color:#1c6e3d;margin-bottom:24px}
+.status-icon{font-size:56px;margin-bottom:16px}
+h1{font-size:22px;font-weight:800;color:#1c1c1e;margin-bottom:8px}
+.sub{font-size:14px;color:#6c6c70;margin-bottom:24px}
+.info-block{background:#f2f7f4;border-radius:16px;padding:16px;margin-bottom:20px;text-align:left}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e5e5ea}
+.info-row:last-child{border-bottom:none}
+.info-key{font-size:13px;color:#6c6c70;font-weight:500}
+.info-val{font-size:14px;font-weight:700;color:#1c1c1e}
+.btn{display:block;width:100%;padding:16px;border-radius:14px;border:none;font-size:16px;font-weight:700;cursor:pointer;transition:.15s}
+.btn-primary{background:linear-gradient(135deg,#1B8A5B,#0D4D33);color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div class="card" id="mainCard">
+<div class="card" id="loadingCard">
   <div class="logo">🏕️</div>
-  <h1>Camping Cosmopolite</h1>
-  <div class="sub" id="subText">Reservatie ophalen…</div>
-
-  <div id="bookingInfo" style="display:none;text-align:left;margin-bottom:8px;">
-    <div class="info-row"><span class="info-k">Naam</span><span class="info-v" id="infoNaam">—</span></div>
-    <div class="info-row"><span class="info-k">Aankomst</span><span class="info-v" id="infoAankomst">—</span></div>
-    <div class="info-row"><span class="info-k">Vertrek</span><span class="info-v" id="infoVertrek">—</span></div>
-    <div class="info-row"><span class="info-k">Personen</span><span class="info-v" id="infoPersonen">—</span></div>
-    <div class="info-row"><span class="info-k">Type</span><span class="info-v" id="infoType">—</span></div>
-  </div>
-
-  <button class="btn" id="checkinBtn" style="display:none" onclick="doCheckin()">✅ Ik ben er — check mij in</button>
-  <div class="status" id="statusMsg"></div>
-
-  <div class="success" id="successBox">
-    <div class="success-icon">🎉</div>
-    <h2>Welkom!</h2>
-    <p>Je check-in is geregistreerd. Karen heeft een melding ontvangen. Geniet van je verblijf bij Camping Cosmopolite!</p>
-  </div>
-
-  <div class="error-box" id="errorBox"></div>
+  <div class="brand">Camping Cosmopolite</div>
+  <div class="status-icon">⏳</div>
+  <h1>Reservatie ophalen…</h1>
+  <p class="sub">Even geduld</p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script>
-const SUPABASE_URL ='https://whubbowuqhjdkdequbmb.supabase.co';
-const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWJib3d1cWhqZGtkZXF1Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjM3NTYsImV4cCI6MjA5Nzc5OTc1Nn0.1S-eme0sMmC_25H-XnZ9r3AMKFSSxnpRx3-GRefSyzs';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+<div class="card" id="bookingCard" style="display:none">
+  <div class="logo">🏕️</div>
+  <div class="brand">Camping Cosmopolite</div>
+  <div class="status-icon">👋</div>
+  <h1 id="guestName">Welkom!</h1>
+  <p class="sub" id="statusLabel"></p>
+  <div class="info-block">
+    <div class="info-row"><span class="info-key">Boeking #</span><span class="info-val" id="bVolgnummer">—</span></div>
+    <div class="info-row"><span class="info-key">Aankomst</span><span class="info-val" id="bAankomst">—</span></div>
+    <div class="info-row"><span class="info-key">Vertrek</span><span class="info-val" id="bVertrek">—</span></div>
+    <div class="info-row"><span class="info-key">Personen</span><span class="info-val" id="bPersonen">—</span></div>
+    <div class="info-row"><span class="info-key">Verblijf</span><span class="info-val" id="bVerblijf">—</span></div>
+  </div>
+  <button class="btn btn-primary" id="checkinBtn" onclick="doCheckin()">✅ Check-in bevestigen</button>
+  <p style="margin-top:12px;font-size:12px;color:#e55" id="checkinMsg"></p>
+</div>
 
-const params=new URLSearchParams(window.location.search);
+<div class="card" id="doneCard" style="display:none">
+  <div class="logo">🏕️</div>
+  <div class="brand">Camping Cosmopolite</div>
+  <div class="status-icon">✅</div>
+  <h1>Ingecheckt!</h1>
+  <p class="sub">Welkom op de camping. Geniet van je verblijf!</p>
+</div>
+
+<div class="card" id="errorCard" style="display:none">
+  <div class="logo">🏕️</div>
+  <div class="brand">Camping Cosmopolite</div>
+  <div class="status-icon">❌</div>
+  <h1>Link niet geldig</h1>
+  <p class="sub" id="errorMsg">Vraag een nieuwe QR-code aan de receptie.</p>
+</div>
+
+<script>
+const SUPABASE_URL='https://whubbowuqhjdkdequbmb.supabase.co';
+const params=new URLSearchParams(location.search);
 const bookingId=params.get('id');
 const token=params.get('t');
 
-function fmtDate(d){return new Date(d).toLocaleDateString('nl-BE',{day:'numeric',month:'long',year:'numeric'})}
+function show(id){
+  ['loadingCard','bookingCard','doneCard','errorCard'].forEach(c=>{
+    document.getElementById(c).style.display=c===id?'block':'none';
+  });
+}
+function fmtDate(d){return new Date(d).toLocaleDateString('nl-BE',{day:'numeric',month:'long',year:'numeric'});}
 
-async function load(){
-  if(!bookingId||!token){showError('Ongeldige check-in link.');return}
-  const {data:b,error}=await sb.from('bookings')
-    .select('*,clients(naam)')
-    .eq('id',bookingId)
-    .eq('checkin_token',token)
-    .single();
-  if(error||!b){showError('Reservatie niet gevonden. Controleer de link of vraag een nieuwe QR-code aan Karen.');return}
-
-  if(b.status==='ingecheckt'||b.ingecheckt_at){
-    document.getElementById('subText').textContent='Je bent al ingecheckt. Welkom!';
-    document.getElementById('successBox').style.display='block';
-    return;
-  }
-  if(b.status==='geannuleerd'){showError('Deze reservatie is geannuleerd.');return}
-
-  document.getElementById('subText').textContent='Bevestig je aankomst hieronder.';
-  document.getElementById('infoNaam').textContent=b.clients?.naam||'—';
-  document.getElementById('infoAankomst').textContent=fmtDate(b.aankomst);
-  document.getElementById('infoVertrek').textContent=fmtDate(b.vertrek);
-  document.getElementById('infoPersonen').textContent=(b.volwassenen||0)+(b.kinderen||0)+' personen';
-  document.getElementById('infoType').textContent=b.type||'—';
-  document.getElementById('bookingInfo').style.display='block';
-  document.getElementById('checkinBtn').style.display='block';
+async function loadBooking(){
+  if(!bookingId||!token){show('errorCard');return;}
+  try{
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/checkin?id=${encodeURIComponent(bookingId)}&t=${encodeURIComponent(token)}`);
+    const data=await res.json();
+    if(!res.ok||data.error){document.getElementById('errorMsg').textContent=data.error||'Onbekende fout';show('errorCard');return;}
+    const b=data.booking;
+    if(b.status==='ingecheckt'){show('doneCard');return;}
+    const naam=b.clients?.naam||'Gast';
+    const personen=(b.volwassenen||0)+(b.kinderen||0)+(b.baby||0);
+    const verblijf=[(b.tenten||0)>0?`${b.tenten} tent${b.tenten>1?'en':''}`:'', (b.campers||0)>0?`${b.campers} camper${b.campers>1?'s':''}`:''].filter(Boolean).join(', ');
+    document.getElementById('guestName').textContent=`Welkom, ${naam.split(' ')[0]}!`;
+    document.getElementById('bVolgnummer').textContent=`#${b.volgnummer}`;
+    document.getElementById('bAankomst').textContent=fmtDate(b.aankomst);
+    document.getElementById('bVertrek').textContent=fmtDate(b.vertrek);
+    document.getElementById('bPersonen').textContent=personen;
+    document.getElementById('bVerblijf').textContent=verblijf||'—';
+    const sm={aanvraag:'⏳ Aanvraag',bevestigd:'✅ Bevestigd',betaald:'💶 Betaald'};
+    document.getElementById('statusLabel').textContent=sm[b.status]||b.status;
+    show('bookingCard');
+  }catch(e){document.getElementById('errorMsg').textContent='Kan server niet bereiken.';show('errorCard');}
 }
 
 async function doCheckin(){
   const btn=document.getElementById('checkinBtn');
-  btn.disabled=true;btn.textContent='Bezig…';
-  const {error}=await sb.from('bookings').update({
-    status:'ingecheckt',
-    ingecheckt_at:new Date().toISOString()
-  }).eq('id',bookingId).eq('checkin_token',token);
-
-  if(error){showError('Check-in mislukt: '+error.message);btn.disabled=false;btn.textContent='✅ Ik ben er — check mij in';return}
-
-  // Log in communicatie
-  await sb.from('communicatie').insert({
-    booking_id:bookingId,richting:'inkomend',status:'ontvangen',
-    onderwerp:'📱 QR check-in uitgevoerd',
-    inhoud:`Klant heeft zichzelf ingecheckt via QR-code op ${new Date().toLocaleString('nl-BE')}`
-  });
-
-  btn.style.display='none';
-  document.getElementById('bookingInfo').style.display='none';
-  document.getElementById('subText').textContent='';
-  document.getElementById('successBox').style.display='block';
+  const msg=document.getElementById('checkinMsg');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span>Bezig…';
+  try{
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/checkin?id=${encodeURIComponent(bookingId)}&t=${encodeURIComponent(token)}`,{method:'POST'});
+    const data=await res.json();
+    if(!res.ok||data.error){msg.textContent='⚠️ '+(data.error||'Fout');btn.disabled=false;btn.textContent='✅ Check-in bevestigen';return;}
+    show('doneCard');
+  }catch(e){msg.textContent='⚠️ Verbindingsfout';btn.disabled=false;btn.textContent='✅ Check-in bevestigen';}
 }
 
-function showError(msg){
-  document.getElementById('subText').textContent='';
-  const el=document.getElementById('errorBox');
-  el.textContent='⚠️ '+msg;el.style.display='block';
-}
-
-load();
+loadBooking();
 </script>
 </body>
 </html>
