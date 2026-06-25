@@ -796,10 +796,11 @@ textarea.cfg-full-input{resize:vertical}
         <div class="sg mb0 mt12"><div class="sg-lbl">Verblijf</div><div class="cells">
           <div class="cell"><div class="cell-icon ci-green">📅</div><div class="cell-body"><div class="cell-lbl">Aankomst</div><input type="date" id="eAankomst" oninput="updatePriceLiveEdit()"></div></div>
           <div class="cell"><div class="cell-icon ci-orange">📅</div><div class="cell-body"><div class="cell-lbl">Vertrek</div><input type="date" id="eVertrek" oninput="updatePriceLiveEdit()"></div></div>
-          <div class="cell"><div class="cell-icon ci-purple">🏕️</div><div class="cell-body"><div class="cell-lbl">Type verblijf</div><select id="eType" onchange="updatePriceLiveEdit()"><option value="Tent">Tent</option><option value="Caravan">Caravan</option><option value="Camper">Camper</option><option value="Stacaravan">Stacaravan</option><option value="Safaritent">Safaritent</option></select></div></div>
+          <div class="cell"><div class="cell-icon ci-purple">⛺</div><div class="cell-body"><div class="cell-lbl">Tenten</div><div class="num-stepper"><button type="button" onclick="stepField('eTenten',-1)">−</button><input type="number" id="eTenten" value="1" min="0" max="20" oninput="updatePriceLiveEdit()"><button type="button" onclick="stepField('eTenten',1)">+</button></div></div></div>
+          <div class="cell"><div class="cell-icon ci-purple">🚐</div><div class="cell-body"><div class="cell-lbl">Campers/Caravans</div><div class="num-stepper"><button type="button" onclick="stepField('eCampers',-1)">−</button><input type="number" id="eCampers" value="0" min="0" max="20" oninput="updatePriceLiveEdit()"><button type="button" onclick="stepField('eCampers',1)">+</button></div></div></div>
         </div></div>
         <div class="sg mb0 mt12"><div class="sg-lbl">Extra's</div><div class="cells">
-          <div class="chk-row"><input type="checkbox" id="eHond" onchange="updatePriceLiveEdit()"><span class="chk-lbl">🐕 Hond mee (+€3/nacht)</span></div>
+          <div class="cell"><div class="cell-icon ci-orange">🐕</div><div class="cell-body"><div class="cell-lbl">Honden (+€3/nacht)</div><div class="num-stepper"><button type="button" onclick="stepField('eHonden',-1)">−</button><input type="number" id="eHonden" value="0" min="0" max="10" oninput="updatePriceLiveEdit()"><button type="button" onclick="stepField('eHonden',1)">+</button></div></div></div>
           <div class="chk-row"><input type="checkbox" id="eExtraAuto" onchange="updatePriceLiveEdit()"><span class="chk-lbl">🚙 Extra auto (+€2/nacht)</span></div>
           <div class="chk-row"><input type="checkbox" id="eElektriciteit" onchange="updatePriceLiveEdit()"><span class="chk-lbl">⚡ Elektriciteit gewenst (+€6 eenmalig)</span></div>
         </div></div>
@@ -1855,7 +1856,31 @@ async function setStatus(st){
   setTimeout(()=>{
     const row=document.getElementById('bkr-'+b.id);
     if(row){row.classList.add('just-arrived');setTimeout(()=>row.classList.remove('just-arrived'),900)}
-  },100)
+  },100);
+  // Automatisch bevestigingsmail sturen bij statuswissel naar bevestigd
+  if(st==='bevestigd' && b.email){
+    const sturen=confirm(`✅ Bevestigingsmail sturen naar ${b.email}?`);
+    if(sturen) await _autoMailSilent(b.id,'tpl_bevestiging');
+  }
+  // Automatisch annuleringsmail bij annuleren
+  if(st==='geannuleerd' && b.email){
+    const sturen=confirm(`❌ Annuleringsmail sturen naar ${b.email}?`);
+    if(sturen) await _autoMailSilent(b.id,'tpl_annulering');
+  }
+}
+
+async function _autoMailSilent(bookingId, templateKey){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session) return;
+  toast('⏳ Mail versturen…');
+  const res=await fetch(`${SUPABASE_URL}/functions/v1/send-mail`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+    body:JSON.stringify({booking_id:bookingId,template_key:templateKey}),
+  });
+  const data=await res.json();
+  if(data.error){toast('⚠️ Mail mislukt: '+data.error)}
+  else{toast('✅ Mail verzonden naar gast!');loadCommHistory(bookingId)}
 }
 
 /* ═══════════ EDIT BOOKING ═══════════ */
@@ -1868,11 +1893,12 @@ function openEditSheet(id){
   document.getElementById('eKinderen').value=b.kinderen??0;
   document.getElementById('eAankomst').value=b.aankomst;
   document.getElementById('eVertrek').value=b.vertrek;
-  document.getElementById('eType').value=b.type;
+  document.getElementById('eTenten').value=b.tenten??1;
+  document.getElementById('eCampers').value=b.campers??0;
+  document.getElementById('eHonden').value=b.honden??0;
   document.getElementById('eBron').value=b.bron;
   document.getElementById('eBedrag').value=b.bedrag;
   document.getElementById('eNota').value=b.nota;
-  document.getElementById('eHond').checked=!!b.hond;
   document.getElementById('eExtraAuto').checked=!!b.extraAuto;
   document.getElementById('eElektriciteit').checked=!!b.elektriciteit;
   eFotoData=b.foto||null;
@@ -1886,23 +1912,24 @@ async function saveEdit(){
   const naam=document.getElementById('eNaam').value.trim();
   const aankomst=document.getElementById('eAankomst').value;
   const vertrek=document.getElementById('eVertrek').value;
-  const type=document.getElementById('eType').value;
+  const tenten=parseInt(document.getElementById('eTenten').value)||0;
+  const campers=parseInt(document.getElementById('eCampers').value)||0;
+  const honden=parseInt(document.getElementById('eHonden').value)||0;
   const volwassenen=parseInt(document.getElementById('eVolwassenen').value)||0;
   const kinderen=parseInt(document.getElementById('eKinderen').value)||0;
   const plaat=document.getElementById('ePlaat').value.trim();
   const bron=document.getElementById('eBron').value;
   const bedrag=parseFloat(document.getElementById('eBedrag').value)||0;
   const nota=document.getElementById('eNota').value.trim();
-  const hond=document.getElementById('eHond').checked;
   const extraAuto=document.getElementById('eExtraAuto').checked;
   const elektriciteit=document.getElementById('eElektriciteit').checked;
-  if(!naam||!aankomst||!vertrek||!type){toast('⚠️ Vul naam, datums en type in');return}
+  if(!naam||!aankomst||!vertrek){toast('⚠️ Vul naam en datums in');return}
+  if(tenten+campers<1){toast('⚠️ Minstens 1 tent of camper verplicht');return}
   if(aankomst>=vertrek){toast('⚠️ Vertrek moet na aankomst zijn');return}
   if(volwassenen+kinderen<1){toast('⚠️ Minstens 1 persoon is verplicht');return}
-  const counts=typeToCounts(type);
   const {error:bErr}=await sb.from('bookings').update({
-    aankomst,vertrek,tenten:counts.tenten,campers:counts.campers,
-    volwassenen,kinderen,honden:hond?1:0,autos:extraAuto?2:1,
+    aankomst,vertrek,tenten,campers,
+    volwassenen,kinderen,honden,autos:extraAuto?2:1,
     elektriciteit,bron,bedrag_totaal:bedrag,nota
   }).eq('id',b.id);
   if(bErr){toast('⚠️ Opslaan mislukt: '+bErr.message);return}
