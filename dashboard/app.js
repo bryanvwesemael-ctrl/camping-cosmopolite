@@ -52,12 +52,12 @@ const TODAY=new Date().toISOString().split('T')[0];
    dezelfde basis als de andere types (basis + per volwassene/kind) —
    te bevestigen met Karen zodra het exacte safaritent-tarief gekend is. */
 const PRICES={
-  eenheid:15,  // tent/caravan/camper per nacht
+  tent:15,camper:15,
   volwassene:7,kind:5,baby:0,hond:3,extraAuto:2,elektriciteit:6,afvalPer6:2,toeristentaks:1
 };
 function calcPrice(o){
   const eenheden=(o.tenten||0)+(o.campers||0);
-  const basis=eenheden*PRICES.eenheid;
+  const basis=(o.tenten||0)*PRICES.tent+(o.campers||0)*PRICES.camper;
   const volw=o.volwassenen||0, kind=o.kinderen||0, baby=o.baby||0;
   const totaalPersonen=volw+kind+baby;
   const afval=Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6; // eenmalig per verblijf
@@ -281,6 +281,7 @@ function openBookingDetail(id){
     </div>
     <div class="detail-actions" style="margin-top:-6px;">
       <button class="da da-g" onclick="sendAutoMail('${b.id}','bevestiging')"><span class="da-icon">✉️</span>Bevestig & mail</button>
+      <button class="da" style="background:rgba(255,149,0,.1);color:#FF9500;" onclick="sendAutoMail('${b.id}','herinnering')"><span class="da-icon">🔔</span>Herinnering</button>
       <button class="da da-b" onclick="stuurBetaallink('${b.id}')"><span class="da-icon">💳</span>Betaallink</button>
       <button class="da" style="background:rgba(88,86,214,.1);color:#5856D6;" onclick="toonQR('${b.id}')"><span class="da-icon">📱</span>QR check-in</button>
     </div>
@@ -806,17 +807,55 @@ async function renderFunnel(){
 
 function renderAnalytics(){
   renderFunnel();
-  // Omzet per maand (op basis van aankomstdatum)
+  const nonCancelled=bookings.filter(b=>b.status!=='geannuleerd');
+  const actief=bookings.filter(b=>b.status==='ingecheckt'||b.status==='betaald');
+  const aanvragen=bookings.filter(b=>b.status==='aanvraag');
+  const totalOmzet=nonCancelled.reduce((s,b)=>s+(b.bedrag||0),0);
+  const totalPersonen=nonCancelled.reduce((s,b)=>s+(b.personen||0),0);
+
+  // KPI rij bovenaan
+  const kpiEl=document.getElementById('analyticsKPI');
+  if(kpiEl) kpiEl.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px 16px 0;">
+      <div style="background:var(--bg);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:var(--green);">${nonCancelled.length}</div>
+        <div style="font-size:11px;color:var(--lbl3);margin-top:2px;">Boekingen</div>
+      </div>
+      <div style="background:var(--bg);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#5856D6;">€${Math.round(totalOmzet)}</div>
+        <div style="font-size:11px;color:var(--lbl3);margin-top:2px;">Totale omzet</div>
+      </div>
+      <div style="background:var(--bg);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#FF9500;">${aanvragen.length}</div>
+        <div style="font-size:11px;color:var(--lbl3);margin-top:2px;">Open aanvragen</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 16px 4px;">
+      <div style="background:var(--bg);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#007AFF;">${actief.length}</div>
+        <div style="font-size:11px;color:var(--lbl3);margin-top:2px;">Nu aanwezig</div>
+      </div>
+      <div style="background:var(--bg);border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#1c1c1e;">${totalPersonen}</div>
+        <div style="font-size:11px;color:var(--lbl3);margin-top:2px;">Totale bezoekers</div>
+      </div>
+    </div>`;
+
+  // Omzet per maand
   const months=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
   const revenue=new Array(12).fill(0);
-  bookings.forEach(b=>{const m=parseInt(b.aankomst.split('-')[1])-1;revenue[m]+=b.bedrag||0});
+  nonCancelled.forEach(b=>{const m=parseInt(b.aankomst.split('-')[1])-1;revenue[m]+=b.bedrag||0});
   const usedMonths=months.map((m,i)=>i).filter(i=>revenue[i]>0);
-  const idxs=usedMonths.length?usedMonths:[5];
-  document.getElementById('chartRevenue').innerHTML=svgBars(idxs.map(i=>revenue[i]),idxs.map(i=>months[i]),['#1B8A5B','#22A86F']);
+  const idxs=usedMonths.length?usedMonths:[new Date(TODAY).getMonth()];
+  document.getElementById('chartRevenue').innerHTML=usedMonths.length
+    ?svgBars(idxs.map(i=>revenue[i]),idxs.map(i=>months[i]),['#1B8A5B','#22A86F'])
+    :'<div style="text-align:center;padding:24px 0;color:var(--lbl4);font-size:13px;">Nog geen omzetdata</div>';
 
   // Boekingen per kanaal
   const chCounts=[bookings.filter(b=>b.bron==='mail').length,bookings.filter(b=>b.bron==='website').length,bookings.filter(b=>b.bron==='telefoon').length];
-  document.getElementById('chartChannel').innerHTML=svgBars(chCounts,['E-mail','Website','Telefoon'],['#007AFF','#1B8A5B','#FF9500']);
+  document.getElementById('chartChannel').innerHTML=chCounts.some(c=>c>0)
+    ?svgBars(chCounts,['E-mail','Website','Telefoon'],['#007AFF','#1B8A5B','#FF9500'])
+    :'<div style="text-align:center;padding:24px 0;color:var(--lbl4);font-size:13px;">Nog geen boekingen</div>';
 
   // Boekingen per status
   const stOrder=['aanvraag','bevestigd','ingecheckt','betaald'];
@@ -825,6 +864,7 @@ function renderAnalytics(){
 
   // Gemiddelde bezetting lopende maand
   const td=new Date(TODAY);const y=td.getFullYear(),m=td.getMonth();
+  const monthName=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'][m];
   const dim=new Date(y,m+1,0).getDate();
   let totalSlots=0;
   for(let d=1;d<=dim;d++){
@@ -832,7 +872,7 @@ function renderAnalytics(){
     totalSlots+=bookings.filter(b=>b.aankomst<=ds&&b.vertrek>ds).length
   }
   const avg=Math.round(totalSlots/dim*10)/10;
-  document.getElementById('chartOccupancy').innerHTML=`<div style="text-align:center;padding:10px 0;"><div style="font-size:36px;font-weight:800;color:var(--green);letter-spacing:-1px;">${avg}</div><div style="font-size:12px;color:var(--lbl3);margin-top:2px;">gem. bezette plaatsen/dag deze maand</div></div>`
+  document.getElementById('chartOccupancy').innerHTML=`<div style="text-align:center;padding:16px 0 8px;"><div style="font-size:44px;font-weight:800;color:var(--green);letter-spacing:-1px;">${avg}</div><div style="font-size:13px;color:var(--lbl3);margin-top:4px;">gem. bezette plaatsen per dag</div><div style="font-size:12px;color:var(--lbl4);margin-top:2px;">${monthName} ${y}</div></div>`
 }
 
 /* ═══════════ GANTT KALENDER ═══════════ */
@@ -1051,13 +1091,27 @@ function renderWieIsEr(){
   const el=document.getElementById('wieIsErList');if(!el)return;
   const list=bookings.filter(b=>b.status==='ingecheckt'||b.status==='betaald');
   if(!list.length){el.innerHTML='<div class="oc-none" style="padding:20px 0;">Geen gasten aanwezig</div>';return}
-  el.innerHTML=list.map((b,i)=>`
-    <div class="plist-row" onclick="openBookingDetail('${b.id}')" style="cursor:pointer;">
-      <div class="plist-num">${i+1}</div>
-      ${avHtml(b,36,10)}
-      <div class="plist-name">${b.naam} <span style="color:var(--lbl4);font-weight:400;">#${b.volgnummer??'—'}</span><br><span style="font-size:12px;color:var(--lbl3);font-weight:400;">${b.personen} pers · ${fmtDate(b.aankomst)} → ${fmtDate(b.vertrek)}</span></div>
-      <div class="plist-plate">${b.plaat||'—'}</div>
-    </div>`).join('')
+  el.innerHTML=list.map((b,i)=>{
+    const fotoHtml=b.foto
+      ?`<img src="${b.foto}" style="width:44px;height:44px;border-radius:12px;object-fit:cover;flex-shrink:0;" data-foto-for="${b.id}">`
+      :`<div style="width:44px;height:44px;border-radius:12px;background:${avColor(b.id).bg};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:${avColor(b.id).fg};flex-shrink:0;">${(b.naam||'?')[0].toUpperCase()}</div>`;
+    const verblijf=[(b.tenten||0)>0?`${b.tenten}⛺`:'',(b.campers||0)>0?`${b.campers}🚐`:''].filter(Boolean).join(' ');
+    const nights=nightCount(b.aankomst,b.vertrek);
+    const vertrekDate=new Date(b.vertrek);
+    const today=new Date(TODAY);
+    const daysLeft=Math.round((vertrekDate-today)/86400000);
+    const daysTag=daysLeft===0?'<span style="color:var(--red);font-weight:700;">Vandaag weg!</span>':daysLeft===1?'<span style="color:#FF9500;font-weight:700;">Morgen weg</span>':`nog ${daysLeft} nachten`;
+    return`<div class="plist-row" onclick="openBookingDetail('${b.id}')" style="cursor:pointer;align-items:flex-start;padding:12px 16px;">
+      ${fotoHtml}
+      <div style="flex:1;min-width:0;margin-left:12px;">
+        <div style="font-size:15px;font-weight:700;color:var(--lbl1);">${b.naam} <span style="color:var(--lbl4);font-weight:400;font-size:12px;">#${b.volgnummer??'—'}</span></div>
+        <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">${b.personen}p · ${verblijf} · ${nights}n · ${fmtDate(b.aankomst)}→${fmtDate(b.vertrek)}</div>
+        <div style="font-size:11px;margin-top:3px;">${daysTag}</div>
+        ${b.plaat?`<div style="font-size:11px;color:var(--lbl4);margin-top:2px;">🚗 ${b.plaat}</div>`:''}
+      </div>
+      <div style="font-size:10px;padding:3px 8px;border-radius:20px;background:${b.status==='ingecheckt'?'rgba(0,122,255,.1)':'rgba(88,86,214,.1)'};color:${b.status==='ingecheckt'?'#007AFF':'#5856D6'};font-weight:700;flex-shrink:0;">${b.status==='ingecheckt'?'🏕️ Aanwezig':'💶 Betaald'}</div>
+    </div>`;
+  }).join('')
 }
 
 /* ═══════════ POLITIEREGISTER ═══════════ */
@@ -1189,7 +1243,8 @@ document.getElementById('presenceBtn').onclick=renderPresenceAndOpen;
 async function sendAutoMail(bookingId, templateKey){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){toast('⚠️ Niet ingelogd');return}
-  if(!confirm(`Bevestigingsmail sturen naar de klant?`)) return;
+  const labels={bevestiging:'Bevestigingsmail',herinnering:'Herinneringsmail',betaallink:'Betaallink'};
+  if(!confirm(`${labels[templateKey]||'Mail'} sturen naar de klant?`)) return;
   toast('⏳ Mail versturen…');
   const res=await fetch(`${SUPABASE_URL}/functions/v1/send-mail`,{
     method:'POST',
@@ -1284,17 +1339,24 @@ async function loadSettings(){
   if(bodyEl) bodyEl.value=cfg.tpl_bevestiging_body||`Beste {{voornaam}},\n\nBedankt voor je reservatie bij Camping Cosmopolite!\n\nAankomst:  {{aankomst}}\nVertrek:   {{vertrek}}\nNachten:   {{nachten}}\nPersonen:  {{personen}}\nBedrag:    {{bedrag}}\nBetaalreferentie (OGM): {{ogm}}\n\nGelieve het bedrag te betalen met bovenstaande referentie.\n\nTot binnenkort!\n\nVriendelijke groeten,\n{{from_name}}`;
 
   // Tarieven laden vanuit DB (indien aanwezig)
-  const tarMap={tarief_eenheid:'eenheid',tarief_volwassene:'volwassene',tarief_kind:'kind',
-    tarief_hond:'hond',tarief_extraAuto:'extraAuto',tarief_elektriciteit:'elektriciteit',
+  const tarMap={tarief_tent:'tent',tarief_camper:'camper',tarief_volwassene:'volwassene',tarief_kind:'kind',
+    tarief_baby:'baby',tarief_hond:'hond',tarief_extraAuto:'extraAuto',tarief_elektriciteit:'elektriciteit',
     tarief_afvalPer6:'afvalPer6',tarief_toeristentaks:'toeristentaks'};
   Object.entries(tarMap).forEach(([k,pk])=>{if(cfg[k])PRICES[pk]=parseFloat(cfg[k])||PRICES[pk];});
+
+  // Herinnering template
+  if(cfg.tpl_herinnering_subject){const el=document.getElementById('cfgSubjectHer');if(el)el.value=cfg.tpl_herinnering_subject;}
+  const herEl=document.getElementById('cfgBodyHer');
+  if(herEl) herEl.value=cfg.tpl_herinnering_body||`Beste {{voornaam}},\n\nEen vriendelijke herinnering: je verblijf bij Camping Cosmopolite start over een week!\n\nAankomst:  {{aankomst}}\nVertrek:   {{vertrek}}\nBedrag:    {{bedrag}}\nBetaalreferentie (OGM): {{ogm}}\n\nHeb je vragen? Contacteer ons gerust.\n\nTot binnenkort!\n{{from_name}}`;
 }
-function toonMailPreview(){
-  const body=document.getElementById('cfgBodyBev').value;
+function toonMailPreview(type='bev'){
+  const isHer=type==='her';
+  const bodyEl=document.getElementById(isHer?'cfgBodyHer':'cfgBodyBev');
   const from=document.getElementById('cfgFromName').value||'Camping Cosmopolite';
   const vars={voornaam:'Karen',naam:'Karen Cosmopolite',aankomst:'26 juni 2026',vertrek:'28 juni 2026',nachten:'2',personen:'4',bedrag:'€120',ogm:'+++000/0000/00101+++',from_name:from,volgnummer:'1001'};
-  const preview=body.replace(/\{\{(\w+)\}\}/g,(_,k)=>vars[k]||`{{${k}}}`);
-  const box=document.getElementById('mailPreviewBox');
+  const preview=(bodyEl?.value||'').replace(/\{\{(\w+)\}\}/g,(_,k)=>vars[k]||`{{${k}}}`);
+  const box=document.getElementById(isHer?'mailPreviewBoxHer':'mailPreviewBox');
+  if(!box)return;
   box.textContent=preview;
   box.style.display=box.style.display==='none'?'block':'none';
 }
@@ -1390,9 +1452,11 @@ async function loadUsers(){
 
 /* ═══════════ TARIEVEN ═══════════ */
 function loadTarieven(){
-  document.getElementById('tarTent').value=PRICES.eenheid;
+  document.getElementById('tarTent').value=PRICES.tent;
+  document.getElementById('tarCamper').value=PRICES.camper;
   document.getElementById('tarVolw').value=PRICES.volwassene;
   document.getElementById('tarKind').value=PRICES.kind;
+  document.getElementById('tarBaby').value=PRICES.baby;
   document.getElementById('tarHond').value=PRICES.hond;
   document.getElementById('tarAuto').value=PRICES.extraAuto;
   document.getElementById('tarElek').value=PRICES.elektriciteit;
@@ -1409,8 +1473,9 @@ async function saveTarieven(){
   btn.textContent='Opslaan…';btn.disabled=true;
   try{
     const {data:{session}}=await sb.auth.getSession();
-    const pairs=[['tarief_eenheid',PRICES.eenheid],['tarief_volwassene',PRICES.volwassene],
-      ['tarief_kind',PRICES.kind],['tarief_hond',PRICES.hond],['tarief_extraAuto',PRICES.extraAuto],
+    const pairs=[['tarief_tent',PRICES.tent],['tarief_camper',PRICES.camper],
+      ['tarief_volwassene',PRICES.volwassene],['tarief_kind',PRICES.kind],['tarief_baby',PRICES.baby],
+      ['tarief_hond',PRICES.hond],['tarief_extraAuto',PRICES.extraAuto],
       ['tarief_elektriciteit',PRICES.elektriciteit],['tarief_afvalPer6',PRICES.afvalPer6],['tarief_toeristentaks',PRICES.toeristentaks]];
     for(const [key,value] of pairs){
       await sb.from('settings').upsert({user_id:session.user.id,key,value:String(value),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
