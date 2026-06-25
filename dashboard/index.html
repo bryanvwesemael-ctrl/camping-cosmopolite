@@ -462,7 +462,7 @@ textarea.cfg-full-input{resize:vertical}
     <button class="hd-btn" onclick="openSearch()">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     </button>
-    <button class="hd-btn" onclick="openSettingsOverlay()" title="Instellingen">
+    <button class="hd-btn" onclick="showView('instellingen',null)" title="Instellingen">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
     <button class="hd-btn" onclick="doLogout()" title="Uitloggen">
@@ -972,17 +972,19 @@ textarea.cfg-full-input{resize:vertical}
 
 <!-- Instellingen Sheet -->
 <!-- ══════════════════════════════════════════════════ -->
-<!-- INSTELLINGEN — full-screen sidebar overlay       -->
-<!-- ══════════════════════════════════════════════════ -->
-<div id="settingsOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg2);">
-  <!-- Header -->
-  <div style="display:flex;align-items:center;padding:16px 16px 0;border-bottom:.5px solid var(--sep);background:var(--bg);position:sticky;top:0;z-index:10;">
-    <button onclick="closeSettingsOverlay()" style="width:34px;height:34px;border:none;background:var(--bg2);border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:12px;">←</button>
+<!-- ══ INSTELLINGEN (view, geen overlay) ══ -->
+<section class="view" id="view-instellingen" style="display:flex;flex-direction:column;overflow:hidden;">
+  <!-- Eigen header met terugknop -->
+  <div style="display:flex;align-items:center;padding:14px 16px;border-bottom:.5px solid var(--sep);background:var(--bg);flex-shrink:0;">
+    <button onclick="showView('overzicht',null)" style="display:flex;align-items:center;gap:6px;background:none;border:none;font-size:14px;font-weight:600;color:var(--green);cursor:pointer;padding:0;margin-right:16px;">
+      <svg width="10" height="16" viewBox="0 0 10 16" fill="none"><path d="M8 2L2 8L8 14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Terug
+    </button>
     <span style="font-size:17px;font-weight:700;color:var(--lbl1);" id="settingsPageTitle">Instellingen</span>
   </div>
 
   <!-- Two-pane layout: sidebar + content -->
-  <div style="display:flex;height:calc(100% - 57px);overflow:hidden;">
+  <div style="display:flex;flex:1;overflow:hidden;">
 
     <!-- Sidebar nav -->
     <nav id="settingsSidebar" style="width:200px;flex-shrink:0;background:var(--bg);border-right:.5px solid var(--sep);overflow-y:auto;padding:12px 0;">
@@ -1187,7 +1189,8 @@ textarea.cfg-full-input{resize:vertical}
 
     </div><!-- /settingsContent -->
   </div><!-- /two-pane -->
-</div><!-- /settingsOverlay -->
+  </div><!-- /flex wrapper -->
+</section><!-- /view-instellingen -->
 
 <!-- PLACEHOLDER (hidden) for old openSheet('shSettings') call -->
 <div class="sh-overlay" id="shSettings" style="display:none!important;">
@@ -1547,7 +1550,9 @@ function showView(id,dtEl){
   if(id==='analytics')renderAnalytics();
   if(id==='wieiser')renderWieIsEr();
   if(id==='register'){const rd=document.getElementById('registerDate');if(!rd.value)rd.value=TODAY;renderRegister(rd.value)}
+  if(id==='instellingen'){loadSettings();switchSettingsPage(_lastSettingsPage||'mail');}
 }
+let _lastSettingsPage='mail';
 
 /* ═══════════ SHEETS ═══════════ */
 function openSheet(id){document.getElementById(id).classList.add('on')}
@@ -2650,15 +2655,12 @@ function toonMailPreview(){
 /* ═══════════ SETTINGS OVERLAY ═══════════ */
 const SETTINGS_PAGES=['mail','betaling','gebruikers','tarieven','account'];
 function openSettingsOverlay(page='mail'){
-  document.getElementById('settingsOverlay').style.display='flex';
-  document.getElementById('settingsOverlay').style.flexDirection='column';
+  showView('instellingen',null);
   switchSettingsPage(page);
-  loadSettings();
 }
-function closeSettingsOverlay(){
-  document.getElementById('settingsOverlay').style.display='none';
-}
+function closeSettingsOverlay(){ showView('overzicht',null); }
 function switchSettingsPage(page){
+  _lastSettingsPage=page;
   SETTINGS_PAGES.forEach(p=>{
     const nav=document.getElementById('stnav-'+p);
     const panel=document.getElementById('stpage-'+p);
