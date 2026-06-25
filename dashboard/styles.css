@@ -36,6 +36,7 @@ button{cursor:pointer;border:none;background:none}
 
 .view{display:none}
 .view.on{display:block}
+#view-instellingen.on{display:flex}
 
 /* ── HERO ── */
 .hero{background:linear-gradient(155deg,#1A4D3A 0%,#1B8A5B 55%,#22A86F 100%);padding:20px 20px 48px;position:relative;overflow:hidden}
