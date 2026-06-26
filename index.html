@@ -153,7 +153,7 @@ button{cursor:pointer;border:none;background:none}
       <div class="stepper"><button class="stp-btn" onclick="step('kinderen',-1)">−</button><span class="stp-val" id="v-kinderen">0</span><button class="stp-btn" onclick="step('kinderen',1)">+</button></div>
     </div>
     <div class="stepper-row">
-      <div class="sr-info"><div class="sr-title">Kinderen onder 3 jaar</div><div class="sr-sub">Gratis</div></div>
+      <div class="sr-info"><div class="sr-title">Kinderen onder 3 jaar</div><div class="sr-sub" id="srBaby">Gratis</div></div>
       <div class="stepper"><button class="stp-btn" onclick="step('baby',-1)">−</button><span class="stp-val" id="v-baby">0</span><button class="stp-btn" onclick="step('baby',1)">+</button></div>
     </div>
   </div>
@@ -357,7 +357,7 @@ let state={tenten:1,campers:0,volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,e
 (async function loadPrices(){
   try{
     const {data}=await sb.from('settings').select('key,value').in('key',[
-      'prijs_tent','prijs_camper','prijs_volwassene','prijs_kind',
+      'prijs_tent','prijs_camper','prijs_volwassene','prijs_kind','prijs_baby',
       'prijs_hond','prijs_extra_auto','prijs_elektriciteit','prijs_afval_per_6','toeristentaks'
     ]);
     if(!data||!data.length)return;
@@ -366,6 +366,7 @@ let state={tenten:1,campers:0,volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,e
     if(m.prijs_camper)PRICES.camper=m.prijs_camper;
     if(m.prijs_volwassene)PRICES.volwassene=m.prijs_volwassene;
     if(m.prijs_kind)PRICES.kind=m.prijs_kind;
+    if(m.prijs_baby!==undefined)PRICES.baby=m.prijs_baby;
     if(m.prijs_hond)PRICES.hond=m.prijs_hond;
     if(m.prijs_extra_auto)PRICES.extraAuto=m.prijs_extra_auto;
     if(m.prijs_elektriciteit)PRICES.elektriciteit=m.prijs_elektriciteit;
@@ -382,6 +383,8 @@ let state={tenten:1,campers:0,volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,e
       if(t==='Hond')el.textContent=`€${PRICES.hond} / nacht per hond`;
       if(t==="Auto's")el.textContent=`1e auto gratis, elke volgende €${PRICES.extraAuto} / nacht`;
     });
+    const babyEl=document.getElementById('srBaby');
+    if(babyEl)babyEl.textContent=PRICES.baby>0?`€${PRICES.baby} / nacht`:'Gratis';
     document.querySelector('.toggle-row .sr-sub').textContent=`€${PRICES.elektriciteit} eenmalig per aanvraag`;
     calc();
   }catch(e){}
@@ -419,12 +422,13 @@ function calc(){
   const campersKost = state.campers*PRICES.camper;
   const volwKost = state.volwassenen*PRICES.volwassene;
   const kindKost = state.kinderen*PRICES.kind;
+  const babyKost = state.baby*(PRICES.baby||0);
   const hondKost = state.honden*PRICES.hond;
   const extraAutoKost = Math.max(0,state.autos-1)*PRICES.extraAuto;
-  const afvalKost = Math.ceil(totaalPersonen/6)*PRICES.afvalPer6;
+  const afvalKost = Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6;
   const taksKost = state.volwassenen*PRICES.toeristentaks;
 
-  const diensten_per_nacht = tentenKost+campersKost+volwKost+kindKost+hondKost+extraAutoKost+afvalKost;
+  const diensten_per_nacht = tentenKost+campersKost+volwKost+kindKost+babyKost+hondKost+extraAutoKost+afvalKost;
   const elekKost = state.elek ? PRICES.elektriciteit : 0;
   const diensten_totaal = diensten_per_nacht*nights + elekKost;
   const btw = Math.round(diensten_totaal*0.12*100)/100;
@@ -437,6 +441,8 @@ function calc(){
   if(state.campers>0) lines.push([`Camper/Caravan (${state.campers} × €${PRICES.camper})`, campersKost]);
   if(state.volwassenen>0) lines.push([`Volwassenen (${state.volwassenen} × €${PRICES.volwassene})`, volwKost]);
   if(state.kinderen>0) lines.push([`Kinderen 3-11 (${state.kinderen} × €${PRICES.kind})`, kindKost]);
+  if(state.baby>0&&babyKost>0) lines.push([`Baby's <3j (${state.baby} × €${PRICES.baby})`, babyKost]);
+  if(state.baby>0&&!babyKost) lines.push([`Baby's <3j (${state.baby} × gratis)`, 0]);
   if(state.honden>0) lines.push([`Hond (${state.honden} × €${PRICES.hond})`, hondKost]);
   if(extraAutoKost>0) lines.push([`Extra auto's (${state.autos-1} × €${PRICES.extraAuto})`, extraAutoKost]);
   if(afvalKost>0) lines.push([`Bijdrage afval (${totaalPersonen} pers.)`, afvalKost]);

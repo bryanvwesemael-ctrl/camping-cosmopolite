@@ -1394,10 +1394,10 @@ async function loadSettings(){
   const bodyEl=document.getElementById('cfgBodyBev');
   if(bodyEl) bodyEl.value=cfg.tpl_bevestiging_body||`Beste {{voornaam}},\n\nBedankt voor je reservatie bij Camping Cosmopolite!\n\nAankomst:  {{aankomst}}\nVertrek:   {{vertrek}}\nNachten:   {{nachten}}\nPersonen:  {{personen}}\nBedrag:    {{bedrag}}\nBetaalreferentie (OGM): {{ogm}}\n\nGelieve het bedrag te betalen met bovenstaande referentie.\n\nTot binnenkort!\n\nVriendelijke groeten,\n{{from_name}}`;
 
-  // Tarieven laden vanuit DB (indien aanwezig)
-  const tarMap={tarief_tent:'tent',tarief_camper:'camper',tarief_volwassene:'volwassene',tarief_kind:'kind',
-    tarief_baby:'baby',tarief_hond:'hond',tarief_extraAuto:'extraAuto',tarief_elektriciteit:'elektriciteit',
-    tarief_afvalPer6:'afvalPer6',tarief_toeristentaks:'toeristentaks'};
+  // Tarieven laden vanuit DB (prijs_ prefix = gedeeld met publieke site)
+  const tarMap={prijs_tent:'tent',prijs_camper:'camper',prijs_volwassene:'volwassene',prijs_kind:'kind',
+    prijs_baby:'baby',prijs_hond:'hond',prijs_extra_auto:'extraAuto',prijs_elektriciteit:'elektriciteit',
+    prijs_afval_per_6:'afvalPer6',toeristentaks:'toeristentaks'};
   Object.entries(tarMap).forEach(([k,pk])=>{if(cfg[k])PRICES[pk]=parseFloat(cfg[k])||PRICES[pk];});
   if(cfg.max_plaatsen)PRICES.maxPlaatsen=parseInt(cfg.max_plaatsen)||0;
   // Juridische instellingen laden
@@ -1541,10 +1541,10 @@ async function saveTarieven(){
   try{
     const {data:{session}}=await sb.auth.getSession();
     PRICES.maxPlaatsen=parseInt(document.getElementById('tarMaxPlaatsen')?.value)||0;
-    const pairs=[['tarief_tent',PRICES.tent],['tarief_camper',PRICES.camper],
-      ['tarief_volwassene',PRICES.volwassene],['tarief_kind',PRICES.kind],['tarief_baby',PRICES.baby],
-      ['tarief_hond',PRICES.hond],['tarief_extraAuto',PRICES.extraAuto],
-      ['tarief_elektriciteit',PRICES.elektriciteit],['tarief_afvalPer6',PRICES.afvalPer6],['tarief_toeristentaks',PRICES.toeristentaks],
+    const pairs=[['prijs_tent',PRICES.tent],['prijs_camper',PRICES.camper],
+      ['prijs_volwassene',PRICES.volwassene],['prijs_kind',PRICES.kind],['prijs_baby',PRICES.baby],
+      ['prijs_hond',PRICES.hond],['prijs_extra_auto',PRICES.extraAuto],
+      ['prijs_elektriciteit',PRICES.elektriciteit],['prijs_afval_per_6',PRICES.afvalPer6],['toeristentaks',PRICES.toeristentaks],
       ['max_plaatsen',PRICES.maxPlaatsen]];
     for(const [key,value] of pairs){
       await sb.from('settings').upsert({user_id:session.user.id,key,value:String(value),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
