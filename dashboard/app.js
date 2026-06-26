@@ -193,16 +193,30 @@ function setSourceFilter(val,el){activeSource=val;document.querySelectorAll('.sp
 /* ═══════════ BOOKING ROW ═══════════ */
 function bookingRowHtml(b){
   const sm=STATUS_META[b.status];const bm=BRON_META[b.bron]||{};
-  const nights=nightCount(b.aankomst,b.vertrek);const vi=VI[b.type]||'⛺';
-  return`<div class="bk-row" id="bkr-${b.id}" onclick="openBookingDetail('${b.id}')">
+  const nights=nightCount(b.aankomst,b.vertrek);
+  const borderColor={aanvraag:'#FF9500',bevestigd:'#34C759',ingecheckt:'#007AFF',betaald:'#5856D6',geannuleerd:'#FF3B30',wachtlijst:'#8E8E93'}[b.status]||'transparent';
+  const verblijfParts=[];
+  if((b.tenten||0)>0)verblijfParts.push(`⛺ ${b.tenten} tent${b.tenten>1?'en':''}`);
+  if((b.campers||0)>0)verblijfParts.push(`🚐 ${b.campers} camper${b.campers>1?'s':''}`);
+  const verblijf=verblijfParts.join(' + ')||`⛺ ${b.type}`;
+  const hasRealEmail=b.email&&!b.email.includes('@cosmopolite.local');
+  const contactLine=hasRealEmail
+    ?`<div style="font-size:11px;color:var(--lbl4);margin-top:2px;">✉️ ${b.email}${b.telefoon?` · ☎️ ${b.telefoon}`:''}</div>`
+    :b.status==='aanvraag'?`<div style="font-size:11px;color:#FF9500;margin-top:2px;font-weight:600;">⚠️ Geen e-mail — bevestiging niet mogelijk</div>`:
+    b.telefoon?`<div style="font-size:11px;color:var(--lbl4);margin-top:2px;">☎️ ${b.telefoon}</div>`:'';
+  return`<div class="bk-row" id="bkr-${b.id}" onclick="openBookingDetail('${b.id}')" style="border-left:3px solid ${borderColor};padding-left:13px;">
     ${avHtml(b)}
     <div class="bk-mid">
-      <div class="bk-name">${b.naam}</div>
-      <div class="bk-meta">${vi} ${b.type}<span class="bk-sep">·</span>${fmtDate(b.aankomst)} → ${fmtDate(b.vertrek)}<span class="bk-sep">·</span>${b.personen}p · ${nights}n${b.bron?`<span class="bk-sep">·</span><span class="badge ${bm.cls}" style="padding:1px 6px;font-size:10px;">${bm.icon}</span>`:''}</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span class="bk-name" style="margin:0;">${b.naam}</span>
+        <span style="color:var(--lbl4);font-size:11px;">#${b.volgnummer??'—'}</span>
+        <span class="badge ${sm.cls}" style="padding:1px 7px;font-size:10px;" onclick="quickStatus(event,'${b.id}')" title="Tik om te wijzigen">${sm.icon} ${sm.label}</span>
+      </div>
+      <div class="bk-meta" style="margin-top:3px;">📅 ${fmtDate(b.aankomst)} → ${fmtDate(b.vertrek)} <span class="bk-sep">·</span> ${nights}n <span class="bk-sep">·</span> ${b.personen}p <span class="bk-sep">·</span> ${verblijf}${b.bron?`<span class="bk-sep">·</span>${bm.icon||''}`:''}</div>
+      ${contactLine}
     </div>
-    <div class="bk-right">
-      <span class="badge ${sm.cls}" onclick="quickStatus(event,'${b.id}')" title="Tik om status te wijzigen">${sm.icon} ${sm.label}</span>
-      ${b.bedrag?`<span style="font-size:12px;color:var(--lbl3);font-weight:600;">€${b.bedrag}</span>`:''}
+    <div class="bk-right" style="align-items:flex-end;">
+      ${b.bedrag?`<span style="font-size:13px;color:var(--lbl1);font-weight:700;">€${b.bedrag}</span>`:'<span style="font-size:11px;color:var(--lbl4);">—</span>'}
     </div>
     <svg class="chev" viewBox="0 0 8 14" fill="none"><path d="M1 1l6 6-6 6" stroke="#C7C7CC" stroke-width="1.5" stroke-linecap="round"/></svg>
   </div>`
@@ -333,14 +347,27 @@ function openBookingDetail(id){
 async function loadCommHistory(bookingId){
   const el=document.getElementById('commHistory');if(!el)return;
   const {data,error}=await sb.from('communicatie').select('*').eq('booking_id',bookingId).order('created_at',{ascending:false});
-  if(error){el.textContent='Kon geschiedenis niet laden';return}
-  if(!data||!data.length){el.textContent='Nog geen e-mails voor deze boeking';return}
-  const STMETA={concept:'📝 concept',verzonden:'✅ verzonden',mislukt:'⚠️ mislukt'};
-  el.innerHTML=data.map(c=>`
-    <div style="padding:9px 0;border-bottom:.5px solid var(--sep);">
-      <div style="display:flex;justify-content:space-between;font-weight:700;color:var(--lbl1);font-size:13px;"><span>${c.onderwerp||'(geen onderwerp)'}</span><span style="font-weight:500;color:var(--lbl3);font-size:11px;">${STMETA[c.status]||c.status}</span></div>
-      <div style="font-size:11px;color:var(--lbl4);margin-top:2px;">${new Date(c.created_at).toLocaleString('nl-BE')}</div>
-    </div>`).join('')
+  if(error){el.innerHTML='<div style="color:var(--lbl4);font-size:13px;">Kon geschiedenis niet laden</div>';return}
+  if(!data||!data.length){el.innerHTML='<div style="color:var(--lbl4);font-size:13px;">Nog geen e-mails voor deze boeking</div>';return}
+  const STMETA={concept:{lbl:'📝 Concept',color:'var(--lbl3)'},verzonden:{lbl:'✅ Verzonden',color:'var(--green)'},mislukt:{lbl:'⚠️ Mislukt',color:'var(--red)'}};
+  el.innerHTML=data.map(c=>{
+    const st=STMETA[c.status]||{lbl:c.status,color:'var(--lbl4)'};
+    const richting=c.richting==='inkomend'?'📩 Ontvangen':'📤 Verstuurd';
+    const id=`cmh-${c.id}`;
+    return`<div style="border:1px solid var(--sep);border-radius:12px;margin-bottom:8px;overflow:hidden;">
+      <div style="padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleCommBody('${id}')">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--lbl1);">${c.onderwerp||'(geen onderwerp)'}</div>
+          <div style="font-size:11px;color:var(--lbl4);margin-top:2px;">${richting} · ${new Date(c.created_at).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${st.color};flex-shrink:0;margin-left:8px;">${st.lbl}</span>
+      </div>
+      <div id="${id}" style="display:none;padding:0 14px 12px;font-size:12px;color:var(--lbl2);white-space:pre-wrap;line-height:1.6;border-top:.5px solid var(--sep);padding-top:10px;">${c.inhoud||'(geen inhoud)'}</div>
+    </div>`}).join('')
+}
+function toggleCommBody(id){
+  const el=document.getElementById(id);
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
 }
 async function toggleControle(id,key,val){
   const b=bookings.find(x=>x.id===id);if(!b)return;
