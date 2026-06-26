@@ -719,53 +719,158 @@
 
       <!-- PAGE: TARIEVEN -->
       <div id="stpage-tarieven" style="display:none;">
-        <div class="cfg-section-label">👥 Personen /nacht</div>
-        <div class="cfg-card" style="margin-bottom:12px;">
-          <div class="cfg-row"><span class="cfg-row-lbl">🧑 Volwassene</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarVolw" type="number" value="7" min="0" step="0.5" oninput="updateTarief('volwassene',this.value)" style="width:60px;text-align:right;"></div></div>
-          <div class="cfg-sep"></div>
-          <div class="cfg-row"><span class="cfg-row-lbl">🧒 Kind 3–11 jaar</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarKind" type="number" value="5" min="0" step="0.5" oninput="updateTarief('kind',this.value)" style="width:60px;text-align:right;"></div></div>
-          <div class="cfg-sep"></div>
-          <div class="cfg-row"><span class="cfg-row-lbl">👶 Baby &lt;3 jaar</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarBaby" type="number" value="0" min="0" step="0.5" oninput="updateTarief('baby',this.value)" style="width:60px;text-align:right;"></div></div>
-        </div>
-        <div class="cfg-section-label">➕ Extra's</div>
-        <div class="cfg-card" style="margin-bottom:12px;">
-          <div class="cfg-row"><span class="cfg-row-lbl">🐕 Hond /nacht</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarHond" type="number" value="3" min="0" step="0.5" oninput="updateTarief('hond',this.value)" style="width:60px;text-align:right;"></div></div>
-          <div class="cfg-sep"></div>
-          <div class="cfg-row"><span class="cfg-row-lbl">🚗 Extra auto /nacht</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarAuto" type="number" value="2" min="0" step="0.5" oninput="updateTarief('extraAuto',this.value)" style="width:60px;text-align:right;"></div></div>
-          <div class="cfg-sep"></div>
-          <div class="cfg-row"><span class="cfg-row-lbl">⚡ Elektriciteit (eenmalig)</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarElek" type="number" value="6" min="0" step="0.5" oninput="updateTarief('elektriciteit',this.value)" style="width:60px;text-align:right;"></div></div>
-        </div>
-        <div class="cfg-section-label">🏛️ Belastingen & bijdragen</div>
-        <div class="cfg-card" style="margin-bottom:16px;">
-          <div class="cfg-row"><span class="cfg-row-lbl">🗑️ Afval (eenmalig / 6p)</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarAfval" type="number" value="2" min="0" step="0.5" oninput="updateTarief('afvalPer6',this.value)" style="width:60px;text-align:right;"></div></div>
-          <div class="cfg-sep"></div>
-          <div class="cfg-row"><span class="cfg-row-lbl">🏛️ Toeristentaks /volw./nacht</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarTaks" type="number" value="1" min="0" step="0.1" oninput="updateTarief('toeristentaks',this.value)" style="width:60px;text-align:right;"></div></div>
-        </div>
-        <div class="cfg-section-label">🏕️ Capaciteit (Logiesdecreet)</div>
-        <div class="cfg-card" style="margin-bottom:16px;">
-          <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Max. vergunde plaatsen conform het brandveiligheidsattest en Toerisme Vlaanderen aanmelding. Overboeking wordt geblokkeerd.</div>
-          <div class="cfg-row"><span class="cfg-row-lbl">🔢 Max. plaatsen</span><input class="cfg-row-input" id="tarMaxPlaatsen" type="number" value="0" min="0" step="1" style="width:70px;text-align:right;" placeholder="0 = geen limiet"></div>
-        </div>
-        <div class="cfg-section-label">🏕️ Accommodatietypes</div>
-        <div class="cfg-card" style="margin-bottom:16px;">
-          <div style="font-size:12px;color:var(--lbl3);margin-bottom:12px;line-height:1.5;">Tent en Camper zijn altijd aanwezig. Voeg extra types toe (bv. Safaritent, Glamping…) — verschijnen als keuze in het boekingsformulier.</div>
-          <div id="accTypesStandaard" style="margin-bottom:10px;">
-            <div style="font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Standaard (altijd actief)</div>
-            <div class="cfg-row"><span class="cfg-row-lbl">⛺ Tent /nacht</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarTent" type="number" value="15" min="0" step="0.5" oninput="updateTarief('tent',this.value)" style="width:60px;text-align:right;"></div></div>
-            <div class="cfg-sep"></div>
-            <div class="cfg-row"><span class="cfg-row-lbl">🚐 Camper/Caravan /nacht</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarCamper" type="number" value="15" min="0" step="0.5" oninput="updateTarief('camper',this.value)" style="width:60px;text-align:right;"></div></div>
+
+        <!-- ACCOMMODATIETYPES -->
+        <div style="font-size:12px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">🏕️ Verblijfstype /nacht</div>
+
+        <!-- Standaard types: Tent + Camper als grote kaarten -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:14px;padding:14px 12px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:6px;">⛺</div>
+            <div style="font-size:13px;font-weight:700;color:var(--lbl1);margin-bottom:8px;">Tent</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:4px;">
+              <span style="font-size:18px;font-weight:300;color:var(--lbl3);">€</span>
+              <input id="tarTent" type="number" min="0" step="0.5" value="15" oninput="updateTarief('tent',this.value)"
+                style="width:70px;font-size:22px;font-weight:800;color:var(--green);border:none;background:transparent;text-align:center;outline:none;-moz-appearance:textfield;">
+            </div>
+            <div style="font-size:11px;color:var(--lbl4);margin-top:4px;">per nacht</div>
           </div>
-          <div style="font-size:11px;font-weight:700;color:var(--lbl4);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Extra accommodatietypes</div>
-          <div id="accTypesList"></div>
-          <button onclick="voegAccTypesToe()" style="margin-top:8px;width:100%;padding:9px;background:rgba(27,138,91,.08);color:var(--green);border:1.5px dashed var(--green);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">+ Type toevoegen</button>
+          <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:14px;padding:14px 12px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:6px;">🚐</div>
+            <div style="font-size:13px;font-weight:700;color:var(--lbl1);margin-bottom:8px;">Camper / Caravan</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:4px;">
+              <span style="font-size:18px;font-weight:300;color:var(--lbl3);">€</span>
+              <input id="tarCamper" type="number" min="0" step="0.5" value="15" oninput="updateTarief('camper',this.value)"
+                style="width:70px;font-size:22px;font-weight:800;color:var(--green);border:none;background:transparent;text-align:center;outline:none;-moz-appearance:textfield;">
+            </div>
+            <div style="font-size:11px;color:var(--lbl4);margin-top:4px;">per nacht</div>
+          </div>
         </div>
-        <div class="cfg-section-label">➕ Extra kostenposten (vrije regels)</div>
-        <div class="cfg-card" style="margin-bottom:16px;">
-          <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Voeg eigen posten toe. Kies de categorie zodat ze op de juiste plek in het formulier verschijnen.</div>
-          <div id="extraTarievenList"></div>
-          <button onclick="voegExtraTarief()" style="margin-top:8px;width:100%;padding:9px;background:rgba(27,138,91,.08);color:var(--green);border:1.5px dashed var(--green);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">+ Kostenpost toevoegen</button>
+
+        <!-- Extra accommodatietypes -->
+        <div id="accTypesList" style="margin-bottom:6px;"></div>
+        <button onclick="voegAccTypesToe()" style="width:100%;padding:10px;background:rgba(27,138,91,.07);color:var(--green);border:1.5px dashed var(--green);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:18px;">+ Extra type toevoegen (bv. Safaritent)</button>
+
+        <!-- PERSONEN -->
+        <div style="font-size:12px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">👥 Personen /nacht</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px;">
+          <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:12px;padding:12px 8px;text-align:center;">
+            <div style="font-size:22px;margin-bottom:4px;">🧑</div>
+            <div style="font-size:11px;font-weight:600;color:var(--lbl2);margin-bottom:6px;">Volwassene</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
+              <span style="font-size:13px;color:var(--lbl3);">€</span>
+              <input id="tarVolw" type="number" min="0" step="0.5" value="7" oninput="updateTarief('volwassene',this.value)"
+                style="width:52px;font-size:20px;font-weight:800;color:var(--lbl1);border:none;background:transparent;text-align:center;outline:none;-moz-appearance:textfield;">
+            </div>
+          </div>
+          <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:12px;padding:12px 8px;text-align:center;">
+            <div style="font-size:22px;margin-bottom:4px;">🧒</div>
+            <div style="font-size:11px;font-weight:600;color:var(--lbl2);margin-bottom:6px;">Kind 3–11j</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
+              <span style="font-size:13px;color:var(--lbl3);">€</span>
+              <input id="tarKind" type="number" min="0" step="0.5" value="5" oninput="updateTarief('kind',this.value)"
+                style="width:52px;font-size:20px;font-weight:800;color:var(--lbl1);border:none;background:transparent;text-align:center;outline:none;-moz-appearance:textfield;">
+            </div>
+          </div>
+          <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:12px;padding:12px 8px;text-align:center;">
+            <div style="font-size:22px;margin-bottom:4px;">👶</div>
+            <div style="font-size:11px;font-weight:600;color:var(--lbl2);margin-bottom:6px;">Baby &lt;3j</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
+              <span style="font-size:13px;color:var(--lbl3);">€</span>
+              <input id="tarBaby" type="number" min="0" step="0.5" value="0" oninput="updateTarief('baby',this.value)"
+                style="width:52px;font-size:20px;font-weight:800;color:var(--lbl1);border:none;background:transparent;text-align:center;outline:none;-moz-appearance:textfield;">
+            </div>
+          </div>
         </div>
-        <button onclick="saveTarieven()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;" id="saveTarBtn">Tarieven opslaan</button>
+
+        <!-- EXTRA'S -->
+        <div style="font-size:12px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">➕ Extra's</div>
+        <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:14px;overflow:hidden;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--sep);">
+            <span style="font-size:20px;margin-right:12px;">🐕</span>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;color:var(--lbl1);">Hond</div>
+              <div style="font-size:11px;color:var(--lbl4);">per hond per nacht</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="font-size:13px;color:var(--lbl3);">€</span>
+              <input id="tarHond" type="number" min="0" step="0.5" value="3" oninput="updateTarief('hond',this.value)"
+                style="width:56px;font-size:18px;font-weight:700;color:var(--lbl1);border:1.5px solid var(--sep);border-radius:8px;padding:4px 6px;text-align:right;background:var(--bg2);-moz-appearance:textfield;">
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--sep);">
+            <span style="font-size:20px;margin-right:12px;">🚗</span>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;color:var(--lbl1);">Extra auto</div>
+              <div style="font-size:11px;color:var(--lbl4);">1e auto gratis, elke volgende per nacht</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="font-size:13px;color:var(--lbl3);">€</span>
+              <input id="tarAuto" type="number" min="0" step="0.5" value="2" oninput="updateTarief('extraAuto',this.value)"
+                style="width:56px;font-size:18px;font-weight:700;color:var(--lbl1);border:1.5px solid var(--sep);border-radius:8px;padding:4px 6px;text-align:right;background:var(--bg2);-moz-appearance:textfield;">
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;padding:13px 16px;">
+            <span style="font-size:20px;margin-right:12px;">⚡</span>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;color:var(--lbl1);">Elektriciteit</div>
+              <div style="font-size:11px;color:var(--lbl4);">eenmalig per verblijf</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="font-size:13px;color:var(--lbl3);">€</span>
+              <input id="tarElek" type="number" min="0" step="0.5" value="6" oninput="updateTarief('elektriciteit',this.value)"
+                style="width:56px;font-size:18px;font-weight:700;color:var(--lbl1);border:1.5px solid var(--sep);border-radius:8px;padding:4px 6px;text-align:right;background:var(--bg2);-moz-appearance:textfield;">
+            </div>
+          </div>
+        </div>
+
+        <!-- BELASTINGEN -->
+        <div style="font-size:12px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">🏛️ Belastingen & bijdragen</div>
+        <div style="background:rgba(255,149,0,.05);border:1.5px solid rgba(255,149,0,.2);border-radius:14px;overflow:hidden;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid rgba(255,149,0,.15);">
+            <span style="font-size:20px;margin-right:12px;">♻️</span>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;color:var(--lbl1);">Afvalbijdrage</div>
+              <div style="font-size:11px;color:var(--lbl4);">eenmalig per schijf van 6 personen</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="font-size:13px;color:var(--lbl3);">€</span>
+              <input id="tarAfval" type="number" min="0" step="0.5" value="2" oninput="updateTarief('afvalPer6',this.value)"
+                style="width:56px;font-size:18px;font-weight:700;color:#CC7A00;border:1.5px solid rgba(255,149,0,.3);border-radius:8px;padding:4px 6px;text-align:right;background:#FFFBF0;-moz-appearance:textfield;">
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;padding:13px 16px;">
+            <span style="font-size:20px;margin-right:12px;">🏛️</span>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;color:var(--lbl1);">Toeristentaks</div>
+              <div style="font-size:11px;color:var(--lbl4);">per volwassene per nacht — BTW-vrij</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="font-size:13px;color:var(--lbl3);">€</span>
+              <input id="tarTaks" type="number" min="0" step="0.1" value="1" oninput="updateTarief('toeristentaks',this.value)"
+                style="width:56px;font-size:18px;font-weight:700;color:#CC7A00;border:1.5px solid rgba(255,149,0,.3);border-radius:8px;padding:4px 6px;text-align:right;background:#FFFBF0;-moz-appearance:textfield;">
+            </div>
+          </div>
+        </div>
+
+        <!-- CAPACITEIT -->
+        <div style="font-size:12px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">🔢 Capaciteit</div>
+        <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:14px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;gap:14px;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;color:var(--lbl1);">Max. vergunde plaatsen</div>
+            <div style="font-size:11px;color:var(--lbl4);margin-top:2px;">Conform brandveiligheidsattest · 0 = geen limiet</div>
+          </div>
+          <input id="tarMaxPlaatsen" type="number" min="0" step="1" value="0" placeholder="0"
+            style="width:70px;font-size:22px;font-weight:800;color:var(--lbl1);border:1.5px solid var(--sep);border-radius:10px;padding:6px 8px;text-align:center;background:var(--bg2);-moz-appearance:textfield;">
+        </div>
+
+        <!-- EXTRA KOSTENPOSTEN -->
+        <div style="font-size:12px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">✏️ Vrije kostenposten</div>
+        <div style="font-size:12px;color:var(--lbl4);margin-bottom:8px;">Schoonmaak, seizoenstoeslag… — kies categorie en of het per nacht is.</div>
+        <div id="extraTarievenList" style="margin-bottom:6px;"></div>
+        <button onclick="voegExtraTarief()" style="width:100%;padding:10px;background:rgba(27,138,91,.07);color:var(--green);border:1.5px dashed var(--green);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:20px;">+ Kostenpost toevoegen</button>
+
+        <button onclick="saveTarieven()" style="width:100%;padding:14px;background:var(--green);color:#fff;border-radius:12px;font-size:15px;font-weight:800;border:none;cursor:pointer;" id="saveTarBtn">💾 Tarieven opslaan</button>
         <div id="tarMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;min-height:16px;"></div>
       </div>
 

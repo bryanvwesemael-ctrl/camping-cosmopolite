@@ -1813,32 +1813,46 @@ let accTypes=[];// extra accommodatietypes (safaritent, glamping…)
 
 function renderAccTypes(){
   const el=document.getElementById('accTypesList');if(!el)return;
+  if(!accTypes.length){el.innerHTML='';return;}
   el.innerHTML=accTypes.map((t,i)=>`
-    <div style="border:1px solid var(--sep);border-radius:10px;padding:12px;margin-bottom:8px;">
-      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
-        <input class="cfg-row-input" style="width:36px;text-align:center;font-size:18px;padding:4px;" value="${t.emoji||'🏕️'}" placeholder="🏕️" oninput="accTypes[${i}].emoji=this.value">
-        <input class="cfg-row-input" style="flex:2;" value="${t.naam||''}" placeholder="Naam (bv. Safaritent)" oninput="accTypes[${i}].naam=this.value">
-        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
-          <span style="color:var(--lbl3);font-size:13px;">€</span>
-          <input class="cfg-row-input" type="number" min="0" step="0.5" style="width:64px;text-align:right;" value="${t.prijs||0}" oninput="accTypes[${i}].prijs=parseFloat(this.value)||0">
-          <span style="color:var(--lbl3);font-size:11px;">/n</span>
+    <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:14px;padding:14px;margin-bottom:10px;">
+      <!-- Header: emoji + naam + prijs + verwijder -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <input value="${t.emoji||'🏕️'}" oninput="accTypes[${i}].emoji=this.value"
+          style="width:44px;height:44px;border:1.5px solid var(--sep);border-radius:10px;text-align:center;font-size:22px;background:var(--bg2);flex-shrink:0;cursor:text;">
+        <input value="${t.naam||''}" placeholder="Naam (bv. Safaritent)" oninput="accTypes[${i}].naam=this.value"
+          style="flex:1;font-size:15px;font-weight:700;border:none;background:transparent;color:var(--lbl1);outline:none;min-width:0;">
+        <div style="display:flex;align-items:baseline;gap:3px;flex-shrink:0;background:rgba(27,138,91,.08);border-radius:10px;padding:6px 10px;">
+          <span style="font-size:13px;color:var(--lbl3);">€</span>
+          <input type="number" min="0" step="0.5" value="${t.prijs||0}" oninput="accTypes[${i}].prijs=parseFloat(this.value)||0"
+            style="width:54px;font-size:20px;font-weight:800;color:var(--green);border:none;background:transparent;text-align:center;outline:none;-moz-appearance:textfield;">
+          <span style="font-size:11px;color:var(--lbl4);">/n</span>
         </div>
-        <button onclick="verwijderAccType(${i})" style="background:rgba(255,59,48,.1);color:#FF3B30;border:none;border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;flex-shrink:0;">🗑</button>
+        <button onclick="verwijderAccType(${i})" title="Verwijder"
+          style="background:rgba(255,59,48,.1);color:#FF3B30;border:none;border-radius:10px;width:36px;height:36px;font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">🗑</button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div class="cfg-row" style="gap:6px;background:var(--bg2);border-radius:8px;padding:8px 10px;">
-          <span style="font-size:12px;color:var(--lbl2);">👥 Max. personen</span>
-          <input class="cfg-row-input" type="number" min="0" step="1" style="width:50px;text-align:right;" value="${t.maxPersonen||0}" placeholder="0=∞" oninput="accTypes[${i}].maxPersonen=parseInt(this.value)||0">
+      <!-- Stats: max personen + waarborg -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div style="background:var(--bg2);border-radius:10px;padding:10px 12px;text-align:center;">
+          <div style="font-size:11px;color:var(--lbl4);margin-bottom:4px;">👥 Max. personen</div>
+          <input type="number" min="0" step="1" value="${t.maxPersonen||0}" placeholder="0" oninput="accTypes[${i}].maxPersonen=parseInt(this.value)||0"
+            style="width:60px;font-size:20px;font-weight:800;color:var(--lbl1);border:none;background:transparent;text-align:center;outline:none;-moz-appearance:textfield;">
+          <div style="font-size:10px;color:var(--lbl4);margin-top:2px;">0 = geen limiet</div>
         </div>
-        <div class="cfg-row" style="gap:6px;background:var(--bg2);border-radius:8px;padding:8px 10px;">
-          <span style="font-size:12px;color:var(--lbl2);">🔒 Waarborg €</span>
-          <input class="cfg-row-input" type="number" min="0" step="10" style="width:60px;text-align:right;" value="${t.waarborgBedrag||0}" placeholder="0" oninput="accTypes[${i}].waarborgBedrag=parseFloat(this.value)||0">
+        <div style="background:var(--bg2);border-radius:10px;padding:10px 12px;text-align:center;">
+          <div style="font-size:11px;color:var(--lbl4);margin-bottom:4px;">🔒 Waarborg</div>
+          <div style="display:flex;align-items:baseline;justify-content:center;gap:2px;">
+            <span style="font-size:13px;color:var(--lbl3);">€</span>
+            <input type="number" min="0" step="10" value="${t.waarborgBedrag||0}" placeholder="0" oninput="accTypes[${i}].waarborgBedrag=parseFloat(this.value)||0"
+              style="width:60px;font-size:20px;font-weight:800;color:var(--lbl1);border:none;background:transparent;text-align:center;outline:none;-moz-appearance:textfield;">
+          </div>
+          <div style="font-size:10px;color:var(--lbl4);margin-top:2px;">cash bij aankomst</div>
         </div>
       </div>
-      <div style="margin-top:8px;">
-        <input class="cfg-row-input" value="${t.beschrijving||''}" placeholder="Korte beschrijving (optioneel, bv. 'Voor max. 6 personen, incl. beddengoed')" oninput="accTypes[${i}].beschrijving=this.value" style="font-size:12px;">
-      </div>
-    </div>`).join('')||'<div style="font-size:12px;color:var(--lbl4);padding:4px 0;">Nog geen extra types</div>';
+      <!-- Beschrijving -->
+      <input value="${t.beschrijving||''}" placeholder="Beschrijving voor gast (bv. 'Incl. beddengoed, max. 6 personen')" oninput="accTypes[${i}].beschrijving=this.value"
+        style="width:100%;font-size:12px;color:var(--lbl2);border:1.5px solid var(--sep);border-radius:8px;padding:8px 10px;background:var(--bg2);box-sizing:border-box;">
+    </div>`).join('');
 }
 function voegAccTypesToe(){
   accTypes.push({id:'custom_'+Date.now(),naam:'',emoji:'🏕️',prijs:0,maxPersonen:0,waarborgBedrag:0,beschrijving:''});
