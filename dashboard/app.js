@@ -2420,7 +2420,7 @@ function openAddGuestSheet(bookingId){
   document.getElementById('editGastId').value='';
   const title=document.getElementById('addGuestSheetTitle');
   if(title)title.textContent='👤 Gast toevoegen';
-  document.getElementById('guestFotoPreview').style.display='none';
+  const _gfp=document.getElementById('guestFotoPreview');if(_gfp)_gfp.style.display='none';
   document.getElementById('addGuestMsg').textContent='';
   openSheet('shAddGuest');
 }
@@ -2439,7 +2439,7 @@ function openEditGuestSheet(gastId){
   document.getElementById('gIdNummer').value=g.id_nummer||'';
   document.getElementById('gNummerplaat').value=g.nummerplaat||'';
   document.getElementById('gHoofdgast').checked=!!g.is_hoofdgast;
-  document.getElementById('guestFotoPreview').style.display='none';
+  const _gfp=document.getElementById('guestFotoPreview');if(_gfp)_gfp.style.display='none';
   document.getElementById('addGuestMsg').textContent='';
   openSheet('shAddGuest');
 }
