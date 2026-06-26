@@ -20,6 +20,9 @@ async function checkSession(){
   if(session){
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('appRoot').style.display='block';
+    const naam=(session.user.user_metadata?.full_name||session.user.email||'').split(/[\s@]/)[0];
+    const greet=document.getElementById('heroGreet');
+    if(greet&&naam)greet.textContent=`Goeiedag, ${naam} 👋`;
     await loadData();
   }else{
     document.getElementById('loginScreen').style.display='flex';

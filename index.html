@@ -118,11 +118,11 @@ button{cursor:pointer;border:none;background:none}
     <div class="row2">
       <div class="field">
         <label>Aankomst</label>
-        <input type="date" id="fAankomst" value="2026-06-24" onchange="calc()">
+        <input type="date" id="fAankomst" onchange="calc()">
       </div>
       <div class="field">
         <label>Vertrek</label>
-        <input type="date" id="fVertrek" value="2026-06-27" onchange="calc()">
+        <input type="date" id="fVertrek" onchange="calc()">
       </div>
     </div>
     <span class="nights-pill" id="nightsPill">3 nachten</span>
@@ -311,11 +311,11 @@ const SUPABASE_URL='https://whubbowuqhjdkdequbmb.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWJib3d1cWhqZGtkZXF1Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjM3NTYsImV4cCI6MjA5Nzc5OTc1Nn0.1S-eme0sMmC_25H-XnZ9r3AMKFSSxnpRx3-GRefSyzs';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
-/* ═══════════ ANALYTICS TRACKING ═══════════ */
+/* ═══════════ ANALYTICS TRACKING (alleen na cookie-akkoord) ═══════════ */
 const _sid=(()=>{let s=sessionStorage.getItem('_cc_sid');if(!s){s=crypto.randomUUID();sessionStorage.setItem('_cc_sid',s)}return s})();
 let _formStarted=false,_dateChosen=false,_abandoned=true;
-function _track(event,data){sb.from('analytics_events').insert({event,session_id:_sid,data:data||null}).then(()=>{});}
-_track('page_view');
+const _cookieOk=()=>localStorage.getItem('cc_cookie_consent')==='accepted';
+function _track(event,data){if(!_cookieOk())return;sb.from('analytics_events').insert({event,session_id:_sid,data:data||null}).then(()=>{});}
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&_abandoned)_track('abandon')});
 window.addEventListener('beforeunload',()=>{if(_abandoned)_track('abandon')});
 document.addEventListener('focusin',e=>{
@@ -323,6 +323,23 @@ document.addEventListener('focusin',e=>{
   if(!_formStarted&&['fNaam','fEmail','fTel'].includes(id)){_formStarted=true;_track('form_start')}
   if(!_dateChosen&&['fAankomst','fVertrek'].includes(id)){_dateChosen=true;_track('field_focus',{field:id})}
 });
+
+/* ═══════════ DATUMS INITIALISEREN ═══════════ */
+(function(){
+  const today=new Date();
+  const tomorrow=new Date(today);tomorrow.setDate(today.getDate()+1);
+  const fmt=d=>d.toISOString().split('T')[0];
+  const fA=document.getElementById('fAankomst');
+  const fV=document.getElementById('fVertrek');
+  fA.min=fmt(today); fA.value=fmt(today);
+  fV.min=fmt(tomorrow); fV.value=fmt(tomorrow);
+  fA.addEventListener('change',()=>{
+    const next=new Date(fA.value);next.setDate(next.getDate()+1);
+    fV.min=fmt(next);
+    if(fV.value<=fA.value)fV.value=fmt(next);
+    calc();
+  });
+})();
 
 /* Belgische gestructureerde mededeling (OGM/VCS): 10 cijfers + modulo-97 controle. */
 function ogmReference(volgnummer){
@@ -335,6 +352,40 @@ function ogmReference(volgnummer){
 
 const PRICES={tent:15,camper:15,volwassene:7,kind:5,hond:3,extraAuto:2,elektriciteit:6,afvalPer6:2,toeristentaks:1};
 let state={tenten:1,campers:0,volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,elek:false,akkoord:false};
+
+/* Tarieven laden uit Supabase (sync met dashboard instellingen) */
+(async function loadPrices(){
+  try{
+    const {data}=await sb.from('settings').select('key,value').in('key',[
+      'prijs_tent','prijs_camper','prijs_volwassene','prijs_kind',
+      'prijs_hond','prijs_extra_auto','prijs_elektriciteit','prijs_afval_per_6','toeristentaks'
+    ]);
+    if(!data||!data.length)return;
+    const m={};data.forEach(r=>m[r.key]=parseFloat(r.value)||0);
+    if(m.prijs_tent)PRICES.tent=m.prijs_tent;
+    if(m.prijs_camper)PRICES.camper=m.prijs_camper;
+    if(m.prijs_volwassene)PRICES.volwassene=m.prijs_volwassene;
+    if(m.prijs_kind)PRICES.kind=m.prijs_kind;
+    if(m.prijs_hond)PRICES.hond=m.prijs_hond;
+    if(m.prijs_extra_auto)PRICES.extraAuto=m.prijs_extra_auto;
+    if(m.prijs_elektriciteit)PRICES.elektriciteit=m.prijs_elektriciteit;
+    if(m.prijs_afval_per_6)PRICES.afvalPer6=m.prijs_afval_per_6;
+    if(m.toeristentaks)PRICES.toeristentaks=m.toeristentaks;
+    // Labels in de UI bijwerken
+    const srSubs=document.querySelectorAll('.sr-sub');
+    srSubs.forEach(el=>{
+      const t=el.closest('.stepper-row')?.querySelector('.sr-title')?.textContent||'';
+      if(t==='Tent')el.textContent=`€${PRICES.tent} / nacht per tent`;
+      if(t==='Camper / Caravan')el.textContent=`€${PRICES.camper} / nacht per stuk`;
+      if(t==='Volwassenen')el.textContent=`€${PRICES.volwassene} / nacht — vanaf 12 jaar, incl. toeristentaks`;
+      if(t.startsWith('Kinderen 3'))el.textContent=`€${PRICES.kind} / nacht — geen toeristentaks`;
+      if(t==='Hond')el.textContent=`€${PRICES.hond} / nacht per hond`;
+      if(t==="Auto's")el.textContent=`1e auto gratis, elke volgende €${PRICES.extraAuto} / nacht`;
+    });
+    document.querySelector('.toggle-row .sr-sub').textContent=`€${PRICES.elektriciteit} eenmalig per aanvraag`;
+    calc();
+  }catch(e){}
+})();
 
 function step(key,delta){
   const min = key==='volwassenen' ? 1 : 0;
