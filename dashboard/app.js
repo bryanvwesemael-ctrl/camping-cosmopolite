@@ -31,6 +31,29 @@ async function checkSession(){
 }
 sb.auth.onAuthStateChange((_event,_session)=>{checkSession()});
 
+/* ═══════════ REALTIME — live updates voor boekingen ═══════════ */
+sb.channel('bookings-live')
+  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bookings'},async payload=>{
+    const updated=payload.new;
+    const idx=bookings.findIndex(b=>b.id===updated.id);
+    if(idx===-1)return;
+    const oldStatus=bookings[idx].status;
+    // Status bijwerken in lokale array
+    bookings[idx].status=updated.status;
+    // UI hertekenen
+    renderDashboard();renderBookingList();renderWieIsEr();
+    // Toast bij check-in
+    if(updated.status==='ingecheckt'&&oldStatus!=='ingecheckt'){
+      const naam=bookings[idx].naam||'Gast';
+      toast(`🏕️ ${naam.split(' ')[0]} heeft ingecheckt!`);
+    }
+    if(updated.status==='betaald'&&oldStatus!=='betaald'){
+      const naam=bookings[idx].naam||'Gast';
+      toast(`💶 Betaling ontvangen van ${naam.split(' ')[0]}!`);
+    }
+  })
+  .subscribe();
+
 /* ═══════════ DATA ═══════════ */
 const AV_COLORS=[
   {bg:'#E5F5EE',fg:'#1B7A4F'},{bg:'#EBF4FF',fg:'#0060CC'},
@@ -1385,18 +1408,6 @@ async function toonQR(bookingId){
   img.style.cssText='width:200px;height:200px;border-radius:12px;';
   canvas.appendChild(img);
   openSheet('shQR');
-  // Realtime: ververs dashboard zodra gast incheckt
-  if(_qrRealtimeSub)sb.removeChannel(_qrRealtimeSub);
-  _qrRealtimeSub=sb.channel('checkin-'+bookingId)
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bookings',filter:`id=eq.${bookingId}`},
-      async payload=>{
-        if(payload.new.status==='ingecheckt'){
-          toast('✅ '+b.naam.split(' ')[0]+' heeft ingecheckt!');
-          await loadData();
-          sb.removeChannel(_qrRealtimeSub);_qrRealtimeSub=null;
-        }
-      })
-    .subscribe();
 }
 function copyQrUrl(){
   navigator.clipboard?.writeText(currentQrUrl);
