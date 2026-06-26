@@ -191,11 +191,12 @@ async function loadData(){
       geboortedatum:c.geboortedatum, nationaliteit:c.nationaliteit, woonplaats:c.woonplaats,
       fotoPath:c.id_foto_url||null, foto:null,
       personen:(row.volwassenen||0)+(row.kinderen||0)+(row.baby||0),
-      volwassenen:row.volwassenen||0, kinderen:(row.kinderen||0)+(row.baby||0),
+      volwassenen:row.volwassenen||0, kinderen:row.kinderen||0, baby:row.baby||0,
       aankomst:row.aankomst, vertrek:row.vertrek, type,
       tenten:row.tenten||0, campers:row.campers||0,
       status:row.status, bron:row.bron, bedrag:row.bedrag_totaal||0,
-      nota:row.nota||'', hond:(row.honden||0)>0, extraAuto:(row.autos||0)>1,
+      nota:row.nota||'', honden:row.honden||0, autos:row.autos||1,
+      hond:(row.honden||0)>0, extraAuto:(row.autos||0)>1,
       elektriciteit:!!row.elektriciteit,
       controle:{id:!!row.controle_id,kenteken:!!row.controle_kenteken,personen:!!row.controle_personen},
     };
@@ -1057,18 +1058,21 @@ function openEditSheet(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
   editingId=id;
   document.getElementById('eNaam').value=b.naam||'';
+  document.getElementById('eEmail').value=b.email||'';
+  document.getElementById('eTelefoon').value=b.telefoon||'';
   document.getElementById('ePlaat').value=b.plaat||'';
   document.getElementById('eVolwassenen').value=b.volwassenen??b.personen??1;
   document.getElementById('eKinderen').value=b.kinderen??0;
+  document.getElementById('eBaby').value=b.baby??0;
   document.getElementById('eAankomst').value=b.aankomst||'';
   document.getElementById('eVertrek').value=b.vertrek||'';
   document.getElementById('eTenten').value=b.tenten??0;
   document.getElementById('eCampers').value=b.campers??0;
-  document.getElementById('eHonden').value=b.hond?1:0;
+  document.getElementById('eAutos').value=b.autos??1;
+  document.getElementById('eHonden').value=b.honden??0;
   document.getElementById('eBron').value=b.bron||'';
   document.getElementById('eBedrag').value=b.bedrag||0;
   document.getElementById('eNota').value=b.nota||'';
-  document.getElementById('eExtraAuto').checked=!!b.extraAuto;
   document.getElementById('eElektriciteit').checked=!!b.elektriciteit;
   eFotoData=b.foto||null;
   const img=document.getElementById('eFotoPreview');
@@ -1079,6 +1083,8 @@ function openEditSheet(id){
 async function saveEdit(){
   const b=bookings.find(x=>x.id===editingId);if(!b)return;
   const naam=document.getElementById('eNaam').value.trim();
+  const email=document.getElementById('eEmail').value.trim();
+  const telefoon=document.getElementById('eTelefoon').value.trim();
   const aankomst=document.getElementById('eAankomst').value;
   const vertrek=document.getElementById('eVertrek').value;
   const tenten=parseInt(document.getElementById('eTenten').value)||0;
@@ -1086,28 +1092,31 @@ async function saveEdit(){
   const honden=parseInt(document.getElementById('eHonden').value)||0;
   const volwassenen=parseInt(document.getElementById('eVolwassenen').value)||0;
   const kinderen=parseInt(document.getElementById('eKinderen').value)||0;
+  const baby=parseInt(document.getElementById('eBaby').value)||0;
+  const autos=parseInt(document.getElementById('eAutos').value)||1;
   const plaat=document.getElementById('ePlaat').value.trim();
   const bron=document.getElementById('eBron').value;
   const bedrag=parseFloat(document.getElementById('eBedrag').value)||0;
   const nota=document.getElementById('eNota').value.trim();
-  const extraAuto=document.getElementById('eExtraAuto').checked;
   const elektriciteit=document.getElementById('eElektriciteit').checked;
   if(!naam||!aankomst||!vertrek){toast('⚠️ Vul naam en datums in');return}
-  // Geen strikte tent/camper check: kan ook alleen accType (Safaritent etc.) zijn
   if(aankomst>=vertrek){toast('⚠️ Vertrek moet na aankomst zijn');return}
-  if(volwassenen+kinderen<1){toast('⚠️ Minstens 1 persoon is verplicht');return}
+  if(volwassenen+kinderen+baby<1){toast('⚠️ Minstens 1 persoon is verplicht');return}
   const {error:bErr}=await sb.from('bookings').update({
     aankomst,vertrek,tenten,campers,
-    volwassenen,kinderen,honden,autos:extraAuto?2:1,
+    volwassenen,kinderen,baby,honden,autos,
     elektriciteit,bron,bedrag_totaal:bedrag,nota
   }).eq('id',b.id);
   if(bErr){toast('⚠️ Opslaan mislukt: '+bErr.message);return}
   if(b.clientId){
-    const {error:cErr}=await sb.from('clients').update({naam,nummerplaten:plaat}).eq('id',b.clientId);
-    if(cErr)toast('⚠️ Klantgegevens opslaan mislukt: '+cErr.message)
+    const upd={naam,nummerplaten:plaat};
+    if(email)upd.email=email;
+    if(telefoon)upd.telefoon=telefoon;
+    const {error:cErr}=await sb.from('clients').update(upd).eq('id',b.clientId);
+    if(cErr)toast('⚠️ Klantgegevens opslaan mislukt: '+cErr.message);
   }
   closeSheet('shEdit');toast('✅ Boeking bijgewerkt!');
-  await loadData()
+  await loadData();
 }
 
 /* ═══════════ PRIJS LIVE ═══════════ */
@@ -1195,7 +1204,6 @@ function readPriceInputs(prefix){
   }else{
     tenten=parseInt(g('Tenten')?.value)||0;
     campers=parseInt(g('Campers')?.value)||0;
-    if(tenten+campers<1)return null;
   }
   return calcPrice({
     tenten,campers,extraTypeUnits,nights:nightCount(aankomst,vertrek),
