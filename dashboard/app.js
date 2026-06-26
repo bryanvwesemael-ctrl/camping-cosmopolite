@@ -117,8 +117,8 @@ function calcPrice(o){
   });
   const diensten_per_nacht=basis+volw*PRICES.volwassene+kind*PRICES.kind+honden*PRICES.hond+extraAutos*PRICES.extraAuto+extraPerNacht;
   const diensten_totaal=diensten_per_nacht*nights+elek+afval+extraEenmalig;
-  const btw=Math.round(diensten_totaal*0.12*100)/100;
-  const totaal=Math.round((diensten_totaal+btw+taks_totaal)*100)/100;
+  const btw=Math.round(diensten_totaal*12/112*100)/100;
+  const totaal=Math.round((diensten_totaal+taks_totaal)*100)/100;
   const perNacht=diensten_per_nacht+taks;
   return{basis,stdBasis,extraTypeBasis,extraTypeUnits,afval,taks,taks_totaal,perNacht,nights,elek,btw,diensten_totaal,totaal,personen:totaalPersonen,extraAutos,honden,eenheden,extraLines};
 }
@@ -971,7 +971,7 @@ function priceBreakdownHtml(p){
   rows+=`<div class="price-row"><span>🗑️ Afvalbijdrage</span><span>€${p.afval.toFixed(2)}</span></div>`;
   if(p.elek)rows+=`<div class="price-row"><span>⚡ Elektriciteit</span><span>€${p.elek.toFixed(2)}</span></div>`;
   rows+=`<div class="price-row"><span>🏛️ Toeristentaks (BTW-vrij)</span><span>€${p.taks_totaal.toFixed(2)}</span></div>`;
-  rows+=`<div class="price-row"><span>📊 BTW 12%</span><span>€${p.btw.toFixed(2)}</span></div>`;
+  rows+=`<div class="price-row" style="opacity:.65;font-size:12px;"><span>📊 BTW 12% (reeds inbegrepen)</span><span>€${p.btw.toFixed(2)}</span></div>`;
   rows+=`<div class="price-row total"><span>Totaal</span><span>€${p.totaal.toFixed(2)}</span></div>`;
   return rows;
 }
