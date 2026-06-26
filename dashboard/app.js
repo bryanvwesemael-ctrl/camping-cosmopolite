@@ -509,15 +509,13 @@ function openBookingDetail(id){
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📬 Communicatiehistoriek</div>
       <div id="commHistory">Laden…</div>
-      <div style="margin-top:20px;">
-        <button onclick="toggleMailTemplatesInDetail()" style="width:100%;padding:10px;background:none;border:1.5px solid var(--sep);border-radius:10px;font-size:13px;font-weight:700;color:var(--lbl2);cursor:pointer;text-align:left;">✏️ Templates beheren <span id="mailTplToggleArrow">▾</span></button>
-        <div id="mailTplDetailWrap" style="display:none;padding-top:14px;">
-          <div style="font-size:12px;color:var(--lbl3);margin-bottom:12px;line-height:1.5;">Beschikbare variabelen: <code>{{voornaam}}</code> <code>{{aankomst}}</code> <code>{{vertrek}}</code> <code>{{nachten}}</code> <code>{{personen}}</code> <code>{{bedrag}}</code> <code>{{ogm}}</code></div>
-          <div id="mailTemplateBlocksDetail"></div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:14px;">
-            <button onclick="slaMailTemplatesOp()" style="flex:1;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💾 Templates opslaan</button>
-            <span id="mailTplMsg" style="font-size:12px;color:var(--green);"></span>
-          </div>
+      <div style="margin-top:20px;padding-top:18px;border-top:1.5px solid var(--sep);">
+        <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">✏️ Templates beheren</div>
+        <div style="font-size:12px;color:var(--lbl3);margin-bottom:12px;line-height:1.5;">Variabelen: <code>{{voornaam}}</code> <code>{{aankomst}}</code> <code>{{vertrek}}</code> <code>{{nachten}}</code> <code>{{bedrag}}</code> <code>{{ogm}}</code></div>
+        <div id="mailTemplateBlocksDetail"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:14px;">
+          <button onclick="slaMailTemplatesOp()" style="flex:1;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💾 Templates opslaan</button>
+          <span id="mailTplMsg" style="font-size:12px;color:var(--green);"></span>
         </div>
       </div>
     </div>
@@ -1049,6 +1047,7 @@ function stepField(id,delta){
   const min=parseInt(el.min)||0,max=parseInt(el.max)||99;
   el.value=Math.min(max,Math.max(min,(parseInt(el.value)||0)+delta));
   updatePriceLive();updatePriceLiveEdit();
+  if(['fVolwassenen','fKinderen','fBaby'].includes(id))renderNBGasten();
 }
 /* Rendert verblijfstype-kaarten in Nieuwe boeking met qty-steppers */
 function renderVerblijfTypesNB(){
@@ -1190,13 +1189,23 @@ async function addBooking(){
   if(cErr){toast('⚠️ Klant aanmaken mislukt: '+cErr.message);return}
   // Voor extra eenheden (safaritent e.d.): sla op als tenten=count zodat capaciteit klopt
   const dbTenten=tenten+(extraTypeUnits.reduce((s,t)=>s+t.count,0));
-  const {error:bErr}=await sb.from('bookings').insert({
+  const {data:newBooking,error:bErr}=await sb.from('bookings').insert({
     client_id:client.id,aankomst,vertrek,
     tenten:dbTenten,campers,verblijfstype,
     volwassenen,kinderen,baby,honden,autos,elektriciteit,
     bron,bedrag_totaal:bedrag,nota,status:'aanvraag'
-  });
+  }).select('id').single();
   if(bErr){toast('⚠️ Boeking opslaan mislukt: '+bErr.message);return}
+  // Gasten opslaan
+  if(newBooking&&nbGastenData.length){
+    const gastenRows=nbGastenData.filter(g=>g.naam.trim()).map((g,i)=>({
+      booking_id:newBooking.id,naam:g.naam.trim(),
+      geboortedatum:g.geboortedatum||null,
+      nationaliteit:null,id_nummer:null,is_hoofdgast:i===0
+    }));
+    if(gastenRows.length)await sb.from('gasten').insert(gastenRows);
+  }
+  nbGastenData=[];
   ['fNaam','fEmail','fPlaat','fAankomst','fVertrek','fBedrag','fNota','fID'].forEach(f=>document.getElementById(f)&&(document.getElementById(f).value=''));
   document.getElementById('fVolwassenen').value=2;
   document.getElementById('fKinderen').value=0;
@@ -1207,8 +1216,8 @@ async function addBooking(){
   document.getElementById('fElektriciteit').checked=false;
   document.getElementById('fFotoPreview').classList.remove('show');fFotoData=null;
   document.getElementById('priceBreakdown').innerHTML=priceBreakdownHtml(null);
-  // Reset type-kaarten
   renderVerblijfTypesNB();
+  renderNBGasten();
   toast('✅ Boeking opgeslagen!');showView('boekingen',null);
   await loadData()
 }
@@ -2303,23 +2312,47 @@ async function loadGasten(bookingId){
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:.5px solid var(--sep);">
       ${g.foto_url?`<img src="${g.foto_url}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
         :`<div style="width:38px;height:38px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">👤</div>`}
-      <div style="flex:1;min-width:0;">
+      <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditGuestSheet(${JSON.stringify(g).replace(/"/g,"'")})">
         <div style="font-size:14px;font-weight:700;color:var(--lbl1);">${g.naam}${g.is_hoofdgast?' <span style="font-size:10px;background:var(--green);color:#fff;padding:2px 6px;border-radius:8px;margin-left:4px;">Hoofd</span>':''}</div>
-        <div style="font-size:11.5px;color:var(--lbl3);margin-top:1px;">${[g.geboortedatum?fmtDateLong(g.geboortedatum):'',g.nationaliteit||'',g.id_nummer||''].filter(Boolean).join(' · ')||'Geen details'}</div>
+        <div style="font-size:11.5px;color:var(--lbl3);margin-top:1px;">${[g.geboortedatum?fmtDateLong(g.geboortedatum):'',g.nationaliteit||'',g.id_nummer||''].filter(Boolean).join(' · ')||'Tik om te bewerken…'}</div>
         ${g.nummerplaat?`<div style="font-size:11px;color:var(--lbl4);font-family:monospace;">${g.nummerplaat}</div>`:''}
       </div>
-      <button onclick="deleteGast('${g.id}','${bookingId}')" style="color:var(--red);font-size:18px;padding:4px;background:none;border:none;cursor:pointer;flex-shrink:0;">✕</button>
+      <button onclick="openEditGuestSheet(${JSON.stringify(g).replace(/"/g,"'")})" style="color:var(--blue);font-size:14px;padding:6px;background:rgba(0,122,255,.08);border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">✏️</button>
+      <button onclick="deleteGast('${g.id}','${bookingId}')" style="color:var(--red);font-size:14px;padding:6px;background:rgba(255,59,48,.08);border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">🗑</button>
     </div>`).join('')
 }
 
 async function deleteGast(gastId,bookingId){
+  if(!confirm('Gast verwijderen?'))return;
   await sb.from('gasten').delete().eq('id',gastId);
   loadGasten(bookingId);
 }
 
 function openAddGuestSheet(bookingId){
   document.getElementById('addGuestBookingId').value=bookingId;
+  document.getElementById('editGastId').value='';
   document.getElementById('addGuestForm').reset();
+  const title=document.getElementById('addGuestSheetTitle');
+  if(title)title.textContent='👤 Gast toevoegen';
+  document.getElementById('guestFotoPreview').style.display='none';
+  document.getElementById('addGuestMsg').textContent='';
+  openSheet('shAddGuest');
+}
+
+function openEditGuestSheet(g){
+  // g kan string zijn (uit onclick attribuut) of object
+  if(typeof g==='string'){try{g=JSON.parse(g.replace(/'/g,'"'));}catch(e){return;}}
+  document.getElementById('addGuestBookingId').value=g.booking_id;
+  document.getElementById('editGastId').value=g.id;
+  const title=document.getElementById('addGuestSheetTitle');
+  if(title)title.textContent='✏️ Gast bewerken';
+  document.getElementById('addGuestForm').reset();
+  document.getElementById('gNaam').value=g.naam||'';
+  document.getElementById('gGeboortedatum').value=g.geboortedatum||'';
+  document.getElementById('gNationaliteit').value=g.nationaliteit||'';
+  document.getElementById('gIdNummer').value=g.id_nummer||'';
+  document.getElementById('gNummerplaat').value=g.nummerplaat||'';
+  document.getElementById('gHoofdgast').checked=!!g.is_hoofdgast;
   document.getElementById('guestFotoPreview').style.display='none';
   document.getElementById('addGuestMsg').textContent='';
   openSheet('shAddGuest');
@@ -2327,6 +2360,7 @@ function openAddGuestSheet(bookingId){
 
 async function saveGuest(){
   const bookingId=document.getElementById('addGuestBookingId').value;
+  const gastId=document.getElementById('editGastId').value;
   const naam=document.getElementById('gNaam').value.trim();
   if(!naam){document.getElementById('addGuestMsg').textContent='⚠️ Naam verplicht';return}
   const btn=document.getElementById('saveGuestBtn');
@@ -2337,14 +2371,54 @@ async function saveGuest(){
     const id_nummer=document.getElementById('gIdNummer').value.trim()||null;
     const nummerplaat=document.getElementById('gNummerplaat').value.trim()||null;
     const is_hoofdgast=document.getElementById('gHoofdgast').checked;
-    // ID-foto upload niet toegestaan (GDPR art. 5.1.c dataminimalisatie)
-    await sb.from('gasten').insert({booking_id:bookingId,naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast});
+    if(gastId){
+      await sb.from('gasten').update({naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast}).eq('id',gastId);
+      toast('✅ Gast bijgewerkt');
+    }else{
+      await sb.from('gasten').insert({booking_id:bookingId,naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast});
+      toast('✅ Gast toegevoegd');
+    }
     closeSheet('shAddGuest');
     loadGasten(bookingId);
-    toast('✅ Gast toegevoegd');
   }catch(err){
     document.getElementById('addGuestMsg').textContent='⚠️ '+err.message;
   }finally{btn.textContent='Opslaan';btn.disabled=false;}
+}
+
+/* ═══════════ NIEUWE BOEKING — GASTEN ═══════════ */
+let nbGastenData=[];
+function renderNBGasten(){
+  const el=document.getElementById('nbGastenFields');if(!el)return;
+  const wrap=document.getElementById('nbGastenWrap');
+  const volw=parseInt(document.getElementById('fVolwassenen')?.value)||0;
+  const kind=parseInt(document.getElementById('fKinderen')?.value)||0;
+  const baby=parseInt(document.getElementById('fBaby')?.value)||0;
+  const cats=[...Array(volw).fill('volwassene'),...Array(kind).fill('kind'),...Array(baby).fill('baby')];
+  if(!cats.length){if(wrap)wrap.style.display='none';return;}
+  if(wrap)wrap.style.display='block';
+  // Bewaar bestaande waarden
+  nbGastenData=cats.map((cat,i)=>({
+    naam:nbGastenData[i]?.naam||'',
+    geboortedatum:nbGastenData[i]?.geboortedatum||'',
+    categorie:cat
+  }));
+  const emoji={volwassene:'🧑',kind:'🧒',baby:'👶'};
+  const lbl={volwassene:'Volwassene',kind:'Kind',baby:'Baby'};
+  const cnt={volwassene:0,kind:0,baby:0};
+  el.innerHTML=nbGastenData.map((g,i)=>{
+    cnt[g.categorie]++;
+    const isBaby=g.categorie==='baby';
+    return`<div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;color:var(--lbl3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;">${emoji[g.categorie]} ${lbl[g.categorie]} ${cnt[g.categorie]}</div>
+      <div style="display:grid;grid-template-columns:${isBaby?'1fr':'1fr 1fr'};gap:8px;">
+        <input type="text" placeholder="Volledige naam" value="${g.naam}"
+          oninput="nbGastenData[${i}].naam=this.value"
+          style="padding:9px 11px;border-radius:9px;border:1.5px solid var(--sep);background:var(--bg2);font-size:13px;color:var(--lbl1);">
+        ${isBaby?'':`<input type="date" value="${g.geboortedatum}" oninput="nbGastenData[${i}].geboortedatum=this.value"
+          style="padding:9px 11px;border-radius:9px;border:1.5px solid var(--sep);background:var(--bg2);font-size:13px;color:var(--lbl1);">`}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ═══════════ BOOKING FOTO'S ═══════════ */

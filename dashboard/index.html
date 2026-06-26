@@ -203,9 +203,9 @@
       <div class="cell"><div class="cell-icon ci-green">👤</div><div class="cell-body"><div class="cell-lbl">Naam</div><input type="text" id="fNaam" placeholder="Volledige naam"></div></div>
       <div class="cell"><div class="cell-icon ci-blue">✉️</div><div class="cell-body"><div class="cell-lbl">E-mailadres <span style="font-weight:400;color:var(--lbl4)">voor bevestigingsmail</span></div><input type="email" id="fEmail" placeholder="gast@email.com"></div></div>
       <div class="cell"><div class="cell-icon ci-blue">🚗</div><div class="cell-body"><div class="cell-lbl">Nummerplaat</div><input type="text" id="fPlaat" placeholder="1-ABC-123" autocapitalize="characters"></div></div>
-      <div class="cell"><div class="cell-icon ci-orange">🧑</div><div class="cell-body"><div class="cell-lbl">Volwassenen <span id="lblPrijsVolw" style="font-weight:400;color:var(--lbl4)">€7/nacht + taks</span></div><div class="num-stepper"><button onclick="stepField('fVolwassenen',-1)">−</button><input type="number" id="fVolwassenen" value="2" min="0" max="30" oninput="updatePriceLive()"><button onclick="stepField('fVolwassenen',1)">+</button></div></div></div>
-      <div class="cell"><div class="cell-icon ci-orange">🧒</div><div class="cell-body"><div class="cell-lbl">Kinderen 3–11 <span id="lblPrijsKind" style="font-weight:400;color:var(--lbl4)">€5/nacht</span></div><div class="num-stepper"><button onclick="stepField('fKinderen',-1)">−</button><input type="number" id="fKinderen" value="0" min="0" max="30" oninput="updatePriceLive()"><button onclick="stepField('fKinderen',1)">+</button></div></div></div>
-      <div class="cell"><div class="cell-icon ci-blue">👶</div><div class="cell-body"><div class="cell-lbl">Baby's &lt;3 jaar <span id="lblPrijsBaby" style="font-weight:400;color:var(--lbl4)">gratis</span></div><div class="num-stepper"><button onclick="stepField('fBaby',-1)">−</button><input type="number" id="fBaby" value="0" min="0" max="10" oninput="updatePriceLive()"><button onclick="stepField('fBaby',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-orange">🧑</div><div class="cell-body"><div class="cell-lbl">Volwassenen <span id="lblPrijsVolw" style="font-weight:400;color:var(--lbl4)">€7/nacht + taks</span></div><div class="num-stepper"><button onclick="stepField('fVolwassenen',-1)">−</button><input type="number" id="fVolwassenen" value="2" min="0" max="30" oninput="updatePriceLive();renderNBGasten()"><button onclick="stepField('fVolwassenen',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-orange">🧒</div><div class="cell-body"><div class="cell-lbl">Kinderen 3–11 <span id="lblPrijsKind" style="font-weight:400;color:var(--lbl4)">€5/nacht</span></div><div class="num-stepper"><button onclick="stepField('fKinderen',-1)">−</button><input type="number" id="fKinderen" value="0" min="0" max="30" oninput="updatePriceLive();renderNBGasten()"><button onclick="stepField('fKinderen',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-blue">👶</div><div class="cell-body"><div class="cell-lbl">Baby's &lt;3 jaar <span id="lblPrijsBaby" style="font-weight:400;color:var(--lbl4)">gratis</span></div><div class="num-stepper"><button onclick="stepField('fBaby',-1)">−</button><input type="number" id="fBaby" value="0" min="0" max="10" oninput="updatePriceLive();renderNBGasten()"><button onclick="stepField('fBaby',1)">+</button></div></div></div>
       <div class="cell"><div class="cell-icon ci-blue">🚗</div><div class="cell-body"><div class="cell-lbl">Aantal auto's <span id="lblPrijsAuto" style="font-weight:400;color:var(--lbl4)">1e gratis, +€2/extra</span></div><div class="num-stepper"><button onclick="stepField('fAutos',-1)">−</button><input type="number" id="fAutos" value="1" min="1" max="10" oninput="updatePriceLive()"><button onclick="stepField('fAutos',1)">+</button></div></div></div>
     </div></div>
 
@@ -226,6 +226,12 @@
 
     <div class="sg"><div class="sg-lbl">Prijs (automatisch berekend)</div></div>
     <div class="price-box" id="priceBreakdown"><div class="price-row"><span>Vul aankomst, vertrek en type in…</span></div></div>
+
+    <!-- Gasten -->
+    <div id="nbGastenWrap" style="display:none;">
+      <div class="sg"><div class="sg-lbl">👥 Gastnamen</div></div>
+      <div style="padding:0 16px 12px;" id="nbGastenFields"></div>
+    </div>
 
     <div class="sg"><div class="sg-lbl">Reservatie</div><div class="cells">
       <div class="cell"><div class="cell-icon ci-blue">📡</div><div class="cell-body"><div class="cell-lbl">Via kanaal</div><select id="fBron"><option value="">Via welk kanaal?</option><option value="mail">📧 E-mail</option><option value="website">🌐 Website</option><option value="telefoon">☎️ Telefoon</option></select></div></div>
@@ -557,10 +563,11 @@
 <div class="sh-overlay" id="shAddGuest" onclick="closeSheetOnOverlay(event,'shAddGuest')">
   <div class="sheet">
     <div class="sh-handle"></div>
-    <div class="sh-hd"><span class="sh-title">👤 Gast toevoegen</span><button class="sh-close" onclick="closeSheet('shAddGuest')">✕</button></div>
+    <div class="sh-hd"><span class="sh-title" id="addGuestSheetTitle">👤 Gast toevoegen</span><button class="sh-close" onclick="closeSheet('shAddGuest')">✕</button></div>
     <div class="sh-body">
       <form id="addGuestForm" style="padding:0 16px 24px;" onsubmit="event.preventDefault();saveGuest()">
         <input type="hidden" id="addGuestBookingId">
+        <input type="hidden" id="editGastId">
         <div class="qpe-field">
           <div class="qpe-lbl">Naam *</div>
           <input class="qpe-input" id="gNaam" placeholder="Voornaam Achternaam" required>
