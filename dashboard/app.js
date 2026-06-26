@@ -293,65 +293,97 @@ function openBookingDetail(id){
   const nights=nightCount(b.aankomst,b.vertrek);
   const ctrl=b.controle||{id:false,kenteken:false,personen:false};
   document.getElementById('shDetailTitle').textContent=b.naam.split(' ')[0];
+  const benodigdheden=[b.hond?'🐕 Hond':'',b.extraAuto?'🚙 Extra auto':'',b.elektriciteit?'⚡ Elektriciteit':''].filter(Boolean).join(' · ')||'—';
   document.getElementById('shDetailBody').innerHTML=`
-    <div class="detail-hero">${avHtml(b,60,18)}<div><div class="detail-name">${b.naam}</div><div class="detail-sub"><span class="badge ${sm.cls}">${sm.icon} ${sm.label}</span> <span style="color:var(--lbl4);">#${b.volgnummer??'—'}</span></div></div></div>
-    <img class="foto-thumb-lg ${b.foto?'show':''}" style="display:${b.foto?'block':'none'}" data-foto-for="${b.id}" src="${b.foto||''}">
-    <div class="detail-actions">
-      <button class="da da-g" onclick="openStatusSheet('${b.id}')"><span class="da-icon">🔄</span>Status</button>
-      <button class="da da-o" onclick="openEditSheet('${b.id}')"><span class="da-icon">✏️</span>Bewerken</button>
-      <button class="da da-b" onclick="prepareMail('${b.id}')"><span class="da-icon">📧</span>Mail</button>
-      <button class="da da-r" onclick="deleteBooking('${b.id}')"><span class="da-icon">🗑</span>Verwijder</button>
+    <div style="padding:16px 16px 0;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        ${avHtml(b,52,16)}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:17px;font-weight:800;color:var(--lbl1);line-height:1.2;">${b.naam}</div>
+          <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="badge ${sm.cls}">${sm.icon} ${sm.label}</span>
+            <span style="font-size:12px;color:var(--lbl4);font-weight:600;">#${b.volgnummer??'—'}</span>
+            <span style="font-size:12px;color:var(--lbl3);">${fmtDate(b.aankomst)} → ${fmtDate(b.vertrek)} · ${nights}n</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+        <div style="background:var(--green-soft);border-radius:10px;padding:10px 12px;">
+          <div style="font-size:10px;font-weight:700;color:var(--green-deep);text-transform:uppercase;letter-spacing:.4px;">Bedrag</div>
+          <div style="font-size:20px;font-weight:800;color:var(--green-deep);">€${b.bedrag||'—'}</div>
+        </div>
+        <div style="background:#F2F2F7;border-radius:10px;padding:10px 12px;">
+          <div style="font-size:10px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;">Personen</div>
+          <div style="font-size:20px;font-weight:800;color:var(--lbl1);">${b.personen}p</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:4px;">
+        <button class="da da-g" onclick="openStatusSheet('${b.id}')"><span class="da-icon">🔄</span>Status</button>
+        <button class="da da-o" onclick="openEditSheet('${b.id}')"><span class="da-icon">✏️</span>Bewerken</button>
+        <button class="da da-b" onclick="prepareMail('${b.id}')"><span class="da-icon">📧</span>Mail</button>
+        <button class="da da-r" onclick="deleteBooking('${b.id}')"><span class="da-icon">🗑</span>Verwijder</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">
+        <button class="da da-g" onclick="sendAutoMail('${b.id}','bevestiging')"><span class="da-icon">✉️</span>Bevestig</button>
+        <button class="da" style="background:rgba(255,149,0,.1);color:#FF9500;" onclick="sendAutoMail('${b.id}','herinnering')"><span class="da-icon">🔔</span>Reminder</button>
+        <button class="da da-b" onclick="stuurBetaallink('${b.id}')"><span class="da-icon">💳</span>Betalen</button>
+        <button class="da" style="background:rgba(88,86,214,.1);color:#5856D6;" onclick="toonQR('${b.id}')"><span class="da-icon">📱</span>QR</button>
+      </div>
     </div>
-    <div class="detail-actions" style="margin-top:-6px;">
-      <button class="da da-g" onclick="sendAutoMail('${b.id}','bevestiging')"><span class="da-icon">✉️</span>Bevestig & mail</button>
-      <button class="da" style="background:rgba(255,149,0,.1);color:#FF9500;" onclick="sendAutoMail('${b.id}','herinnering')"><span class="da-icon">🔔</span>Herinnering</button>
-      <button class="da da-b" onclick="stuurBetaallink('${b.id}')"><span class="da-icon">💳</span>Betaallink</button>
-      <button class="da" style="background:rgba(88,86,214,.1);color:#5856D6;" onclick="toonQR('${b.id}')"><span class="da-icon">📱</span>QR check-in</button>
-    </div>
-    <div class="detail-rows">
-      <div class="detail-r"><span class="dr-k">E-mail</span><span class="dr-v">${b.email||'—'}</span></div>
-      <div class="detail-r"><span class="dr-k">Telefoon</span><span class="dr-v">${b.telefoon||'—'}</span></div>
-      <div class="detail-r"><span class="dr-k">ID-nummer</span><span class="dr-v">${b.idnr||'—'}</span></div>
-      <div class="detail-r"><span class="dr-k">Nummerplaat</span><span class="dr-v">${b.plaat||'—'}</span></div>
-      <div class="detail-r"><span class="dr-k">Personen</span><span class="dr-v">${b.personen} (${b.volwassenen??b.personen} vw + ${b.kinderen??0} kind)</span></div>
-      <div class="detail-r"><span class="dr-k">Aankomst</span><span class="dr-v">${fmtDateLong(b.aankomst)}</span></div>
-      <div class="detail-r"><span class="dr-k">Vertrek</span><span class="dr-v">${fmtDateLong(b.vertrek)}</span></div>
-      <div class="detail-r"><span class="dr-k">Nachten</span><span class="dr-v">${nights}</span></div>
-      <div class="detail-r"><span class="dr-k">Type</span><span class="dr-v">${VI[b.type]||''} ${b.type}</span></div>
-      <div class="detail-r"><span class="dr-k">Benodigdheden</span><span class="dr-v">${[b.hond?'🐕 Hond':'',b.extraAuto?'🚙 Extra auto':'',b.elektriciteit?'⚡ Elektriciteit':''].filter(Boolean).join(', ')||'—'}</span></div>
-      <div class="detail-r"><span class="dr-k">Kanaal</span><span class="dr-v">${bm.icon||''} ${bm.label||'—'}</span></div>
-      <div class="detail-r"><span class="dr-k">Bedrag</span><span class="dr-v">${b.bedrag?'€'+b.bedrag:'—'}</span></div>
-      <div class="detail-r"><span class="dr-k">Betaalreferentie</span><span class="dr-v">${genRef(b)}</span></div>
-      ${b.nota?`<div class="detail-r"><span class="dr-k">Nota</span><span class="dr-v">${b.nota}</span></div>`:''}
-    </div>
-    <div class="sg mt16"><div class="sg-lbl">✅ Controle bij boeking</div></div>
-    <div class="ctrl-list">
-      <div class="ctrl-item"><input type="checkbox" id="ctrlId" ${ctrl.id?'checked':''} onchange="toggleControle('${b.id}','id',this.checked)"><label for="ctrlId">ID-kaart gecontroleerd</label></div>
-      <div class="ctrl-item"><input type="checkbox" id="ctrlKent" ${ctrl.kenteken?'checked':''} onchange="toggleControle('${b.id}','kenteken',this.checked)"><label for="ctrlKent">Nummerplaat genoteerd</label></div>
-      <div class="ctrl-item"><input type="checkbox" id="ctrlPers" ${ctrl.personen?'checked':''} onchange="toggleControle('${b.id}','personen',this.checked)"><label for="ctrlPers">Aantal personen bevestigd</label></div>
-    </div>
-    <div class="sg mt16">
-      <div class="sg-lbl">👥 Gasten <span style="font-weight:500;color:var(--lbl4);font-size:11px;">(politie/brandweer register)</span></div>
-      <button onclick="openAddGuestSheet('${b.id}')" style="margin:0 16px 10px;padding:8px 14px;background:var(--green);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:700;border:none;cursor:pointer;display:block;">+ Gast toevoegen</button>
-    </div>
-    <div id="gastenList" style="padding:0 16px 4px;">Laden…</div>
 
-    <div class="sg mt16">
-      <div class="sg-lbl">📸 Foto's</div>
-      <label style="margin:0 16px 10px;padding:8px 14px;background:var(--bg);border:1.5px dashed var(--sep);border-radius:var(--r-sm);font-size:13px;font-weight:600;color:var(--green);cursor:pointer;display:block;text-align:center;">
-        + Foto('s) toevoegen
-        <input type="file" accept="image/*" multiple capture="environment" style="display:none" onchange="uploadBookingFotos('${b.id}',this)">
-      </label>
+    <!-- TABS -->
+    <div style="display:flex;border-bottom:1.5px solid var(--sep);padding:0 16px;" id="detailTabs">
+      <button onclick="switchDetailTab('info')" id="dtab-info" style="flex:1;padding:10px 4px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;color:var(--green);border-bottom:2.5px solid var(--green);margin-bottom:-1.5px;">Info</button>
+      <button onclick="switchDetailTab('gasten')" id="dtab-gasten" style="flex:1;padding:10px 4px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;color:var(--lbl3);border-bottom:2.5px solid transparent;margin-bottom:-1.5px;">👥 Gasten</button>
+      <button onclick="switchDetailTab('mail')" id="dtab-mail" style="flex:1;padding:10px 4px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;color:var(--lbl3);border-bottom:2.5px solid transparent;margin-bottom:-1.5px;">📧 Mail</button>
     </div>
-    <div id="fotoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 16px 16px;">Laden…</div>
 
-    <div class="sg mt16"><div class="sg-lbl">📧 E-mailgeschiedenis</div></div>
-    <div id="commHistory" style="padding:0 16px 16px;font-size:13px;color:var(--lbl3);">Laden…</div>
-    <div style="height:16px;"></div>`;
+    <!-- TAB: INFO -->
+    <div id="dtab-content-info" style="padding:14px 16px;">
+      <div class="detail-rows" style="margin-bottom:14px;">
+        <div class="detail-r"><span class="dr-k">E-mail</span><span class="dr-v">${b.email||'—'}</span></div>
+        <div class="detail-r"><span class="dr-k">Telefoon</span><span class="dr-v">${b.telefoon||'—'}</span></div>
+        <div class="detail-r"><span class="dr-k">ID-nummer</span><span class="dr-v">${b.idnr||'—'}</span></div>
+        <div class="detail-r"><span class="dr-k">Nummerplaat</span><span class="dr-v">${b.plaat||'—'}</span></div>
+        <div class="detail-r"><span class="dr-k">Aankomst</span><span class="dr-v">${fmtDateLong(b.aankomst)}</span></div>
+        <div class="detail-r"><span class="dr-k">Vertrek</span><span class="dr-v">${fmtDateLong(b.vertrek)}</span></div>
+        <div class="detail-r"><span class="dr-k">Type</span><span class="dr-v">${VI[b.type]||''} ${b.type}</span></div>
+        <div class="detail-r"><span class="dr-k">Extra's</span><span class="dr-v">${benodigdheden}</span></div>
+        <div class="detail-r"><span class="dr-k">Kanaal</span><span class="dr-v">${bm.icon||''} ${bm.label||'—'}</span></div>
+        <div class="detail-r"><span class="dr-k">Betaalref.</span><span class="dr-v" style="font-size:11px;font-family:monospace;">${genRef(b)}</span></div>
+        ${b.nota?`<div class="detail-r"><span class="dr-k">Nota</span><span class="dr-v">${b.nota}</span></div>`:''}
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">✅ Controle bij aankomst</div>
+      <div class="ctrl-list">
+        <div class="ctrl-item"><input type="checkbox" id="ctrlId" ${ctrl.id?'checked':''} onchange="toggleControle('${b.id}','id',this.checked)"><label for="ctrlId">ID-kaart gecontroleerd</label></div>
+        <div class="ctrl-item"><input type="checkbox" id="ctrlKent" ${ctrl.kenteken?'checked':''} onchange="toggleControle('${b.id}','kenteken',this.checked)"><label for="ctrlKent">Nummerplaat genoteerd</label></div>
+        <div class="ctrl-item"><input type="checkbox" id="ctrlPers" ${ctrl.personen?'checked':''} onchange="toggleControle('${b.id}','personen',this.checked)"><label for="ctrlPers">Aantal personen bevestigd</label></div>
+      </div>
+    </div>
+
+    <!-- TAB: GASTEN -->
+    <div id="dtab-content-gasten" style="display:none;padding:14px 16px;">
+      <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Wettelijk verplicht reizigersregister (KB 27/04/2007). Voeg alle aanwezige gasten toe inclusief de hoofdboeker.</div>
+      <button onclick="openAddGuestSheet('${b.id}')" style="width:100%;padding:10px;background:var(--green);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:700;border:none;cursor:pointer;margin-bottom:12px;">+ Gast toevoegen</button>
+      <div id="gastenList">Laden…</div>
+    </div>
+
+    <!-- TAB: MAIL -->
+    <div id="dtab-content-mail" style="display:none;padding:14px 16px;">
+      <div id="commHistory">Laden…</div>
+    </div>
+    <div style="height:24px;"></div>`;
+
   openSheet('shDetail');
   loadCommHistory(b.id);
   loadGasten(b.id);
-  loadFotos(b.id);
+}
+function switchDetailTab(tab){
+  ['info','gasten','mail'].forEach(t=>{
+    document.getElementById('dtab-content-'+t).style.display=t===tab?'block':'none';
+    const btn=document.getElementById('dtab-'+t);
+    if(btn){btn.style.color=t===tab?'var(--green)':'var(--lbl3)';btn.style.borderBottomColor=t===tab?'var(--green)':'transparent';}
+  });
 }
 async function loadCommHistory(bookingId){
   const el=document.getElementById('commHistory');if(!el)return;
@@ -1332,6 +1364,7 @@ async function stuurBetaallink(bookingId){
 }
 
 let currentQrUrl='';
+let _qrRealtimeSub=null;
 async function toonQR(bookingId){
   const b=bookings.find(x=>x.id===bookingId);if(!b)return;
   // Haal checkin_token op (of genereer via update)
@@ -1352,6 +1385,18 @@ async function toonQR(bookingId){
   img.style.cssText='width:200px;height:200px;border-radius:12px;';
   canvas.appendChild(img);
   openSheet('shQR');
+  // Realtime: ververs dashboard zodra gast incheckt
+  if(_qrRealtimeSub)sb.removeChannel(_qrRealtimeSub);
+  _qrRealtimeSub=sb.channel('checkin-'+bookingId)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bookings',filter:`id=eq.${bookingId}`},
+      async payload=>{
+        if(payload.new.status==='ingecheckt'){
+          toast('✅ '+b.naam.split(' ')[0]+' heeft ingecheckt!');
+          await loadData();
+          sb.removeChannel(_qrRealtimeSub);_qrRealtimeSub=null;
+        }
+      })
+    .subscribe();
 }
 function copyQrUrl(){
   navigator.clipboard?.writeText(currentQrUrl);
