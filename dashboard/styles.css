@@ -116,6 +116,8 @@ button{cursor:pointer;border:none;background:none}
 .b-bevestigd{background:rgba(0,122,255,.12);color:#0055CC}
 .b-ingecheckt{background:rgba(52,199,89,.12);color:#1A7A35}
 .b-betaald{background:rgba(175,82,222,.12);color:#7A25B5}
+.b-wacht{background:rgba(142,142,147,.12);color:#636366}
+.b-geannuleerd{background:rgba(255,59,48,.1);color:#CC1100}
 .b-mail{background:rgba(0,122,255,.1);color:var(--blue)}
 .b-website{background:rgba(27,138,91,.1);color:var(--green)}
 .b-telefoon{background:rgba(255,149,0,.1);color:#CC7700}
@@ -164,6 +166,7 @@ select{color:var(--lbl1)}
 .btn-danger{background:rgba(255,59,48,.1);color:var(--red)}
 
 /* ── CALENDAR ── */
+.cal-view-on{background:var(--green)!important;color:#fff!important;border-radius:8px!important;}
 .cal-nav{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
 .cal-mo{font-size:17px;font-weight:700;color:var(--lbl1)}
 .cal-btn{width:32px;height:32px;background:var(--bg);border-radius:50%;font-size:18px;color:var(--blue);display:flex;align-items:center;justify-content:center}

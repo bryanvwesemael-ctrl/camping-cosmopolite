@@ -65,6 +65,8 @@ const STATUS_META={
   bevestigd:{label:'Bevestigd',cls:'b-bevestigd',icon:'✅',order:1},
   ingecheckt:{label:'Ingecheckt',cls:'b-ingecheckt',icon:'🏕️',order:2},
   betaald:{label:'Betaald',cls:'b-betaald',icon:'💶',order:3},
+  wachtlijst:{label:'Wachtlijst',cls:'b-wacht',icon:'⏸️',order:4},
+  geannuleerd:{label:'Geannuleerd',cls:'b-geannuleerd',icon:'🚫',order:5},
 };
 const BRON_META={
   mail:{label:'E-mail',cls:'b-mail',icon:'📧'},
@@ -126,8 +128,35 @@ let calYear=new Date(TODAY).getFullYear(),calMonth=new Date(TODAY).getMonth();
 let fFotoData=null,eFotoData=null,eveningShown=false;
 const EVENING_HOUR=20;
 
+/* ═══════════ PRIJZEN UIT DB LADEN ═══════════ */
+let extraTarieven=[],accTypes=[];
+async function loadPricesFromDB(){
+  const {data:{session}}=await sb.auth.getSession();if(!session)return;
+  const {data}=await sb.from('settings').select('key,value').eq('user_id',session.user.id)
+    .in('key',['prijs_tent','prijs_camper','prijs_volwassene','prijs_kind','prijs_baby','prijs_hond','prijs_extra_auto','prijs_elektriciteit','prijs_afval_per_6','toeristentaks','extra_tarieven','accommodatie_types']);
+  if(!data)return;
+  const pm={};data.forEach(s=>pm[s.key]=s.value);
+  const tm={prijs_tent:'tent',prijs_camper:'camper',prijs_volwassene:'volwassene',prijs_kind:'kind',prijs_baby:'baby',prijs_hond:'hond',prijs_extra_auto:'extraAuto',prijs_elektriciteit:'elektriciteit',prijs_afval_per_6:'afvalPer6',toeristentaks:'toeristentaks'};
+  Object.entries(tm).forEach(([k,pk])=>{if(pm[k]!=null)PRICES[pk]=parseFloat(pm[k])||PRICES[pk];});
+  if(pm.extra_tarieven){try{extraTarieven=JSON.parse(pm.extra_tarieven)||[];}catch(e){extraTarieven=[];}}
+  if(pm.accommodatie_types){try{accTypes=JSON.parse(pm.accommodatie_types)||[];}catch(e){accTypes=[];}}
+  updateNieuwBoekingLabels();
+}
+function updateNieuwBoekingLabels(){
+  const set=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
+  set('lblPrijsTent',`€${PRICES.tent}/nacht`);
+  set('lblPrijsCamper',`€${PRICES.camper}/nacht`);
+  set('lblPrijsVolw',`€${PRICES.volwassene}/nacht + taks`);
+  set('lblPrijsKind',`€${PRICES.kind}/nacht`);
+  set('lblPrijsBaby',PRICES.baby>0?`€${PRICES.baby}/nacht`:'gratis');
+  set('lblPrijsHond',`€${PRICES.hond}/hond/nacht`);
+  set('lblPrijsAuto',`1e gratis, +€${PRICES.extraAuto}/extra`);
+  set('lblPrijsElek',`+€${PRICES.elektriciteit} eenmalig`);
+}
+
 /* ═══════════ LADEN UIT SUPABASE ═══════════ */
 async function loadData(){
+  await loadPricesFromDB();
   const {data,error}=await sb.from('bookings').select('*,clients(*)').order('aankomst',{ascending:true});
   if(error){toast('⚠️ Kon data niet laden: '+error.message);return}
   bookings=(data||[]).map(row=>{
@@ -287,8 +316,16 @@ function renderDashboard(){
     }).join('')
   }
 
-  // Recent list
-  document.getElementById('recentList').innerHTML=[...bookings].reverse().slice(0,3).map(bookingRowHtml).join('');
+  // Recent list — enkel openstaande aanvragen
+  const openAanvragen=bookings.filter(b=>b.status==='aanvraag');
+  const recentEl=document.getElementById('recentList');
+  if(recentEl){
+    if(!openAanvragen.length){
+      recentEl.innerHTML='<div style="padding:18px;text-align:center;color:var(--lbl3);font-size:13px;">✅ Geen openstaande aanvragen</div>';
+    }else{
+      recentEl.innerHTML=openAanvragen.slice(-5).reverse().map(bookingRowHtml).join('');
+    }
+  }
   // Presence preview
   const prs=bookings.filter(b=>b.status==='ingecheckt'||b.status==='betaald');
   document.getElementById('presencePreview').textContent=prs.length?`${prs.length} gast${prs.length>1?'en':''} aanwezig`:'Geen gasten aanwezig';
@@ -444,7 +481,8 @@ function openBookingDetail(id){
 
     <!-- TAB: MAIL -->
     <div id="dtab-content-mail" style="display:none;padding:14px 16px;">
-      <div id="mailActiesBtns" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📤 Snel versturen</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
         <button onclick="openMailSendSheet('${b.id}','bevestiging')" style="padding:10px;background:rgba(27,138,91,.1);color:var(--green);border:1.5px solid var(--green);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">✅ Bevestigingsmail</button>
         <button onclick="openMailSendSheet('${b.id}','herinnering')" style="padding:10px;background:rgba(255,149,0,.1);color:#FF9500;border:1.5px solid #FF9500;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🔔 Herinnering</button>
         <button onclick="openMailSendSheet('${b.id}','betaling')" style="padding:10px;background:rgba(88,86,214,.1);color:#5856D6;border:1.5px solid #5856D6;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💶 Betaalverzoek</button>
@@ -452,6 +490,17 @@ function openBookingDetail(id){
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📬 Communicatiehistoriek</div>
       <div id="commHistory">Laden…</div>
+      <div style="margin-top:20px;">
+        <button onclick="toggleMailTemplatesInDetail()" style="width:100%;padding:10px;background:none;border:1.5px solid var(--sep);border-radius:10px;font-size:13px;font-weight:700;color:var(--lbl2);cursor:pointer;text-align:left;">✏️ Templates beheren <span id="mailTplToggleArrow">▾</span></button>
+        <div id="mailTplDetailWrap" style="display:none;padding-top:14px;">
+          <div style="font-size:12px;color:var(--lbl3);margin-bottom:12px;line-height:1.5;">Beschikbare variabelen: <code>{{voornaam}}</code> <code>{{aankomst}}</code> <code>{{vertrek}}</code> <code>{{nachten}}</code> <code>{{personen}}</code> <code>{{bedrag}}</code> <code>{{ogm}}</code></div>
+          <div id="mailTemplateBlocksDetail"></div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:14px;">
+            <button onclick="slaMailTemplatesOp()" style="flex:1;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💾 Templates opslaan</button>
+            <span id="mailTplMsg" style="font-size:12px;color:var(--green);"></span>
+          </div>
+        </div>
+      </div>
     </div>
     <div style="height:24px;"></div>`;
 
@@ -465,6 +514,54 @@ function switchDetailTab(tab){
     const btn=document.getElementById('dtab-'+t);
     if(btn){btn.style.color=t===tab?'var(--green)':'var(--lbl3)';btn.style.borderBottomColor=t===tab?'var(--green)':'transparent';}
   });
+  if(tab==='mail')loadMailTemplatesForDetail();
+}
+function toggleMailTemplatesInDetail(){
+  const wrap=document.getElementById('mailTplDetailWrap');
+  const arrow=document.getElementById('mailTplToggleArrow');
+  if(!wrap)return;
+  const open=wrap.style.display==='none';
+  wrap.style.display=open?'block':'none';
+  if(arrow)arrow.textContent=open?'▴':'▾';
+}
+async function loadMailTemplatesForDetail(){
+  const el=document.getElementById('mailTemplateBlocksDetail');if(!el)return;
+  const {data:{session}}=await sb.auth.getSession();
+  const {data:rows}=await sb.from('settings').select('key,value').eq('user_id',session.user.id).like('key','mailtemplate_%');
+  MAIL_TYPES.forEach(t=>{
+    const raw=rows?.find(r=>r.key==='mailtemplate_'+t.key)?.value;
+    try{mailTemplates[t.key]=JSON.parse(raw||'[]')}catch(e){mailTemplates[t.key]=[]}
+    if(!mailTemplates[t.key].length)mailTemplates[t.key]=[{onderwerp:t.defaultOnderwerp,inhoud:t.defaultInhoud}];
+  });
+  renderMailTemplateBlocksDetail();
+}
+function renderMailTemplateBlocksDetail(){
+  const el=document.getElementById('mailTemplateBlocksDetail');if(!el)return;
+  el.innerHTML=MAIL_TYPES.map(t=>{
+    const tpls=mailTemplates[t.key]||[];
+    const tplHtml=tpls.map((tpl,i)=>`
+      <div style="border:1px solid var(--sep);border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;font-weight:700;color:var(--lbl3);">Variant ${i+1}</span>
+          ${tpls.length>1?`<button onclick="verwijderMailVariantDetail('${t.key}',${i})" style="background:none;border:none;color:#FF3B30;font-size:13px;cursor:pointer;">🗑</button>`:''}
+        </div>
+        <input class="cfg-full-input" placeholder="Onderwerp…" value="${(tpl.onderwerp||'').replace(/"/g,'&quot;')}" oninput="mailTemplates['${t.key}'][${i}].onderwerp=this.value" style="margin-bottom:8px;">
+        <textarea class="cfg-full-input" rows="5" placeholder="Inhoud…" style="resize:vertical;line-height:1.5;font-size:12.5px;" oninput="mailTemplates['${t.key}'][${i}].inhoud=this.value">${tpl.inhoud||''}</textarea>
+      </div>`).join('');
+    return`<div style="font-size:12px;font-weight:800;color:${t.color};margin:16px 0 8px;">${t.label}</div>
+      ${tplHtml}
+      <button onclick="voegMailVariantToeDetail('${t.key}')" style="width:100%;padding:8px;background:none;border:1.5px dashed ${t.color};color:${t.color};border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:4px;">+ Variant toevoegen</button>`;
+  }).join('');
+}
+function voegMailVariantToeDetail(key){
+  const t=MAIL_TYPES.find(x=>x.key===key);
+  mailTemplates[key].push({onderwerp:t?.defaultOnderwerp||'',inhoud:''});
+  renderMailTemplateBlocksDetail();
+}
+function verwijderMailVariantDetail(key,i){
+  mailTemplates[key].splice(i,1);
+  if(!mailTemplates[key].length){const t=MAIL_TYPES.find(x=>x.key===key);mailTemplates[key]=[{onderwerp:t?.defaultOnderwerp||'',inhoud:''}];}
+  renderMailTemplateBlocksDetail();
 }
 async function loadCommHistory(bookingId){
   const el=document.getElementById('commHistory');if(!el)return;
@@ -1173,6 +1270,17 @@ const GANTT_NAME_W=130;
 const GANTT_COLORS={bevestigd:'#34C759',aanvraag:'#FF9500',ingecheckt:'#007AFF',betaald:'#5856D6',wachtlijst:'#8E8E93',geannuleerd:'#FF3B30'};
 const NL_MONTHS_S=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
 const NL_DAYS_S=['zo','ma','di','wo','do','vr','za'];
+let calViewMode='gantt';// 'gantt' of 'maand'
+function setCalView(mode){
+  calViewMode=mode;
+  document.getElementById('calBtnGantt').classList.toggle('cal-view-on',mode==='gantt');
+  document.getElementById('calBtnMaand').classList.toggle('cal-view-on',mode==='maand');
+  document.getElementById('calGanttNav').style.display=mode==='gantt'?'flex':'none';
+  document.getElementById('calMaandNav').style.display=mode==='maand'?'flex':'none';
+  document.getElementById('ganttChartWrap').style.display=mode==='gantt'?'block':'none';
+  document.getElementById('calMaandWrap').style.display=mode==='maand'?'block':'none';
+  if(mode==='maand')renderCalendar_monthView();else renderCalendar();
+}
 
 function ganttToday(){ganttStart=new Date(TODAY);ganttStart.setDate(ganttStart.getDate()-2);ganttStart.setHours(0,0,0,0);renderCalendar()}
 function ganttShift(d){if(!ganttStart){ganttToday();return}ganttStart=new Date(ganttStart.getTime()+d*86400000);renderCalendar()}
@@ -1265,14 +1373,15 @@ function renderCalendar(){
     <div style="position:relative;border-top:.5px solid var(--sep);">${colBg}<div style="position:relative;">${rowsHtml}</div></div>`;
 }
 
-/* ═══════════ OLD MONTH CALENDAR (kept for day-detail sheet) ═══════════ */
-function prevMonth(){calMonth--;if(calMonth<0){calMonth=11;calYear--}renderCalendar()}
-function nextMonth(){calMonth++;if(calMonth>11){calMonth=0;calYear++}renderCalendar()}
+/* ═══════════ MAANDWEERGAVE ═══════════ */
+function prevMonth(){calMonth--;if(calMonth<0){calMonth=11;calYear--}renderCalendar_monthView()}
+function nextMonth(){calMonth++;if(calMonth>11){calMonth=0;calYear++}renderCalendar_monthView()}
 
 function renderCalendar_monthView(){
   const DAYS=['Ma','Di','Wo','Do','Vr','Za','Zo'];
   const MONTHS=['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
-  document.getElementById('calMonth').textContent=`${MONTHS[calMonth]} ${calYear}`;
+  const lbl=`${MONTHS[calMonth]} ${calYear}`;
+  const el=document.getElementById('calMaandLabel');if(el)el.textContent=lbl;
   const offset=(new Date(calYear,calMonth,1).getDay()+6)%7;
   const dim=new Date(calYear,calMonth+1,0).getDate();
   // Build event map: key=day, val={arrivals:[],departures:[]}
@@ -1327,7 +1436,7 @@ function openDayDetail(d){
   let html='';
   if(ev.arr.length){
     html+=`<div class="day-ev-section"><div class="day-ev-title" style="color:var(--green);">🟢 Aankomsten (${ev.arr.length})</div>`;
-    html+=ev.arr.map(b=>`<div class="day-ev-row">${avHtml(b,36,10)}<div><div class="day-ev-name">${b.naam} <span style="color:var(--lbl4);font-weight:400;font-size:12px;">#${b.volgnummer??'—'}</span></div><div class="day-ev-meta">${b.personen} pers · ${VI[b.type]||'⛺'} ${b.type} · <span class="badge ${STATUS_META[b.status].cls}" style="font-size:10px;padding:1px 6px;">${STATUS_META[b.status].label}</span></div></div></div>`).join('');
+    html+=ev.arr.map(b=>{const sm=STATUS_META[b.status]||{cls:'',label:b.status,icon:''};return`<div class="day-ev-row">${avHtml(b,36,10)}<div><div class="day-ev-name">${b.naam} <span style="color:var(--lbl4);font-weight:400;font-size:12px;">#${b.volgnummer??'—'}</span></div><div class="day-ev-meta">${b.personen} pers · ${VI[b.type]||'⛺'} ${b.type} · <span class="badge ${sm.cls}" style="font-size:10px;padding:1px 6px;">${sm.label}</span></div></div></div>`}).join('');
     html+='</div>'
   }
   if(ev.dep.length){
@@ -1808,8 +1917,7 @@ async function loadUsers(){
 }
 
 /* ═══════════ TARIEVEN ═══════════ */
-let extraTarieven=[];
-let accTypes=[];// extra accommodatietypes (safaritent, glamping…)
+// extraTarieven en accTypes worden gedeclareerd in loadPricesFromDB sectie hierboven
 
 function renderAccTypes(){
   const el=document.getElementById('accTypesList');if(!el)return;

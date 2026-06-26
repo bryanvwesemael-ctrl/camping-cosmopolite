@@ -203,22 +203,22 @@
       <div class="cell"><div class="cell-icon ci-green">👤</div><div class="cell-body"><div class="cell-lbl">Naam</div><input type="text" id="fNaam" placeholder="Volledige naam"></div></div>
       <div class="cell"><div class="cell-icon ci-blue">✉️</div><div class="cell-body"><div class="cell-lbl">E-mailadres <span style="font-weight:400;color:var(--lbl4)">voor bevestigingsmail</span></div><input type="email" id="fEmail" placeholder="gast@email.com"></div></div>
       <div class="cell"><div class="cell-icon ci-blue">🚗</div><div class="cell-body"><div class="cell-lbl">Nummerplaat</div><input type="text" id="fPlaat" placeholder="1-ABC-123" autocapitalize="characters"></div></div>
-      <div class="cell"><div class="cell-icon ci-orange">🧑</div><div class="cell-body"><div class="cell-lbl">Volwassenen <span style="font-weight:400;color:var(--lbl4)">€7/nacht + taks</span></div><div class="num-stepper"><button onclick="stepField('fVolwassenen',-1)">−</button><input type="number" id="fVolwassenen" value="2" min="0" max="30" oninput="updatePriceLive()"><button onclick="stepField('fVolwassenen',1)">+</button></div></div></div>
-      <div class="cell"><div class="cell-icon ci-orange">🧒</div><div class="cell-body"><div class="cell-lbl">Kinderen 3–11 <span style="font-weight:400;color:var(--lbl4)">€5/nacht</span></div><div class="num-stepper"><button onclick="stepField('fKinderen',-1)">−</button><input type="number" id="fKinderen" value="0" min="0" max="30" oninput="updatePriceLive()"><button onclick="stepField('fKinderen',1)">+</button></div></div></div>
-      <div class="cell"><div class="cell-icon ci-blue">👶</div><div class="cell-body"><div class="cell-lbl">Baby's &lt;3 jaar <span style="font-weight:400;color:var(--lbl4)">gratis</span></div><div class="num-stepper"><button onclick="stepField('fBaby',-1)">−</button><input type="number" id="fBaby" value="0" min="0" max="10" oninput="updatePriceLive()"><button onclick="stepField('fBaby',1)">+</button></div></div></div>
-      <div class="cell"><div class="cell-icon ci-blue">🚗</div><div class="cell-body"><div class="cell-lbl">Aantal auto's <span style="font-weight:400;color:var(--lbl4)">1e gratis, +€2/extra</span></div><div class="num-stepper"><button onclick="stepField('fAutos',-1)">−</button><input type="number" id="fAutos" value="1" min="1" max="10" oninput="updatePriceLive()"><button onclick="stepField('fAutos',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-orange">🧑</div><div class="cell-body"><div class="cell-lbl">Volwassenen <span id="lblPrijsVolw" style="font-weight:400;color:var(--lbl4)">€7/nacht + taks</span></div><div class="num-stepper"><button onclick="stepField('fVolwassenen',-1)">−</button><input type="number" id="fVolwassenen" value="2" min="0" max="30" oninput="updatePriceLive()"><button onclick="stepField('fVolwassenen',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-orange">🧒</div><div class="cell-body"><div class="cell-lbl">Kinderen 3–11 <span id="lblPrijsKind" style="font-weight:400;color:var(--lbl4)">€5/nacht</span></div><div class="num-stepper"><button onclick="stepField('fKinderen',-1)">−</button><input type="number" id="fKinderen" value="0" min="0" max="30" oninput="updatePriceLive()"><button onclick="stepField('fKinderen',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-blue">👶</div><div class="cell-body"><div class="cell-lbl">Baby's &lt;3 jaar <span id="lblPrijsBaby" style="font-weight:400;color:var(--lbl4)">gratis</span></div><div class="num-stepper"><button onclick="stepField('fBaby',-1)">−</button><input type="number" id="fBaby" value="0" min="0" max="10" oninput="updatePriceLive()"><button onclick="stepField('fBaby',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-blue">🚗</div><div class="cell-body"><div class="cell-lbl">Aantal auto's <span id="lblPrijsAuto" style="font-weight:400;color:var(--lbl4)">1e gratis, +€2/extra</span></div><div class="num-stepper"><button onclick="stepField('fAutos',-1)">−</button><input type="number" id="fAutos" value="1" min="1" max="10" oninput="updatePriceLive()"><button onclick="stepField('fAutos',1)">+</button></div></div></div>
     </div></div>
 
     <div class="sg"><div class="sg-lbl">Verblijf</div><div class="cells">
       <div class="cell"><div class="cell-icon ci-green">📅</div><div class="cell-body"><div class="cell-lbl">Aankomst</div><input type="date" id="fAankomst" oninput="updatePriceLive()"></div></div>
       <div class="cell"><div class="cell-icon ci-orange">📅</div><div class="cell-body"><div class="cell-lbl">Vertrek</div><input type="date" id="fVertrek" oninput="updatePriceLive()"></div></div>
-      <div class="cell"><div class="cell-icon ci-green">⛺</div><div class="cell-body"><div class="cell-lbl">Tenten <span style="font-weight:400;color:var(--lbl4)">€15/nacht</span></div><div class="num-stepper"><button onclick="stepField('fTenten',-1)">−</button><input type="number" id="fTenten" value="1" min="0" max="20" oninput="updatePriceLive()"><button onclick="stepField('fTenten',1)">+</button></div></div></div>
-      <div class="cell"><div class="cell-icon ci-blue">🚐</div><div class="cell-body"><div class="cell-lbl">Campers/Caravans <span style="font-weight:400;color:var(--lbl4)">€15/nacht</span></div><div class="num-stepper"><button onclick="stepField('fCampers',-1)">−</button><input type="number" id="fCampers" value="0" min="0" max="20" oninput="updatePriceLive()"><button onclick="stepField('fCampers',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-green">⛺</div><div class="cell-body"><div class="cell-lbl">Tenten <span id="lblPrijsTent" style="font-weight:400;color:var(--lbl4)">€15/nacht</span></div><div class="num-stepper"><button onclick="stepField('fTenten',-1)">−</button><input type="number" id="fTenten" value="1" min="0" max="20" oninput="updatePriceLive()"><button onclick="stepField('fTenten',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-blue">🚐</div><div class="cell-body"><div class="cell-lbl">Campers/Caravans <span id="lblPrijsCamper" style="font-weight:400;color:var(--lbl4)">€15/nacht</span></div><div class="num-stepper"><button onclick="stepField('fCampers',-1)">−</button><input type="number" id="fCampers" value="0" min="0" max="20" oninput="updatePriceLive()"><button onclick="stepField('fCampers',1)">+</button></div></div></div>
     </div></div>
 
     <div class="sg"><div class="sg-lbl">Extra's</div><div class="cells">
-      <div class="cell"><div class="cell-icon ci-orange">🐕</div><div class="cell-body"><div class="cell-lbl">Honden <span style="font-weight:400;color:var(--lbl4)">€3/hond/nacht</span></div><div class="num-stepper"><button onclick="stepField('fHonden',-1)">−</button><input type="number" id="fHonden" value="0" min="0" max="5" oninput="updatePriceLive()"><button onclick="stepField('fHonden',1)">+</button></div></div></div>
-      <div class="cell"><div class="cell-icon ci-green">⚡</div><div class="cell-body" style="flex-direction:row;align-items:center;justify-content:space-between;"><div class="cell-lbl">Elektriciteit <span style="font-weight:400;color:var(--lbl4)">+€6 eenmalig</span></div><label class="toggle-sw"><input type="checkbox" id="fElektriciteit" onchange="updatePriceLive()"><span></span></label></div></div>
+      <div class="cell"><div class="cell-icon ci-orange">🐕</div><div class="cell-body"><div class="cell-lbl">Honden <span id="lblPrijsHond" style="font-weight:400;color:var(--lbl4)">€3/hond/nacht</span></div><div class="num-stepper"><button onclick="stepField('fHonden',-1)">−</button><input type="number" id="fHonden" value="0" min="0" max="5" oninput="updatePriceLive()"><button onclick="stepField('fHonden',1)">+</button></div></div></div>
+      <div class="cell"><div class="cell-icon ci-green">⚡</div><div class="cell-body" style="flex-direction:row;align-items:center;justify-content:space-between;"><div class="cell-lbl">Elektriciteit <span id="lblPrijsElek" style="font-weight:400;color:var(--lbl4)">+€6 eenmalig</span></div><label class="toggle-sw"><input type="checkbox" id="fElektriciteit" onchange="updatePriceLive()"><span></span></label></div></div>
     </div></div>
 
     <div class="sg"><div class="sg-lbl">Prijs (automatisch berekend)</div></div>
@@ -239,15 +239,27 @@
   </div>
 </section>
 
-<!-- ══ KALENDER (GANTT) ══ -->
+<!-- ══ KALENDER ══ -->
 <section class="view" id="view-kalender">
-  <div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">
-    <div style="display:flex;gap:8px;">
-      <button class="cal-btn" onclick="ganttShift(-14)" style="width:36px;height:36px;border-radius:10px;font-size:18px;">‹</button>
-      <button class="cal-btn" onclick="ganttToday()" style="padding:0 14px;height:36px;border-radius:10px;font-size:13px;font-weight:700;">Vandaag</button>
-      <button class="cal-btn" onclick="ganttShift(14)" style="width:36px;height:36px;border-radius:10px;font-size:18px;">›</button>
+  <!-- View toggle -->
+  <div style="padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;background:var(--bg);border:1.5px solid var(--sep);border-radius:10px;overflow:hidden;">
+      <button id="calBtnGantt" onclick="setCalView('gantt')" class="cal-view-on" style="padding:7px 16px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--lbl2);transition:all .15s;">Tijdlijn</button>
+      <button id="calBtnMaand" onclick="setCalView('maand')" style="padding:7px 16px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--lbl2);transition:all .15s;">Maand</button>
     </div>
-    <div style="font-size:13px;font-weight:700;color:var(--lbl1);" id="ganttRangeLabel"></div>
+    <div id="ganttRangeLabel" style="font-size:13px;font-weight:700;color:var(--lbl1);"></div>
+  </div>
+  <!-- Gantt nav -->
+  <div id="calGanttNav" style="display:flex;padding:10px 16px 6px;gap:8px;">
+    <button class="cal-btn" onclick="ganttShift(-14)" style="width:36px;height:36px;border-radius:10px;font-size:18px;">‹</button>
+    <button class="cal-btn" onclick="ganttToday()" style="padding:0 14px;height:36px;border-radius:10px;font-size:13px;font-weight:700;">Vandaag</button>
+    <button class="cal-btn" onclick="ganttShift(14)" style="width:36px;height:36px;border-radius:10px;font-size:18px;">›</button>
+  </div>
+  <!-- Maand nav -->
+  <div id="calMaandNav" style="display:none;padding:10px 16px 6px;gap:8px;align-items:center;">
+    <button class="cal-btn" onclick="prevMonth()" style="width:36px;height:36px;border-radius:10px;font-size:18px;">‹</button>
+    <span id="calMaandLabel" style="font-size:14px;font-weight:700;color:var(--lbl1);flex:1;text-align:center;"></span>
+    <button class="cal-btn" onclick="nextMonth()" style="width:36px;height:36px;border-radius:10px;font-size:18px;">›</button>
   </div>
   <!-- Legend -->
   <div style="padding:0 16px 10px;display:flex;gap:12px;flex-wrap:wrap;">
@@ -255,10 +267,15 @@
     <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--lbl3);"><div style="width:12px;height:12px;border-radius:3px;background:#FF9500"></div>Aanvraag</div>
     <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--lbl3);"><div style="width:12px;height:12px;border-radius:3px;background:#007AFF"></div>Ingecheckt</div>
     <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--lbl3);"><div style="width:12px;height:12px;border-radius:3px;background:#5856D6"></div>Betaald</div>
-    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--lbl3);"><div style="width:12px;height:12px;border-radius:3px;background:#8E8E93"></div>Wachtlijst</div>
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--lbl3);"><div style="width:12px;height:12px;border-radius:3px;background:#FF3B30"></div>Geannuleerd</div>
   </div>
-  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <!-- Gantt chart -->
+  <div id="ganttChartWrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
     <div id="ganttChart" style="min-width:600px;padding:0 16px 16px;"></div>
+  </div>
+  <!-- Maandgrid -->
+  <div id="calMaandWrap" style="display:none;padding:0 16px 16px;">
+    <div id="calGrid" class="cal-grid"></div>
   </div>
   <div style="height:8px;"></div>
 </section>
@@ -639,22 +656,14 @@
           <div class="cfg-row"><span class="cfg-row-lbl">E-mail</span><input class="cfg-row-input" id="cfgFromEmail" placeholder="info@campingcosmopolite.be" oninput="debounceSave('mail_from_email',this.value)"></div>
         </div>
 
-        <!-- Variabelen uitleg -->
-        <div style="background:rgba(27,138,91,.07);border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:11.5px;color:var(--lbl2);line-height:1.8;">
-          <b>Beschikbare variabelen:</b><br>
-          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{voornaam}}</code>
-          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{aankomst}}</code>
-          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{vertrek}}</code>
-          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{nachten}}</code>
-          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{personen}}</code>
-          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{bedrag}}</code>
-          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{ogm}}</code>
-          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;">{{plaatsnummer}}</code>
+        <!-- Verwijzing naar booking detail -->
+        <div style="background:rgba(27,138,91,.07);border-radius:10px;padding:13px 14px;margin-bottom:14px;font-size:12.5px;color:var(--lbl2);line-height:1.6;">
+          ✏️ <b>Templates beheer je nu rechtstreeks in de boeking.</b><br>
+          Open een boeking → tabblad <b>Mail</b> → <em>Templates beheren</em>.<br>
+          Variabelen: <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{voornaam}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{aankomst}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{bedrag}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{ogm}}</code> …
         </div>
-
-        <!-- Template blokken per type -->
-        <div id="mailTemplateBlocks"></div>
-        <button onclick="slaMailTemplatesOp()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;margin-bottom:6px;">💾 Templates opslaan</button>
+        <!-- Hidden element needed for slaMailTemplatesOp msg -->
+        <div id="mailTemplateBlocks" style="display:none;"></div>
         <div id="mailTplMsg" style="font-size:12px;color:var(--lbl3);margin-top:4px;text-align:center;min-height:14px;"></div>
 
         <!-- Resend key -->
