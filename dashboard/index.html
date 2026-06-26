@@ -322,13 +322,27 @@
 </section>
 
 <section class="view" id="view-mail">
-  <div class="mail-filter-row">
-    <div class="mf-pill on" id="mf-all" onclick="setMailFilter('all',this)">Alle</div>
-    <div class="mf-pill" id="mf-concept" onclick="setMailFilter('concept',this)">📝 Concept</div>
-    <div class="mf-pill" id="mf-verzonden" onclick="setMailFilter('verzonden',this)">✅ Verzonden</div>
+  <!-- Segment toggle -->
+  <div style="display:flex;padding:10px 16px;gap:8px;border-bottom:1.5px solid var(--sep);">
+    <button id="ms-mails" onclick="switchMailSeg('mails')" style="flex:1;padding:8px;border-radius:10px;border:1.5px solid var(--green);background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">📬 Mails</button>
+    <button id="ms-templates" onclick="switchMailSeg('templates')" style="flex:1;padding:8px;border-radius:10px;border:1.5px solid var(--sep);background:transparent;color:var(--lbl2);font-size:13px;font-weight:700;cursor:pointer;">📋 Templates</button>
   </div>
-  <div id="mailViewContent" style="padding-top:8px;">
-    <div class="mail-empty">Laden…</div>
+  <!-- Mails segment -->
+  <div id="mailMailsWrap">
+    <div class="mail-filter-row">
+      <div class="mf-pill on" id="mf-all" onclick="setMailFilter('all',this)">Alle</div>
+      <div class="mf-pill" id="mf-concept" onclick="setMailFilter('concept',this)">📝 Concept</div>
+      <div class="mf-pill" id="mf-verzonden" onclick="setMailFilter('verzonden',this)">✅ Verzonden</div>
+    </div>
+    <div id="mailViewContent" style="padding-top:8px;">
+      <div class="mail-empty">Laden…</div>
+    </div>
+  </div>
+  <!-- Templates segment -->
+  <div id="mailTemplatesWrap" style="display:none;padding:16px 16px 40px;">
+    <div style="font-size:11px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Mail templates beheren</div>
+    <div id="mailTemplateBlocksPage"></div>
+    <div id="mailTplPageMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;min-height:14px;"></div>
   </div>
 </section>
 </main>

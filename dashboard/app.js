@@ -617,6 +617,75 @@ const MAIL_TYPES=[
 ];
 let mailTemplates={};// {bevestiging:[{onderwerp,inhoud},...], ...}
 
+/* ═══ MAIL SEGMENT (pagina) ═══ */
+function switchMailSeg(seg){
+  const isMails=seg==='mails';
+  document.getElementById('ms-mails').style.background=isMails?'var(--green)':'transparent';
+  document.getElementById('ms-mails').style.color=isMails?'#fff':'var(--lbl2)';
+  document.getElementById('ms-mails').style.borderColor=isMails?'var(--green)':'var(--sep)';
+  document.getElementById('ms-templates').style.background=isMails?'transparent':'var(--green)';
+  document.getElementById('ms-templates').style.color=isMails?'var(--lbl2)':'#fff';
+  document.getElementById('ms-templates').style.borderColor=isMails?'var(--sep)':'var(--green)';
+  document.getElementById('mailMailsWrap').style.display=isMails?'block':'none';
+  document.getElementById('mailTemplatesWrap').style.display=isMails?'none':'block';
+  if(!isMails)loadMailTemplatesPage();
+}
+async function loadMailTemplatesPage(){
+  const el=document.getElementById('mailTemplateBlocksPage');if(!el)return;
+  el.innerHTML='<div style="padding:20px;text-align:center;color:var(--lbl3);font-size:13px;">Laden…</div>';
+  const {data:{session}}=await sb.auth.getSession();if(!session)return;
+  const {data:rows}=await sb.from('settings').select('key,value').eq('user_id',session.user.id).like('key','mailtemplate_%');
+  MAIL_TYPES.forEach(t=>{
+    const raw=rows?.find(r=>r.key==='mailtemplate_'+t.key)?.value;
+    try{mailTemplates[t.key]=JSON.parse(raw||'[]');}catch(e){mailTemplates[t.key]=[];}
+    if(!mailTemplates[t.key].length)mailTemplates[t.key]=[{onderwerp:t.defaultOnderwerp,inhoud:t.defaultInhoud}];
+  });
+  renderMailTemplateBlocksPage();
+}
+function renderMailTemplateBlocksPage(){
+  const el=document.getElementById('mailTemplateBlocksPage');if(!el)return;
+  el.innerHTML=MAIL_TYPES.map(t=>`
+    <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:14px;margin-bottom:14px;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--sep);background:var(--bg2);">
+        <div style="font-size:18px;">${t.icon}</div>
+        <div style="flex:1;font-size:14px;font-weight:700;color:var(--lbl1);">${t.label}</div>
+        <button onclick="voegMailVariantToePage('${t.key}')" style="padding:5px 10px;border-radius:8px;background:rgba(27,138,91,.1);color:var(--green);border:none;font-size:12px;font-weight:700;cursor:pointer;">+ Variant</button>
+      </div>
+      ${(mailTemplates[t.key]||[]).map((v,vi)=>`
+        <div style="padding:12px 14px;border-bottom:1px solid var(--sep);">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+            <input value="${escHtml(v.onderwerp)}" placeholder="Onderwerp" oninput="mailTemplates['${t.key}'][${vi}].onderwerp=this.value"
+              style="flex:1;padding:7px 10px;border-radius:8px;border:1.5px solid var(--sep);background:var(--bg);font-size:13px;font-weight:600;color:var(--lbl1);">
+            ${(mailTemplates[t.key].length>1)?`<button onclick="verwijderMailVariantPage('${t.key}',${vi})" style="padding:5px 8px;border-radius:8px;background:rgba(255,59,48,.1);color:var(--red);border:none;font-size:12px;cursor:pointer;">✕</button>`:''}
+          </div>
+          <textarea rows="5" placeholder="Inhoud…" oninput="mailTemplates['${t.key}'][${vi}].inhoud=this.value"
+            style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid var(--sep);background:var(--bg);font-size:12.5px;color:var(--lbl1);resize:vertical;box-sizing:border-box;">${escHtml(v.inhoud)}</textarea>
+        </div>`).join('')}
+      <div style="padding:10px 14px;">
+        <button onclick="slaMailTemplatesOpPage()" style="width:100%;padding:9px;background:var(--green);color:#fff;border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;">💾 Opslaan</button>
+      </div>
+    </div>`).join('');
+}
+function voegMailVariantToePage(typeKey){
+  const t=MAIL_TYPES.find(x=>x.key===typeKey);
+  if(!mailTemplates[typeKey])mailTemplates[typeKey]=[];
+  mailTemplates[typeKey].push({onderwerp:t?.defaultOnderwerp||'',inhoud:t?.defaultInhoud||''});
+  renderMailTemplateBlocksPage();
+}
+function verwijderMailVariantPage(typeKey,idx){
+  if(!mailTemplates[typeKey]||mailTemplates[typeKey].length<=1)return;
+  mailTemplates[typeKey].splice(idx,1);
+  renderMailTemplateBlocksPage();
+}
+async function slaMailTemplatesOpPage(){
+  const msg=document.getElementById('mailTplPageMsg');
+  const {data:{session}}=await sb.auth.getSession();if(!session)return;
+  for(const t of MAIL_TYPES){
+    await sb.from('settings').upsert({user_id:session.user.id,key:'mailtemplate_'+t.key,value:JSON.stringify(mailTemplates[t.key]||[])},{onConflict:'user_id,key'});
+  }
+  if(msg){msg.textContent='✅ Templates opgeslagen';setTimeout(()=>msg.textContent='',2500);}
+}
+
 async function loadMailTemplates(){
   const el=document.getElementById('mailTemplateBlocks');if(!el)return;
   const {data:{session}}=await sb.auth.getSession();
