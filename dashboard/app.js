@@ -60,15 +60,21 @@ function calcPrice(o){
   const basis=(o.tenten||0)*PRICES.tent+(o.campers||0)*PRICES.camper;
   const volw=o.volwassenen||0, kind=o.kinderen||0, baby=o.baby||0;
   const totaalPersonen=volw+kind+baby;
-  const afval=Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6; // eenmalig per verblijf
-  const taks=volw*PRICES.toeristentaks;
+  const afval=Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6;
   const extraAutos=Math.max(0,(o.autos||1)-1);
   const honden=o.honden||0;
-  const perNacht=basis+volw*PRICES.volwassene+kind*PRICES.kind+honden*PRICES.hond+extraAutos*PRICES.extraAuto+taks;
   const nights=Math.max(o.nights||0,0);
   const elek=o.elektriciteit?PRICES.elektriciteit:0;
-  const totaal=Math.round((perNacht*nights+elek+afval)*100)/100;
-  return{basis,afval,taks,perNacht,nights,elek,totaal,personen:totaalPersonen,extraAutos,honden,eenheden};
+  // Toeristentaks is BTW-vrij (gemeentelijke belasting, geen BTW)
+  const taks=volw*PRICES.toeristentaks;
+  const taks_totaal=taks*nights;
+  // Camping diensten: 12% BTW (wetswijziging 1 maart 2026)
+  const diensten_per_nacht=basis+volw*PRICES.volwassene+kind*PRICES.kind+honden*PRICES.hond+extraAutos*PRICES.extraAuto;
+  const diensten_totaal=diensten_per_nacht*nights+elek+afval;
+  const btw=Math.round(diensten_totaal*0.12*100)/100;
+  const totaal=Math.round((diensten_totaal+btw+taks_totaal)*100)/100;
+  const perNacht=diensten_per_nacht+taks;
+  return{basis,afval,taks,taks_totaal,perNacht,nights,elek,btw,diensten_totaal,totaal,personen:totaalPersonen,extraAutos,honden,eenheden};
 }
 function genRef(idOrBooking){
   if(typeof idOrBooking==='object')return idOrBooking.ogm||(idOrBooking.volgnummer?`#${idOrBooking.volgnummer}`:'—');
@@ -596,7 +602,8 @@ function priceBreakdownHtml(p){
     ${(p.honden||0)>0?`<div class="price-row"><span>🐕 Honden (${p.honden} × ${p.nights}n)</span><span>€${(p.honden*PRICES.hond*p.nights).toFixed(2)}</span></div>`:''}
     ${(p.extraAutos||0)>0?`<div class="price-row"><span>🚗 Extra auto's (${p.extraAutos} × ${p.nights}n)</span><span>€${(p.extraAutos*PRICES.extraAuto*p.nights).toFixed(2)}</span></div>`:''}
     <div class="price-row"><span>🗑️ Afvalbijdrage (eenmalig)</span><span>€${p.afval.toFixed(2)}</span></div>
-    <div class="price-row"><span>🏛️ Toeristentaks</span><span>€${(p.taks*p.nights).toFixed(2)}</span></div>
+    <div class="price-row"><span>🏛️ Toeristentaks (BTW-vrij)</span><span>€${p.taks_totaal.toFixed(2)}</span></div>
+    <div class="price-row"><span>📊 BTW 12% (campingdiensten)</span><span>€${p.btw.toFixed(2)}</span></div>
     ${p.elek?`<div class="price-row"><span>⚡ Elektriciteit (eenmalig)</span><span>€${p.elek.toFixed(2)}</span></div>`:''}
     <div class="price-row total"><span>Totaal</span><span>€${p.totaal.toFixed(2)}</span></div>`
 }
@@ -670,6 +677,13 @@ async function addBooking(){
   if(aankomst>=vertrek){toast('⚠️ Vertrek moet na aankomst zijn');return}
   if(tenten+campers<1){toast('⚠️ Voeg minstens 1 tent of camper toe');return}
   if(volwassenen+kinderen+baby<1){toast('⚠️ Minstens 1 persoon is verplicht');return}
+  // Capaciteitscontrole (vergunde max. plaatsen conform Logiesdecreet)
+  const maxPlaatsen=parseInt(document.getElementById('tarMaxPlaatsen')?.value)||0;
+  if(maxPlaatsen>0){
+    const bezet=bookings.filter(b=>b.aankomst<vertrek&&b.vertrek>aankomst&&b.status!=='geannuleerd')
+      .reduce((s,b)=>s+(b.tenten||0)+(b.campers||0),0);
+    if(bezet+tenten+campers>maxPlaatsen){toast(`⚠️ Max. capaciteit overschreden: ${bezet} van ${maxPlaatsen} plaatsen bezet`);return}
+  }
   const clientEmail=email||`geen-email+${Date.now()}@cosmopolite.local`;
   const {data:client,error:cErr}=await sb.from('clients').insert({naam,nummerplaten:plaat,email:clientEmail}).select().single();
   if(cErr){toast('⚠️ Klant aanmaken mislukt: '+cErr.message);return}
@@ -1248,20 +1262,32 @@ function printRegister(){
   <script>window.onload=function(){window.print()}<\/script></body></html>`);
   win.document.close()
 }
-function exportRegisterCSV(){
+async function exportRegisterCSV(){
   const date=document.getElementById('registerDate').value||TODAY;
-  const list=registerEntries(date);
-  const rows=[['Volgnummer','Voornaam','Achternaam','Geboortedatum','Nationaliteit','ID-nummer','Woonplaats','Aankomst','Vertrek']];
-  list.forEach(b=>{
+  const activeBookings=registerEntries(date);
+  const rows=[['Volgnummer','Voornaam','Achternaam','Geboortedatum','Nationaliteit','ID-nummer','Woonplaats','Aankomst','Vertrek','Rol']];
+  // Haal ook gasten op uit de gasten-tabel
+  const bookingIds=activeBookings.map(b=>b.id);
+  let gastenMap={};
+  if(bookingIds.length){
+    const {data:gasten}=await sb.from('gasten').select('*').in('booking_id',bookingIds);
+    (gasten||[]).forEach(g=>{if(!gastenMap[g.booking_id])gastenMap[g.booking_id]=[];gastenMap[g.booking_id].push(g);});
+  }
+  activeBookings.forEach(b=>{
     const n=splitNaam(b.naam);
-    rows.push([b.volgnummer??'',n.voornaam,n.achternaam,b.geboortedatum||'',b.nationaliteit||'',b.idnr||'',b.woonplaats||'',b.aankomst,b.vertrek])
+    const extraGasten=gastenMap[b.id]||[];
+    rows.push([b.volgnummer??'',n.voornaam,n.achternaam,b.geboortedatum||'',b.nationaliteit||'',b.idnr||'',b.woonplaats||'',b.aankomst,b.vertrek,extraGasten.length>0?'Hoofdgast':'—']);
+    extraGasten.forEach(g=>{
+      const gn=splitNaam(g.naam);
+      rows.push([b.volgnummer??'',gn.voornaam,gn.achternaam,g.geboortedatum||'',g.nationaliteit||'',g.id_nummer||'','',b.aankomst,b.vertrek,g.is_hoofdgast?'Hoofdgast':'Meereizend']);
+    });
   });
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download=`register_${date}.csv`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
-  toast('⬇️ CSV gedownload')
+  toast('⬇️ CSV gedownload (incl. alle gasten)')
 }
 
 /* ═══════════ INIT ═══════════ */
@@ -1370,6 +1396,16 @@ async function loadSettings(){
     tarief_baby:'baby',tarief_hond:'hond',tarief_extraAuto:'extraAuto',tarief_elektriciteit:'elektriciteit',
     tarief_afvalPer6:'afvalPer6',tarief_toeristentaks:'toeristentaks'};
   Object.entries(tarMap).forEach(([k,pk])=>{if(cfg[k])PRICES[pk]=parseFloat(cfg[k])||PRICES[pk];});
+  if(cfg.max_plaatsen)PRICES.maxPlaatsen=parseInt(cfg.max_plaatsen)||0;
+  // Juridische instellingen laden
+  ['cfgKBO','cfgBTW','cfgAdres','cfgGemeente','cfgAnnulering'].forEach(id=>{
+    const el=document.getElementById(id);if(el&&cfg[id.replace('cfg','').toLowerCase()])el.value=cfg[id.replace('cfg','').toLowerCase()];
+  });
+  if(cfg.kbo){const el=document.getElementById('cfgKBO');if(el)el.value=cfg.kbo;}
+  if(cfg.btw_nummer){const el=document.getElementById('cfgBTW');if(el)el.value=cfg.btw_nummer;}
+  if(cfg.adres){const el=document.getElementById('cfgAdres');if(el)el.value=cfg.adres;}
+  if(cfg.gemeente){const el=document.getElementById('cfgGemeente');if(el)el.value=cfg.gemeente;}
+  if(cfg.annulering_beleid){const el=document.getElementById('cfgAnnulering');if(el)el.value=cfg.annulering_beleid;}
 
   // Herinnering template
   if(cfg.tpl_herinnering_subject){const el=document.getElementById('cfgSubjectHer');if(el)el.value=cfg.tpl_herinnering_subject;}
@@ -1388,7 +1424,7 @@ function toonMailPreview(type='bev'){
   box.style.display=box.style.display==='none'?'block':'none';
 }
 /* ═══════════ SETTINGS OVERLAY ═══════════ */
-const SETTINGS_PAGES=['mail','betaling','gebruikers','tarieven','account'];
+const SETTINGS_PAGES=['mail','betaling','gebruikers','tarieven','juridisch','account'];
 function openSettingsOverlay(page='mail'){
   showView('instellingen',null);
   switchSettingsPage(page);
@@ -1402,7 +1438,7 @@ function switchSettingsPage(page){
     if(nav) nav.classList.toggle('on',p===page);
     if(panel) panel.style.display=p===page?'block':'none';
   });
-  const titles={mail:'Mail',betaling:'Betaling',gebruikers:'Gebruikers',tarieven:'Tarieven',account:'Account'};
+  const titles={mail:'Mail',betaling:'Betaling',gebruikers:'Gebruikers',tarieven:'Tarieven',juridisch:'Juridisch & Wettelijk',account:'Account'};
   document.getElementById('settingsPageTitle').textContent=titles[page]||'Instellingen';
   if(page==='gebruikers') loadUsers();
   if(page==='tarieven') loadTarieven();
@@ -1489,6 +1525,7 @@ function loadTarieven(){
   document.getElementById('tarElek').value=PRICES.elektriciteit;
   document.getElementById('tarAfval').value=PRICES.afvalPer6;
   document.getElementById('tarTaks').value=PRICES.toeristentaks;
+  const mp=document.getElementById('tarMaxPlaatsen');if(mp)mp.value=PRICES.maxPlaatsen||0;
 }
 function updateTarief(key,val){
   PRICES[key]=parseFloat(val)||0;
@@ -1500,10 +1537,12 @@ async function saveTarieven(){
   btn.textContent='Opslaan…';btn.disabled=true;
   try{
     const {data:{session}}=await sb.auth.getSession();
+    PRICES.maxPlaatsen=parseInt(document.getElementById('tarMaxPlaatsen')?.value)||0;
     const pairs=[['tarief_tent',PRICES.tent],['tarief_camper',PRICES.camper],
       ['tarief_volwassene',PRICES.volwassene],['tarief_kind',PRICES.kind],['tarief_baby',PRICES.baby],
       ['tarief_hond',PRICES.hond],['tarief_extraAuto',PRICES.extraAuto],
-      ['tarief_elektriciteit',PRICES.elektriciteit],['tarief_afvalPer6',PRICES.afvalPer6],['tarief_toeristentaks',PRICES.toeristentaks]];
+      ['tarief_elektriciteit',PRICES.elektriciteit],['tarief_afvalPer6',PRICES.afvalPer6],['tarief_toeristentaks',PRICES.toeristentaks],
+      ['max_plaatsen',PRICES.maxPlaatsen]];
     for(const [key,value] of pairs){
       await sb.from('settings').upsert({user_id:session.user.id,key,value:String(value),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
     }
@@ -1511,6 +1550,58 @@ async function saveTarieven(){
   }catch(err){msg.textContent='⚠️ '+err.message;msg.style.color='var(--red)';}
   finally{btn.textContent='Tarieven opslaan';btn.disabled=false;setTimeout(()=>msg.textContent='',3000);}
 }
+async function saveJuridisch(){
+  const btn=document.getElementById('saveJuridischBtn');
+  const msg=document.getElementById('juridischMsg');
+  btn.textContent='Opslaan…';btn.disabled=true;
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const pairs=[
+      ['kbo',document.getElementById('cfgKBO')?.value.trim()||''],
+      ['btw_nummer',document.getElementById('cfgBTW')?.value.trim()||''],
+      ['adres',document.getElementById('cfgAdres')?.value.trim()||''],
+      ['gemeente',document.getElementById('cfgGemeente')?.value.trim()||''],
+      ['annulering_beleid',document.getElementById('cfgAnnulering')?.value.trim()||''],
+    ];
+    for(const [key,value] of pairs){
+      await sb.from('settings').upsert({user_id:session.user.id,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
+    }
+    msg.textContent='✅ Juridische gegevens opgeslagen!';msg.style.color='var(--green)';
+  }catch(err){msg.textContent='⚠️ '+err.message;msg.style.color='var(--red)';}
+  finally{btn.textContent='Opslaan';btn.disabled=false;setTimeout(()=>msg.textContent='',3000);}
+}
+
+async function exportToeristentaksReport(){
+  const maand=document.getElementById('taksMonth')?.value||TODAY.slice(0,7);
+  const [y,m]=maand.split('-').map(Number);
+  const vanDatum=`${y}-${String(m).padStart(2,'0')}-01`;
+  const totDatum=`${y}-${String(m+1>12?1:m+1).padStart(2,'0')}-${m+1>12?y+1:y}-01`.split('-').slice(0,3).join('-');
+  // Alle boekingen die overlap hebben met de maand
+  const overlap=bookings.filter(b=>b.aankomst<`${y+1}-01-01`&&b.vertrek>vanDatum&&b.status!=='geannuleerd');
+  const rows=[['Boeking#','Naam','Aankomst','Vertrek','Volwassenen','Nachten (in maand)','Taks/volw/nacht','Toeristentaks']];
+  const taksPerNacht=PRICES.toeristentaks;
+  let totaalTaks=0;
+  const dim=new Date(y,m,0).getDate();
+  overlap.forEach(b=>{
+    const aankD=new Date(b.aankomst),vertD=new Date(b.vertrek);
+    const startM=new Date(y,m-1,1),endM=new Date(y,m,1);
+    const overlapStart=new Date(Math.max(aankD,startM));
+    const overlapEnd=new Date(Math.min(vertD,endM));
+    const nachtsMaand=Math.max(0,Math.round((overlapEnd-overlapStart)/86400000));
+    const volw=b.volwassenen||0;
+    const taks=Math.round(volw*taksPerNacht*nachtsMaand*100)/100;
+    totaalTaks+=taks;
+    rows.push([`#${b.volgnummer??'—'}`,b.naam,b.aankomst,b.vertrek,volw,nachtsMaand,`€${taksPerNacht}`,`€${taks.toFixed(2)}`]);
+  });
+  rows.push(['','','','','','','TOTAAL',`€${totaalTaks.toFixed(2)}`]);
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=`toeristentaks_${maand}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  toast(`⬇️ Toeristentaks rapport ${maand} gedownload (€${totaalTaks.toFixed(2)} totaal)`);
+}
+
 async function saveMollieKey(){
   const key=document.getElementById('cfgMollieKey').value.trim();
   const btn=document.getElementById('saveMollieBtn');
@@ -1602,16 +1693,8 @@ async function saveGuest(){
     const id_nummer=document.getElementById('gIdNummer').value.trim()||null;
     const nummerplaat=document.getElementById('gNummerplaat').value.trim()||null;
     const is_hoofdgast=document.getElementById('gHoofdgast').checked;
-    const fotoFile=document.getElementById('gFoto').files[0];
-    let foto_url=null;
-    if(fotoFile){
-      const {data:ins}=await sb.from('gasten').insert({booking_id:bookingId,naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast}).select().single();
-      const ext=fotoFile.name.split('.').pop();
-      const {error:upErr}=await sb.storage.from('id-fotos').upload(`gasten/${ins.id}/id.${ext}`,fotoFile,{upsert:true});
-      if(!upErr) await sb.from('gasten').update({foto_url:`gasten/${ins.id}/id.${ext}`}).eq('id',ins.id);
-    }else{
-      await sb.from('gasten').insert({booking_id:bookingId,naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast,foto_url});
-    }
+    // ID-foto upload niet toegestaan (GDPR art. 5.1.c dataminimalisatie)
+    await sb.from('gasten').insert({booking_id:bookingId,naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast});
     closeSheet('shAddGuest');
     loadGasten(bookingId);
     toast('✅ Gast toegevoegd');
