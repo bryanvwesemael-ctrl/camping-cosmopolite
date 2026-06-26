@@ -360,6 +360,23 @@
   </div>
 </div>
 
+<!-- Mail Send -->
+<div class="sh-overlay" id="shMailSend" onclick="closeSheetOnOverlay(event,'shMailSend')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-hd"><span class="sh-title" id="shMailSendTitle">📧 Mail versturen</span><button class="sh-close" onclick="closeSheet('shMailSend')">✕</button></div>
+    <div class="sh-body" style="padding:16px;">
+      <div style="font-size:11px;color:var(--lbl3);margin-bottom:4px;text-transform:uppercase;font-weight:700;letter-spacing:.4px;">Aan</div>
+      <div id="mailSendTo" style="font-size:14px;font-weight:700;color:var(--lbl1);margin-bottom:14px;"></div>
+      <div style="font-size:11px;color:var(--lbl4);margin-bottom:8px;" id="mailSendTemplateInfo"></div>
+      <input class="cfg-full-input" id="mailSendOnderwerp" placeholder="Onderwerp…" style="margin-bottom:10px;">
+      <textarea class="cfg-full-input" id="mailSendInhoud" rows="12" placeholder="Inhoud…" style="resize:vertical;line-height:1.6;font-size:13px;"></textarea>
+      <button onclick="verzendMailSend()" style="width:100%;padding:13px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;margin-top:12px;" id="mailSendBtn">📤 Versturen</button>
+      <div id="mailSendMsg" style="font-size:12px;margin-top:8px;text-align:center;min-height:14px;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Edit -->
 <div class="sh-overlay" id="shEdit" onclick="closeSheetOnOverlay(event,'shEdit')">
   <div class="sheet">
@@ -622,30 +639,23 @@
           <div class="cfg-row"><span class="cfg-row-lbl">E-mail</span><input class="cfg-row-input" id="cfgFromEmail" placeholder="info@campingcosmopolite.be" oninput="debounceSave('mail_from_email',this.value)"></div>
         </div>
 
-        <!-- Template -->
-        <div class="cfg-section-label">📝 Bevestigingsmail template<span style="float:right;font-size:11px;font-weight:400;color:var(--lbl4);">Opgeslagen automatisch</span></div>
-        <div class="cfg-card" style="margin-bottom:12px;">
-          <div style="font-size:11px;color:var(--lbl4);margin-bottom:8px;line-height:1.6;">
-            Variabelen: <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{voornaam}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{aankomst}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{vertrek}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{bedrag}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{ogm}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{nachten}}</code>
-          </div>
-          <input class="cfg-full-input" id="cfgSubjectBev" placeholder="Onderwerp…" oninput="debounceSave('tpl_bevestiging_subject',this.value)" style="margin-bottom:8px;">
-          <textarea class="cfg-full-input" id="cfgBodyBev" rows="9" style="resize:vertical;line-height:1.5;" oninput="debounceSave('tpl_bevestiging_body',this.value)"></textarea>
+        <!-- Variabelen uitleg -->
+        <div style="background:rgba(27,138,91,.07);border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:11.5px;color:var(--lbl2);line-height:1.8;">
+          <b>Beschikbare variabelen:</b><br>
+          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{voornaam}}</code>
+          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{aankomst}}</code>
+          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{vertrek}}</code>
+          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{nachten}}</code>
+          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{personen}}</code>
+          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{bedrag}}</code>
+          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;margin-right:4px;">{{ogm}}</code>
+          <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;">{{plaatsnummer}}</code>
         </div>
-        <button onclick="toonMailPreview('bev')" style="width:100%;padding:12px;background:var(--bg);border:1.5px solid var(--sep);border-radius:10px;font-size:13px;font-weight:700;color:var(--green);cursor:pointer;margin-bottom:8px;">👁 Voorvertoning met testdata</button>
-        <div id="mailPreviewBox" style="display:none;background:var(--bg2);border-radius:10px;padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.6;color:var(--lbl1);max-height:220px;overflow-y:auto;border-left:3px solid var(--green);margin-bottom:4px;"></div>
 
-        <!-- Herinnering template -->
-        <div class="cfg-section-label" style="margin-top:20px;">🔔 Herinneringsmail template<span style="float:right;font-size:11px;font-weight:400;color:var(--lbl4);">Opgeslagen automatisch</span></div>
-        <div style="font-size:12px;color:var(--lbl3);margin-bottom:8px;line-height:1.4;">Verstuur deze mail handmatig 1 week voor aankomst via de actieknop in een boeking.</div>
-        <div class="cfg-card" style="margin-bottom:12px;">
-          <div style="font-size:11px;color:var(--lbl4);margin-bottom:8px;line-height:1.6;">
-            Variabelen: <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{voornaam}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{aankomst}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{bedrag}}</code> <code style="background:var(--bg2);padding:1px 4px;border-radius:3px;">{{ogm}}</code>
-          </div>
-          <input class="cfg-full-input" id="cfgSubjectHer" placeholder="Onderwerp herinneringsmail…" oninput="debounceSave('tpl_herinnering_subject',this.value)" style="margin-bottom:8px;">
-          <textarea class="cfg-full-input" id="cfgBodyHer" rows="7" style="resize:vertical;line-height:1.5;" oninput="debounceSave('tpl_herinnering_body',this.value)"></textarea>
-        </div>
-        <button onclick="toonMailPreview('her')" style="width:100%;padding:12px;background:var(--bg);border:1.5px solid var(--sep);border-radius:10px;font-size:13px;font-weight:700;color:var(--green);cursor:pointer;margin-bottom:8px;">👁 Voorvertoning herinnering</button>
-        <div id="mailPreviewBoxHer" style="display:none;background:var(--bg2);border-radius:10px;padding:14px;font-size:12px;white-space:pre-wrap;line-height:1.6;color:var(--lbl1);max-height:220px;overflow-y:auto;border-left:3px solid #FF9500;margin-bottom:16px;"></div>
+        <!-- Template blokken per type -->
+        <div id="mailTemplateBlocks"></div>
+        <button onclick="slaMailTemplatesOp()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;margin-bottom:6px;">💾 Templates opslaan</button>
+        <div id="mailTplMsg" style="font-size:12px;color:var(--lbl3);margin-top:4px;text-align:center;min-height:14px;"></div>
 
         <!-- Resend key -->
         <div class="cfg-section-label" style="margin-top:20px;">🔑 Resend API Key</div>
@@ -743,11 +753,16 @@
           <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Max. vergunde plaatsen conform het brandveiligheidsattest en Toerisme Vlaanderen aanmelding. Overboeking wordt geblokkeerd.</div>
           <div class="cfg-row"><span class="cfg-row-lbl">🔢 Max. plaatsen</span><input class="cfg-row-input" id="tarMaxPlaatsen" type="number" value="0" min="0" step="1" style="width:70px;text-align:right;" placeholder="0 = geen limiet"></div>
         </div>
-        <div class="cfg-section-label">➕ Extra tarieven (vrije regels)</div>
+        <div class="cfg-section-label">🔒 Waarborg</div>
+        <div class="cfg-card" style="margin-bottom:12px;">
+          <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Eénmalige waarborg bij aankomst (cash of overschrijving). Wordt apart vermeld in het formulier.</div>
+          <div class="cfg-row"><span class="cfg-row-lbl">💶 Waarborgbedrag</span><div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--lbl3);font-size:13px;">€</span><input class="cfg-row-input" id="tarWaarborg" type="number" value="100" min="0" step="10" oninput="updateTarief('waarborg',this.value)" style="width:70px;text-align:right;"></div></div>
+        </div>
+        <div class="cfg-section-label">➕ Extra kostenposten (vrije regels)</div>
         <div class="cfg-card" style="margin-bottom:16px;">
-          <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Voeg eigen kostenposten toe: bv. Safaritent, Schoonmaak, Seizoenstoeslag…</div>
+          <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Voeg eigen posten toe. Kies de categorie zodat ze op de juiste plek in het formulier verschijnen.</div>
           <div id="extraTarievenList"></div>
-          <button onclick="voegExtraTarief()" style="margin-top:8px;width:100%;padding:9px;background:var(--green-soft);color:var(--green-deep);border:1.5px dashed var(--green);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">+ Regel toevoegen</button>
+          <button onclick="voegExtraTarief()" style="margin-top:8px;width:100%;padding:9px;background:rgba(27,138,91,.08);color:var(--green);border:1.5px dashed var(--green);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">+ Kostenpost toevoegen</button>
         </div>
         <button onclick="saveTarieven()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;" id="saveTarBtn">Tarieven opslaan</button>
         <div id="tarMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;min-height:16px;"></div>

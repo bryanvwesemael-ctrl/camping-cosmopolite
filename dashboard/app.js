@@ -444,6 +444,13 @@ function openBookingDetail(id){
 
     <!-- TAB: MAIL -->
     <div id="dtab-content-mail" style="display:none;padding:14px 16px;">
+      <div id="mailActiesBtns" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+        <button onclick="openMailSendSheet('${b.id}','bevestiging')" style="padding:10px;background:rgba(27,138,91,.1);color:var(--green);border:1.5px solid var(--green);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">✅ Bevestigingsmail</button>
+        <button onclick="openMailSendSheet('${b.id}','herinnering')" style="padding:10px;background:rgba(255,149,0,.1);color:#FF9500;border:1.5px solid #FF9500;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">🔔 Herinnering</button>
+        <button onclick="openMailSendSheet('${b.id}','betaling')" style="padding:10px;background:rgba(88,86,214,.1);color:#5856D6;border:1.5px solid #5856D6;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💶 Betaalverzoek</button>
+        <button onclick="openMailSendSheet('${b.id}','uitchecken')" style="padding:10px;background:rgba(0,122,255,.1);color:#007AFF;border:1.5px solid #007AFF;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">👋 Uitchecken</button>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📬 Communicatiehistoriek</div>
       <div id="commHistory">Laden…</div>
     </div>
     <div style="height:24px;"></div>`;
@@ -483,6 +490,140 @@ async function loadCommHistory(bookingId){
 function toggleCommBody(id){
   const el=document.getElementById(id);
   if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+
+/* ═══════════ MAIL TEMPLATES BEHEER ═══════════ */
+const MAIL_TYPES=[
+  {key:'bevestiging',label:'✅ Bevestigingsmail',color:'var(--green)',defaultOnderwerp:'Reservatiebevestiging — Camping Cosmopolite',defaultInhoud:`Beste {{voornaam}},\n\nJe reservatie is bevestigd! ✅\n\nAankomst: {{aankomst}}\nVertrek: {{vertrek}}\nNachten: {{nachten}}\nPersonen: {{personen}}\nBedrag: {{bedrag}}\nOGM: {{ogm}}\n\nTot dan!\nCamping Cosmopolite`},
+  {key:'herinnering',label:'🔔 Herinnering',color:'#FF9500',defaultOnderwerp:'Herinnering — Jouw verblijf nadert!',defaultInhoud:`Beste {{voornaam}},\n\nEen vriendelijke herinnering — je verblijf begint op {{aankomst}}.\n\nBedrag: {{bedrag}} · OGM: {{ogm}}\n\nTot dan!\nCamping Cosmopolite`},
+  {key:'betaling',label:'💶 Betaalverzoek',color:'#5856D6',defaultOnderwerp:'Betaalverzoek — Camping Cosmopolite',defaultInhoud:`Beste {{voornaam}},\n\nGraag ontvangen wij {{bedrag}} voor je verblijf ({{aankomst}} → {{vertrek}}).\n\nMededeling: {{ogm}}\n\nBedankt!\nCamping Cosmopolite`},
+  {key:'uitchecken',label:'👋 Uitchecken',color:'#007AFF',defaultOnderwerp:'Tot ziens! — Camping Cosmopolite',defaultInhoud:`Beste {{voornaam}},\n\nBedankt voor je verblijf bij Camping Cosmopolite!\nWe hopen je snel weer te verwelkomen. 🏕️\n\nVriendelijke groeten,\nCamping Cosmopolite`},
+];
+let mailTemplates={};// {bevestiging:[{onderwerp,inhoud},...], ...}
+
+async function loadMailTemplates(){
+  const el=document.getElementById('mailTemplateBlocks');if(!el)return;
+  const {data:{session}}=await sb.auth.getSession();
+  const {data:rows}=await sb.from('settings').select('key,value').eq('user_id',session.user.id).like('key','mailtemplate_%');
+  MAIL_TYPES.forEach(t=>{
+    const raw=rows?.find(r=>r.key==='mailtemplate_'+t.key)?.value;
+    try{mailTemplates[t.key]=JSON.parse(raw||'[]')}catch(e){mailTemplates[t.key]=[]}
+    if(!mailTemplates[t.key].length) mailTemplates[t.key]=[{onderwerp:t.defaultOnderwerp,inhoud:t.defaultInhoud}];
+  });
+  renderMailTemplateBlocks();
+}
+function renderMailTemplateBlocks(){
+  const el=document.getElementById('mailTemplateBlocks');if(!el)return;
+  el.innerHTML=MAIL_TYPES.map(t=>{
+    const tpls=mailTemplates[t.key]||[];
+    const tplHtml=tpls.map((tpl,i)=>`
+      <div style="border:1px solid var(--sep);border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;font-weight:700;color:var(--lbl3);">Variant ${i+1}</span>
+          ${tpls.length>1?`<button onclick="verwijderMailVariant('${t.key}',${i})" style="background:none;border:none;color:#FF3B30;font-size:13px;cursor:pointer;">🗑 Verwijder</button>`:''}
+        </div>
+        <input class="cfg-full-input" placeholder="Onderwerp…" value="${(tpl.onderwerp||'').replace(/"/g,'&quot;')}" oninput="mailTemplates['${t.key}'][${i}].onderwerp=this.value" style="margin-bottom:8px;">
+        <textarea class="cfg-full-input" rows="6" placeholder="Inhoud…" style="resize:vertical;line-height:1.5;font-size:12.5px;" oninput="mailTemplates['${t.key}'][${i}].inhoud=this.value">${tpl.inhoud||''}</textarea>
+      </div>`).join('');
+    return`<div class="cfg-section-label" style="margin-top:20px;">${t.label}</div>
+      <div style="font-size:12px;color:var(--lbl3);margin-bottom:8px;">Meerdere varianten → het systeem kiest willekeurig bij het versturen.</div>
+      ${tplHtml}
+      <button onclick="voegMailVariantToe('${t.key}')" style="width:100%;padding:8px;background:none;border:1.5px dashed ${t.color};color:${t.color};border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:4px;">+ Variant toevoegen</button>`;
+  }).join('');
+}
+function voegMailVariantToe(key){
+  const t=MAIL_TYPES.find(x=>x.key===key);
+  mailTemplates[key].push({onderwerp:t?.defaultOnderwerp||'',inhoud:''});
+  renderMailTemplateBlocks();
+}
+function verwijderMailVariant(key,i){
+  mailTemplates[key].splice(i,1);
+  if(!mailTemplates[key].length){const t=MAIL_TYPES.find(x=>x.key===key);mailTemplates[key]=[{onderwerp:t?.defaultOnderwerp||'',inhoud:''}];}
+  renderMailTemplateBlocks();
+}
+async function slaMailTemplatesOp(){
+  const btn=document.getElementById('mailTplMsg');
+  if(btn)btn.textContent='Opslaan…';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    for(const t of MAIL_TYPES){
+      await sb.from('settings').upsert({user_id:session.user.id,key:'mailtemplate_'+t.key,value:JSON.stringify(mailTemplates[t.key]),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
+    }
+    if(btn){btn.textContent='✅ Opgeslagen!';btn.style.color='var(--green)';setTimeout(()=>{btn.textContent='';},3000);}
+  }catch(err){if(btn){btn.textContent='⚠️ '+err.message;btn.style.color='var(--red)';}}
+}
+
+/* ═══════════ MAIL SEND SHEET ═══════════ */
+let _mailSendCtx={};
+async function openMailSendSheet(bookingId, type){
+  const b=bookings.find(x=>x.id===bookingId);if(!b)return;
+  const {voornaam}=splitNaam(b.naam);
+  const nights=nightCount(b.aankomst,b.vertrek);
+  const vars={
+    voornaam,
+    aankomst:fmtDateLong(b.aankomst),
+    vertrek:fmtDateLong(b.vertrek),
+    nachten:nights,
+    personen:b.personen||'',
+    bedrag:`€${b.bedrag||'?'}`,
+    ogm:genRef(b),
+    plaatsnummer:b.plaatsnummer||'—',
+  };
+  // Laad templates uit settings
+  const {data:{session}}=await sb.auth.getSession();
+  const {data:rows}=await sb.from('settings').select('key,value').eq('user_id',session.user.id).like('key','mailtemplate_%');
+  const keyMap={'bevestiging':'mailtemplate_bevestiging','herinnering':'mailtemplate_herinnering','betaling':'mailtemplate_betaling','uitchecken':'mailtemplate_uitchecken'};
+  const key=keyMap[type]||('mailtemplate_'+type);
+  const raw=rows?.find(r=>r.key===key)?.value;
+  let templates=[];
+  try{templates=JSON.parse(raw||'[]')}catch(e){}
+  if(!templates.length){
+    // Default templates per type
+    const defaults={
+      bevestiging:{onderwerp:'Reservatiebevestiging — Camping Cosmopolite',inhoud:`Beste {{voornaam}},\n\nJe reservatie bij Camping Cosmopolite is bevestigd! ✅\n\nAankomst: {{aankomst}}\nVertrek: {{vertrek}}\nNachten: {{nachten}}\nPersonen: {{personen}}\nBedrag: {{bedrag}}\nBetaalreferentie (OGM): {{ogm}}\n\nWij kijken ernaar uit je te ontvangen!\n\nVriendelijke groeten,\nCamping Cosmopolite`},
+      herinnering:{onderwerp:'Herinnering — Jouw verblijf nadert!',inhoud:`Beste {{voornaam}},\n\nEen vriendelijke herinnering — je verblijf bij Camping Cosmopolite begint op {{aankomst}}.\n\nVertrek: {{vertrek}}\nBedrag te betalen: {{bedrag}} (OGM: {{ogm}})\n\nTot dan!\nCamping Cosmopolite`},
+      betaling:{onderwerp:'Betalingsverzoek — Camping Cosmopolite',inhoud:`Beste {{voornaam}},\n\nGraag ontvangen wij de betaling van {{bedrag}} voor jouw verblijf ({{aankomst}} → {{vertrek}}).\n\nGebruik als mededeling: {{ogm}}\n\nBedankt!\nCamping Cosmopolite`},
+      uitchecken:{onderwerp:'Tot ziens! — Camping Cosmopolite',inhoud:`Beste {{voornaam}},\n\nBedankt voor je verblijf bij Camping Cosmopolite! We hopen je snel weer te verwelkomen.\n\nVriendelijke groeten,\nCamping Cosmopolite`},
+    };
+    templates=[defaults[type]||{onderwerp:'',inhoud:''}];
+  }
+  // Kies willekeurig template
+  const picked=templates[Math.floor(Math.random()*templates.length)];
+  function fillVars(str){return str.replace(/\{\{(\w+)\}\}/g,(_,k)=>vars[k]||'')}
+  const onderwerp=fillVars(picked.onderwerp);
+  const inhoud=fillVars(picked.inhoud);
+  _mailSendCtx={bookingId,type,onderwerp,inhoud,vars,templates,picked};
+
+  const TYPE_NL={bevestiging:'Bevestigingsmail',herinnering:'Herinnering',betaling:'Betaalverzoek',uitchecken:'Uitchecken'};
+  document.getElementById('shMailSendTitle').textContent=`📧 ${TYPE_NL[type]||type} — ${voornaam}`;
+  document.getElementById('mailSendTo').textContent=b.email||'(geen e-mail)';
+  document.getElementById('mailSendOnderwerp').value=onderwerp;
+  document.getElementById('mailSendInhoud').value=inhoud;
+  document.getElementById('mailSendTemplateInfo').textContent=templates.length>1?`Template ${templates.indexOf(picked)+1}/${templates.length} (willekeurig gekozen)`:'1 template';
+  openSheet('shMailSend');
+}
+async function verzendMailSend(){
+  const btn=document.getElementById('mailSendBtn');
+  const msg=document.getElementById('mailSendMsg');
+  btn.disabled=true;btn.textContent='Versturen…';
+  const onderwerp=document.getElementById('mailSendOnderwerp').value.trim();
+  const inhoud=document.getElementById('mailSendInhoud').value.trim();
+  if(!onderwerp||!inhoud){msg.textContent='⚠️ Vul onderwerp en inhoud in';msg.style.color='var(--red)';btn.disabled=false;btn.textContent='📤 Versturen';return}
+  const b=bookings.find(x=>x.id===_mailSendCtx.bookingId);
+  if(!b?.email||b.email.includes('@cosmopolite.local')){msg.textContent='⚠️ Geen geldig e-mailadres voor deze boeking';msg.style.color='var(--red)';btn.disabled=false;btn.textContent='📤 Versturen';return}
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/send-mail`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({booking_id:_mailSendCtx.bookingId,to:b.email,onderwerp,inhoud,type:_mailSendCtx.type}),
+    });
+    const d=await res.json();
+    if(d.error)throw new Error(d.error);
+    msg.textContent='✅ Mail verstuurd!';msg.style.color='var(--green)';
+    setTimeout(()=>{closeSheet('shMailSend');loadCommHistory(_mailSendCtx.bookingId)},1200);
+  }catch(err){msg.textContent='⚠️ '+err.message;msg.style.color='var(--red)';}
+  finally{btn.disabled=false;btn.textContent='📤 Versturen';}
 }
 async function toggleControle(id,key,val){
   const b=bookings.find(x=>x.id===id);if(!b)return;
@@ -912,14 +1053,15 @@ function checkEveningAlert(){
 /* ═══════════ ANALYTICS ═══════════ */
 function svgBars(values,labels,colors,h=140){
   const max=Math.max(...values,1);
-  const n=values.length;const w=Math.max(n*70,280);
-  const bw=Math.floor(w/n)-14;
+  const n=values.length;const w=Math.max(n*80,280);
+  const bw=Math.floor(w/n)-16;
   let bars='';
   values.forEach((v,i)=>{
-    const bh=Math.max(4,Math.round(v/max*(h-34)));
-    const x=i*(bw+14)+10;const y=h-26-bh;
-    bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="5" fill="${colors[i%colors.length]}"/>`;
-    bars+=`<text x="${x+bw/2}" y="${y-6}" font-size="11" font-weight="700" fill="#1C1C1E" text-anchor="middle">${v}</text>`;
+    const bh=v>0?Math.max(6,Math.round(v/max*(h-38))):3;
+    const x=i*(bw+16)+10;const y=h-26-bh;
+    const col=v===0?'#D1D1D6':colors[i%colors.length];
+    bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="5" fill="${col}"/>`;
+    bars+=`<text x="${x+bw/2}" y="${y-5}" font-size="12" font-weight="700" fill="${v===0?'#8E8E93':'#1C1C1E'}" text-anchor="middle">${v}</text>`;
     bars+=`<text x="${x+bw/2}" y="${h-8}" font-size="10" fill="#6E6E73" text-anchor="middle">${labels[i]}</text>`;
   });
   return`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;max-width:100%;">${bars}</svg>`
@@ -1003,9 +1145,7 @@ function renderAnalytics(){
 
   // Boekingen per kanaal
   const chCounts=[bookings.filter(b=>b.bron==='mail').length,bookings.filter(b=>b.bron==='website').length,bookings.filter(b=>b.bron==='telefoon').length];
-  document.getElementById('chartChannel').innerHTML=chCounts.some(c=>c>0)
-    ?svgBars(chCounts,['E-mail','Website','Telefoon'],['#007AFF','#1B8A5B','#FF9500'])
-    :'<div style="text-align:center;padding:24px 0;color:var(--lbl4);font-size:13px;">Nog geen boekingen</div>';
+  document.getElementById('chartChannel').innerHTML=svgBars(chCounts,['E-mail','Website','Telefoon'],['#007AFF','#1B8A5B','#FF9500']);
 
   // Boekingen per status
   const stOrder=['aanvraag','bevestigd','ingecheckt','betaald'];
@@ -1027,9 +1167,9 @@ function renderAnalytics(){
 
 /* ═══════════ GANTT KALENDER ═══════════ */
 let ganttStart=null;
-const GANTT_DAYS=18;
-const GANTT_ROW=46;
-const GANTT_NAME_W=120;
+const GANTT_DAYS=21;
+const GANTT_ROW=52;
+const GANTT_NAME_W=130;
 const GANTT_COLORS={bevestigd:'#34C759',aanvraag:'#FF9500',ingecheckt:'#007AFF',betaald:'#5856D6',wachtlijst:'#8E8E93',geannuleerd:'#FF3B30'};
 const NL_MONTHS_S=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
 const NL_DAYS_S=['zo','ma','di','wo','do','vr','za'];
@@ -1102,9 +1242,10 @@ function renderCalendar(){
             <div style="display:flex;align-items:center;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-right:6px;flex-shrink:0;"></span><span style="font-size:12.5px;font-weight:700;color:var(--lbl1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;">${b.naam||'—'}</span></div>
             <div style="font-size:10.5px;color:var(--lbl4);margin-top:1px;padding-left:13px;">${nachten}n · ${personen}p</div>
           </div>
-          <div style="flex:1;position:relative;height:${GANTT_ROW-12}px;">
-            <div style="position:absolute;left:${lPct}%;width:${Math.max(wPct,.5)}%;top:50%;transform:translateY(-50%);height:28px;background:${color};border-radius:7px;display:flex;align-items:center;padding:0 9px;overflow:hidden;box-shadow:0 2px 6px ${color}44;" title="${b.naam} · ${b.aankomst} → ${b.vertrek}">
-              <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.naam||'—'}${b.plaat?' · '+b.plaat:''}</span>
+          <div style="flex:1;position:relative;height:${GANTT_ROW-10}px;">
+            <div style="position:absolute;left:${lPct}%;width:${Math.max(wPct,1)}%;top:50%;transform:translateY(-50%);height:34px;background:${color};border-radius:8px;display:flex;flex-direction:column;justify-content:center;padding:0 10px;overflow:hidden;box-shadow:0 2px 8px ${color}55;" title="${b.naam} · ${fmtDate(b.aankomst)} → ${fmtDate(b.vertrek)} · ${nachten}n · ${personen}p${b.plaat?' · '+b.plaat:''}">
+              <span style="font-size:11.5px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">${b.naam||'—'}</span>
+              <span style="font-size:9.5px;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">${nachten}n · ${personen}p${b.plaat?' · '+b.plaat:''}</span>
             </div>
           </div>
         </div>`;
@@ -1546,6 +1687,7 @@ async function loadSettings(){
     prijs_afval_per_6:'afvalPer6',toeristentaks:'toeristentaks'};
   Object.entries(tarMap).forEach(([k,pk])=>{if(cfg[k])PRICES[pk]=parseFloat(cfg[k])||PRICES[pk];});
   if(cfg.max_plaatsen)PRICES.maxPlaatsen=parseInt(cfg.max_plaatsen)||0;
+  if(cfg.prijs_waarborg!==undefined)PRICES.waarborg=parseFloat(cfg.prijs_waarborg)||0;
   if(cfg.extra_tarieven){try{extraTarieven=JSON.parse(cfg.extra_tarieven)||[];}catch(e){extraTarieven=[]}}
   // Juridische instellingen laden
   ['cfgKBO','cfgBTW','cfgAdres','cfgGemeente','cfgAnnulering'].forEach(id=>{
@@ -1592,6 +1734,7 @@ function switchSettingsPage(page){
   document.getElementById('settingsPageTitle').textContent=titles[page]||'Instellingen';
   if(page==='gebruikers') loadUsers();
   if(page==='tarieven') loadTarieven();
+  if(page==='mail') loadMailTemplates();
 }
 function switchSettingsTab(tab){ switchSettingsPage(tab); } // legacy alias
 
@@ -1678,19 +1821,26 @@ function loadTarieven(){
   document.getElementById('tarAfval').value=PRICES.afvalPer6;
   document.getElementById('tarTaks').value=PRICES.toeristentaks;
   const mp=document.getElementById('tarMaxPlaatsen');if(mp)mp.value=PRICES.maxPlaatsen||0;
+  const wb=document.getElementById('tarWaarborg');if(wb)wb.value=PRICES.waarborg??100;
   renderExtraTarieven();
 }
 function renderExtraTarieven(){
   const el=document.getElementById('extraTarievenList');if(!el)return;
   el.innerHTML=extraTarieven.map((t,i)=>`
-    <div class="cfg-row" style="gap:8px;">
-      <input class="cfg-row-input" style="flex:2;" value="${t.naam}" placeholder="Naam (bv. Safaritent)" oninput="extraTarieven[${i}].naam=this.value">
-      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
-        <span style="color:var(--lbl3);font-size:13px;">€</span>
-        <input class="cfg-row-input" type="number" min="0" step="0.5" style="width:60px;text-align:right;" value="${t.prijs}" oninput="extraTarieven[${i}].prijs=parseFloat(this.value)||0">
+    <div style="border:1px solid var(--sep);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input class="cfg-row-input" style="flex:2;" value="${t.naam||''}" placeholder="Naam (bv. Safaritent)" oninput="extraTarieven[${i}].naam=this.value">
+        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
+          <span style="color:var(--lbl3);font-size:13px;">€</span>
+          <input class="cfg-row-input" type="number" min="0" step="0.5" style="width:60px;text-align:right;" value="${t.prijs||0}" oninput="extraTarieven[${i}].prijs=parseFloat(this.value)||0">
+        </div>
+        <button onclick="verwijderExtraTarief(${i})" style="background:rgba(255,59,48,.1);color:#FF3B30;border:none;border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;flex-shrink:0;">🗑</button>
       </div>
-      <button onclick="verwijderExtraTarief(${i})" style="background:rgba(255,59,48,.1);color:#FF3B30;border:none;border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;flex-shrink:0;">🗑</button>
-    </div>`).join('')||'<div style="font-size:12px;color:var(--lbl4);padding:4px 0;">Geen extra tarieven</div>';
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${['standplaats','personen','extra'].map(cat=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--lbl2);cursor:pointer;"><input type="radio" name="cat_${i}" value="${cat}" ${(t.categorie||'extra')===cat?'checked':''} onchange="extraTarieven[${i}].categorie=this.value"> ${cat==='standplaats'?'🏕 /standplaats/nacht':cat==='personen'?'👤 /persoon/nacht':'➕ Eenmalig extra'}</label>`).join('')}
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--lbl2);cursor:pointer;"><input type="checkbox" ${t.perNacht?'checked':''} onchange="extraTarieven[${i}].perNacht=this.checked"> /nacht</label>
+      </div>
+    </div>`).join('')||'<div style="font-size:12px;color:var(--lbl4);padding:4px 0;">Nog geen extra kostenposten</div>';
 }
 function voegExtraTarief(){
   extraTarieven.push({naam:'',prijs:0,key:'extra_'+(Date.now())});
@@ -1711,11 +1861,13 @@ async function saveTarieven(){
   try{
     const {data:{session}}=await sb.auth.getSession();
     PRICES.maxPlaatsen=parseInt(document.getElementById('tarMaxPlaatsen')?.value)||0;
+    PRICES.waarborg=parseFloat(document.getElementById('tarWaarborg')?.value)||0;
     const pairs=[['prijs_tent',PRICES.tent],['prijs_camper',PRICES.camper],
       ['prijs_volwassene',PRICES.volwassene],['prijs_kind',PRICES.kind],['prijs_baby',PRICES.baby],
       ['prijs_hond',PRICES.hond],['prijs_extra_auto',PRICES.extraAuto],
       ['prijs_elektriciteit',PRICES.elektriciteit],['prijs_afval_per_6',PRICES.afvalPer6],['toeristentaks',PRICES.toeristentaks],
       ['max_plaatsen',PRICES.maxPlaatsen],
+      ['prijs_waarborg',PRICES.waarborg],
       ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>t.naam.trim()))]];
     for(const [key,value] of pairs){
       await sb.from('settings').upsert({user_id:session.user.id,key,value:String(value),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
