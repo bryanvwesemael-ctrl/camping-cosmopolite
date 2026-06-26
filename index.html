@@ -516,7 +516,7 @@ async function submitForm(){
       vertrek:document.getElementById('fVertrek').value,
       tenten:state.tenten, campers:state.campers, volwassenen:state.volwassenen,
       kinderen:state.kinderen, baby:state.baby, honden:state.honden, autos:state.autos,
-      elektriciteit:state.elek, bedrag_per_nacht:perNachtNow, bedrag_totaal:totaalNow,
+      elektriciteit:state.elek, bedrag_per_nacht:dienstenPerNacht, bedrag_totaal:totaalNow,
       nota:nota||null, bron:'website', status:'aanvraag'
     }).select().single();
     if(bookErr) throw bookErr;
