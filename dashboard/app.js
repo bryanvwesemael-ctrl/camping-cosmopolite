@@ -298,14 +298,65 @@ function renderDashboard(){
 function renderBookingList(){
   const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
   const filtered=bookings.filter(b=>{
-    if(q&&!(b.naam+b.plaat).toLowerCase().includes(q))return false;
+    if(q&&!(b.naam+b.plaat+b.email).toLowerCase().includes(q))return false;
     if(activeFilter!=='alle'&&b.status!==activeFilter)return false;
     if(activeSource!=='alle'&&b.bron!==activeSource)return false;
     return true;
   });
   const list=document.getElementById('bkList');
-  if(!filtered.length){list.innerHTML='<div class="empty"><div class="empty-icon">🔍</div><div class="empty-title">Geen resultaten</div><div class="empty-sub">Pas de filters aan</div></div>'}
-  else list.innerHTML=filtered.map(bookingRowHtml).join('')
+  if(!filtered.length){list.innerHTML='<div class="empty"><div class="empty-icon">🔍</div><div class="empty-title">Geen resultaten</div><div class="empty-sub">Pas de filters aan</div></div>';return}
+
+  // Aanvragen bovenaan als aparte actie-sectie
+  const aanvragen=filtered.filter(b=>b.status==='aanvraag');
+  const rest=filtered.filter(b=>b.status!=='aanvraag');
+  let html='';
+  if(aanvragen.length&&(activeFilter==='alle'||activeFilter==='aanvraag')){
+    html+=`<div style="padding:12px 16px 6px;font-size:11px;font-weight:800;color:#FF9500;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px;">
+      <span style="background:#FF9500;color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;">${aanvragen.length}</span> Openstaande aanvragen — actie vereist
+    </div>`;
+    html+=aanvragen.map(b=>{
+      const nights=nightCount(b.aankomst,b.vertrek);
+      const hasRealEmail=b.email&&!b.email.includes('@cosmopolite.local');
+      return`<div style="background:#FFFBF2;border-left:3px solid #FF9500;padding:12px 14px 12px 15px;margin:0 8px 6px;border-radius:12px;display:flex;gap:10px;align-items:flex-start;">
+        ${avHtml(b,40,12)}
+        <div style="flex:1;min-width:0;" onclick="openBookingDetail('${b.id}')" class="cursor-ptr">
+          <div style="font-size:14px;font-weight:700;color:var(--lbl1);">${b.naam} <span style="color:var(--lbl4);font-weight:400;font-size:11px;">#${b.volgnummer??'—'}</span></div>
+          <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">📅 ${fmtDate(b.aankomst)} → ${fmtDate(b.vertrek)} · ${nights}n · ${b.personen}p · €${b.bedrag||'?'}</div>
+          ${hasRealEmail?`<div style="font-size:11px;color:var(--lbl4);margin-top:2px;">✉️ ${b.email}</div>`:'<div style="font-size:11px;color:#FF9500;font-weight:600;margin-top:2px;">⚠️ Geen e-mailadres</div>'}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
+          <button onclick="accepteerAanvraag('${b.id}')" style="padding:7px 12px;background:#34C759;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">✅ Accepteren</button>
+          <button onclick="weigerAanvraag('${b.id}')" style="padding:7px 12px;background:#FF3B30;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">❌ Weigeren</button>
+        </div>
+      </div>`
+    }).join('');
+    if(rest.length&&activeFilter==='alle'){
+      html+=`<div style="padding:12px 16px 6px;font-size:11px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.5px;">Alle boekingen</div>`;
+    }
+  }
+  html+=rest.map(bookingRowHtml).join('');
+  list.innerHTML=html;
+}
+
+async function accepteerAanvraag(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const {error}=await sb.from('bookings').update({status:'bevestigd'}).eq('id',id);
+  if(error){toast('⚠️ Fout: '+error.message);return}
+  b.status='bevestigd';
+  renderBookingList();renderDashboard();
+  toast('✅ Boeking bevestigd');
+  // Automatisch bevestigingsmail sturen als er een e-mailadres is
+  const hasRealEmail=b.email&&!b.email.includes('@cosmopolite.local');
+  if(hasRealEmail) sendAutoMail(id,'bevestiging');
+}
+async function weigerAanvraag(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  if(!confirm(`Aanvraag van ${b.naam} weigeren en verwijderen?`))return;
+  const {error}=await sb.from('bookings').delete().eq('id',id);
+  if(error){toast('⚠️ Fout: '+error.message);return}
+  bookings=bookings.filter(x=>x.id!==id);
+  renderBookingList();renderDashboard();
+  toast('❌ Aanvraag geweigerd en verwijderd');
 }
 
 /* ═══════════ DETAIL SHEET ═══════════ */
@@ -1200,17 +1251,56 @@ function renderWieIsEr(){
     const today=new Date(TODAY);
     const daysLeft=Math.round((vertrekDate-today)/86400000);
     const daysTag=daysLeft===0?'<span style="color:var(--red);font-weight:700;">Vandaag weg!</span>':daysLeft===1?'<span style="color:#FF9500;font-weight:700;">Morgen weg</span>':`nog ${daysLeft} nachten`;
-    return`<div class="plist-row" onclick="openBookingDetail('${b.id}')" style="cursor:pointer;align-items:flex-start;padding:12px 16px;">
-      ${fotoHtml}
-      <div style="flex:1;min-width:0;margin-left:12px;">
-        <div style="font-size:15px;font-weight:700;color:var(--lbl1);">${b.naam} <span style="color:var(--lbl4);font-weight:400;font-size:12px;">#${b.volgnummer??'—'}</span></div>
-        <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">${b.personen}p · ${verblijf} · ${nights}n · ${fmtDate(b.aankomst)}→${fmtDate(b.vertrek)}</div>
-        <div style="font-size:11px;margin-top:3px;">${daysTag}</div>
-        ${b.plaat?`<div style="font-size:11px;color:var(--lbl4);margin-top:2px;">🚗 ${b.plaat}</div>`:''}
+    return`<div style="border-bottom:1px solid var(--sep);">
+      <div onclick="openWieIsErDetail('${b.id}')" style="cursor:pointer;display:flex;align-items:flex-start;gap:12px;padding:12px 16px;">
+        ${fotoHtml}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:700;color:var(--lbl1);">${b.naam} <span style="color:var(--lbl4);font-weight:400;font-size:12px;">#${b.volgnummer??'—'}</span></div>
+          <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">${b.personen}p · ${verblijf} · ${nights}n · ${fmtDate(b.aankomst)}→${fmtDate(b.vertrek)}</div>
+          <div style="font-size:11px;margin-top:3px;">${daysTag}</div>
+          ${b.plaat?`<div style="font-size:11px;color:var(--lbl4);margin-top:2px;">🚗 ${b.plaat}</div>`:''}
+        </div>
+        <div style="font-size:10px;padding:3px 8px;border-radius:20px;background:${b.status==='ingecheckt'?'rgba(0,122,255,.1)':'rgba(88,86,214,.1)'};color:${b.status==='ingecheckt'?'#007AFF':'#5856D6'};font-weight:700;flex-shrink:0;">${b.status==='ingecheckt'?'🏕️ Aanwezig':'💶 Betaald'}</div>
       </div>
-      <div style="font-size:10px;padding:3px 8px;border-radius:20px;background:${b.status==='ingecheckt'?'rgba(0,122,255,.1)':'rgba(88,86,214,.1)'};color:${b.status==='ingecheckt'?'#007AFF':'#5856D6'};font-weight:700;flex-shrink:0;">${b.status==='ingecheckt'?'🏕️ Aanwezig':'💶 Betaald'}</div>
+      <div id="wie-gasten-${b.id}" style="display:none;padding:0 16px 12px;"></div>
     </div>`;
   }).join('')
+}
+
+async function openWieIsErDetail(id){
+  const el=document.getElementById('wie-gasten-'+id);if(!el)return;
+  if(el.style.display==='block'){el.style.display='none';return}
+  el.style.display='block';
+  el.innerHTML='<div style="font-size:12px;color:var(--lbl3);">Laden…</div>';
+  const b=bookings.find(x=>x.id===id);
+  const nights=nightCount(b.aankomst,b.vertrek);
+  const daysLeft=Math.round((new Date(b.vertrek)-new Date(TODAY))/86400000);
+
+  // Acties
+  let html=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">
+    <button class="da da-g" onclick="sendAutoMail('${id}','bevestiging')"><span class="da-icon">✉️</span>Mail</button>
+    <button class="da da-b" onclick="stuurBetaallink('${id}')"><span class="da-icon">💳</span>Betalen</button>
+    <button class="da" style="background:rgba(88,86,214,.1);color:#5856D6;" onclick="toonQR('${id}')"><span class="da-icon">📱</span>QR</button>
+  </div>`;
+
+  // Gasten ophalen
+  const {data:gasten}=await sb.from('gasten').select('*').eq('booking_id',id).order('created_at');
+  const {voornaam,achternaam}=splitNaam(b.naam);
+  const alleGasten=[
+    {voornaam,achternaam,geboortedatum:b.geboortedatum||'—',nationaliteit:b.nationaliteit||'—',id_nummer:b.idnr||'—',rol:'Hoofdboeker'},
+    ...(gasten||[]).map(g=>({...g,rol:'Gast'}))
+  ];
+  html+=`<div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">👥 Geregistreerde gasten (${alleGasten.length}/${b.personen})</div>`;
+  html+=alleGasten.map(g=>`
+    <div style="background:#F9F9FB;border-radius:8px;padding:8px 10px;margin-bottom:5px;font-size:12px;">
+      <div style="font-weight:700;color:var(--lbl1);">${g.voornaam} ${g.achternaam} <span style="font-size:10px;font-weight:500;color:var(--lbl4);">${g.rol}</span></div>
+      <div style="color:var(--lbl3);margin-top:2px;">📅 ${g.geboortedatum||'—'} · 🌍 ${g.nationaliteit||'—'} · 🪪 ${g.id_nummer||'—'}</div>
+    </div>`).join('');
+  if(alleGasten.length<b.personen){
+    html+=`<div style="font-size:11px;color:#FF9500;font-weight:600;margin-top:4px;">⚠️ ${b.personen-alleGasten.length} persoon/personen nog niet geregistreerd</div>`;
+  }
+  html+=`<button onclick="openBookingDetail('${id}')" style="margin-top:10px;width:100%;padding:8px;background:none;border:1.5px solid var(--sep);border-radius:8px;font-size:12px;font-weight:700;color:var(--lbl2);cursor:pointer;">Volledige boeking openen →</button>`;
+  el.innerHTML=html;
 }
 
 /* ═══════════ POLITIEREGISTER ═══════════ */
@@ -1456,6 +1546,7 @@ async function loadSettings(){
     prijs_afval_per_6:'afvalPer6',toeristentaks:'toeristentaks'};
   Object.entries(tarMap).forEach(([k,pk])=>{if(cfg[k])PRICES[pk]=parseFloat(cfg[k])||PRICES[pk];});
   if(cfg.max_plaatsen)PRICES.maxPlaatsen=parseInt(cfg.max_plaatsen)||0;
+  if(cfg.extra_tarieven){try{extraTarieven=JSON.parse(cfg.extra_tarieven)||[];}catch(e){extraTarieven=[]}}
   // Juridische instellingen laden
   ['cfgKBO','cfgBTW','cfgAdres','cfgGemeente','cfgAnnulering'].forEach(id=>{
     const el=document.getElementById(id);if(el&&cfg[id.replace('cfg','').toLowerCase()])el.value=cfg[id.replace('cfg','').toLowerCase()];
@@ -1573,6 +1664,8 @@ async function loadUsers(){
 }
 
 /* ═══════════ TARIEVEN ═══════════ */
+let extraTarieven=[];// [{naam,prijs,key}]
+
 function loadTarieven(){
   document.getElementById('tarTent').value=PRICES.tent;
   document.getElementById('tarCamper').value=PRICES.camper;
@@ -1585,6 +1678,27 @@ function loadTarieven(){
   document.getElementById('tarAfval').value=PRICES.afvalPer6;
   document.getElementById('tarTaks').value=PRICES.toeristentaks;
   const mp=document.getElementById('tarMaxPlaatsen');if(mp)mp.value=PRICES.maxPlaatsen||0;
+  renderExtraTarieven();
+}
+function renderExtraTarieven(){
+  const el=document.getElementById('extraTarievenList');if(!el)return;
+  el.innerHTML=extraTarieven.map((t,i)=>`
+    <div class="cfg-row" style="gap:8px;">
+      <input class="cfg-row-input" style="flex:2;" value="${t.naam}" placeholder="Naam (bv. Safaritent)" oninput="extraTarieven[${i}].naam=this.value">
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+        <span style="color:var(--lbl3);font-size:13px;">€</span>
+        <input class="cfg-row-input" type="number" min="0" step="0.5" style="width:60px;text-align:right;" value="${t.prijs}" oninput="extraTarieven[${i}].prijs=parseFloat(this.value)||0">
+      </div>
+      <button onclick="verwijderExtraTarief(${i})" style="background:rgba(255,59,48,.1);color:#FF3B30;border:none;border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;flex-shrink:0;">🗑</button>
+    </div>`).join('')||'<div style="font-size:12px;color:var(--lbl4);padding:4px 0;">Geen extra tarieven</div>';
+}
+function voegExtraTarief(){
+  extraTarieven.push({naam:'',prijs:0,key:'extra_'+(Date.now())});
+  renderExtraTarieven();
+}
+function verwijderExtraTarief(i){
+  extraTarieven.splice(i,1);
+  renderExtraTarieven();
 }
 function updateTarief(key,val){
   PRICES[key]=parseFloat(val)||0;
@@ -1601,7 +1715,8 @@ async function saveTarieven(){
       ['prijs_volwassene',PRICES.volwassene],['prijs_kind',PRICES.kind],['prijs_baby',PRICES.baby],
       ['prijs_hond',PRICES.hond],['prijs_extra_auto',PRICES.extraAuto],
       ['prijs_elektriciteit',PRICES.elektriciteit],['prijs_afval_per_6',PRICES.afvalPer6],['toeristentaks',PRICES.toeristentaks],
-      ['max_plaatsen',PRICES.maxPlaatsen]];
+      ['max_plaatsen',PRICES.maxPlaatsen],
+      ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>t.naam.trim()))]];
     for(const [key,value] of pairs){
       await sb.from('settings').upsert({user_id:session.user.id,key,value:String(value),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
     }
