@@ -544,7 +544,7 @@ async function loadMailTemplatesForDetail(){
   MAIL_TYPES.forEach(t=>{
     const raw=rows?.find(r=>r.key==='mailtemplate_'+t.key)?.value;
     try{mailTemplates[t.key]=JSON.parse(raw||'[]')}catch(e){mailTemplates[t.key]=[]}
-    if(!mailTemplates[t.key].length)mailTemplates[t.key]=[{onderwerp:t.defaultOnderwerp,inhoud:t.defaultInhoud}];
+    if(!mailTemplates[t.key].length)mailTemplates[t.key]=t.defaultVarianten||[{onderwerp:t.defaultOnderwerp,inhoud:t.defaultInhoud}];
   });
   renderMailTemplateBlocksDetail();
 }
@@ -604,10 +604,35 @@ function toggleCommBody(id){
 
 /* ═══════════ MAIL TEMPLATES BEHEER ═══════════ */
 const MAIL_TYPES=[
-  {key:'bevestiging',label:'✅ Bevestigingsmail',color:'var(--green)',defaultOnderwerp:'Reservatiebevestiging — Camping Cosmopolite',defaultInhoud:`Beste {{voornaam}},\n\nJe reservatie is bevestigd! ✅\n\nAankomst: {{aankomst}}\nVertrek: {{vertrek}}\nNachten: {{nachten}}\nPersonen: {{personen}}\nBedrag: {{bedrag}}\nOGM: {{ogm}}\n\nTot dan!\nCamping Cosmopolite`},
-  {key:'herinnering',label:'🔔 Herinnering',color:'#FF9500',defaultOnderwerp:'Herinnering — Jouw verblijf nadert!',defaultInhoud:`Beste {{voornaam}},\n\nEen vriendelijke herinnering — je verblijf begint op {{aankomst}}.\n\nBedrag: {{bedrag}} · OGM: {{ogm}}\n\nTot dan!\nCamping Cosmopolite`},
-  {key:'betaling',label:'💶 Betaalverzoek',color:'#5856D6',defaultOnderwerp:'Betaalverzoek — Camping Cosmopolite',defaultInhoud:`Beste {{voornaam}},\n\nGraag ontvangen wij {{bedrag}} voor je verblijf ({{aankomst}} → {{vertrek}}).\n\nMededeling: {{ogm}}\n\nBedankt!\nCamping Cosmopolite`},
-  {key:'uitchecken',label:'👋 Uitchecken',color:'#007AFF',defaultOnderwerp:'Tot ziens! — Camping Cosmopolite',defaultInhoud:`Beste {{voornaam}},\n\nBedankt voor je verblijf bij Camping Cosmopolite!\nWe hopen je snel weer te verwelkomen. 🏕️\n\nVriendelijke groeten,\nCamping Cosmopolite`},
+  {key:'bevestiging',label:'✅ Bevestigingsmail',icon:'✅',color:'var(--green)',
+   defaultVarianten:[
+    {onderwerp:'Reservatiebevestiging — Camping Cosmopolite',inhoud:`Beste {{voornaam}},\n\nJe reservatie is bevestigd! ✅\n\nAankomst: {{aankomst}}\nVertrek: {{vertrek}}\nNachten: {{nachten}}\nPersonen: {{personen}}\nBedrag: {{bedrag}}\nOGM-mededeling: {{ogm}}\n\nWe kijken ernaar uit je te verwelkomen!\nCamping Cosmopolite`},
+    {onderwerp:'Je boeking is in orde ✅ — Camping Cosmopolite',inhoud:`Dag {{voornaam}},\n\nGoed nieuws! We hebben je reservatie ontvangen en bevestigd.\n\n📅 {{aankomst}} → {{vertrek}} ({{nachten}} nachten)\n👥 {{personen}} personen\n💶 Te betalen: {{bedrag}}\n🔢 Betalingsreferentie: {{ogm}}\n\nVragen? Antwoord gerust op deze mail.\n\nTot binnenkort!\nTeam Camping Cosmopolite`},
+    {onderwerp:'Welkom bij Camping Cosmopolite — Bevestiging',inhoud:`Hallo {{voornaam}},\n\nWe zijn blij dat je voor Camping Cosmopolite hebt gekozen! 🏕️\n\nHier zijn je reservatiedetails:\n• Aankomst: {{aankomst}}\n• Vertrek: {{vertrek}} ({{nachten}} nachten)\n• Aantal personen: {{personen}}\n• Totaal: {{bedrag}}\n• Betaalreferentie: {{ogm}}\n\nWe verwelkomen je graag!\nCamping Cosmopolite`},
+   ],
+   defaultOnderwerp:'Reservatiebevestiging — Camping Cosmopolite',
+   defaultInhoud:`Beste {{voornaam}},\n\nJe reservatie is bevestigd! ✅\n\nAankomst: {{aankomst}}\nVertrek: {{vertrek}}\nBedrag: {{bedrag}}\nOGM: {{ogm}}\n\nTot dan!\nCamping Cosmopolite`},
+  {key:'herinnering',label:'🔔 Herinnering',icon:'🔔',color:'#FF9500',
+   defaultVarianten:[
+    {onderwerp:'Herinnering — Jouw verblijf nadert! 🏕️',inhoud:`Beste {{voornaam}},\n\nEen vriendelijke herinnering: je verblijf bij Camping Cosmopolite begint op {{aankomst}}!\n\n💶 Bedrag: {{bedrag}}\n🔢 Betaalreferentie: {{ogm}}\n\nTot snel!\nCamping Cosmopolite`},
+    {onderwerp:'Nog even geduld — je vakantie begint binnenkort!',inhoud:`Hallo {{voornaam}},\n\nNog even en het is zover! 🎉 Je verblijf bij Camping Cosmopolite start op {{aankomst}}.\n\nVergeet niet:\n• Betaalreferentie: {{ogm}}\n• Te betalen bedrag: {{bedrag}}\n\nZie je binnenkort!\nTeam Camping Cosmopolite`},
+   ],
+   defaultOnderwerp:'Herinnering — Jouw verblijf nadert!',
+   defaultInhoud:`Beste {{voornaam}},\n\nJe verblijf begint op {{aankomst}}.\nBedrag: {{bedrag}} · OGM: {{ogm}}\n\nTot dan!\nCamping Cosmopolite`},
+  {key:'betaling',label:'💶 Betaalverzoek',icon:'💶',color:'#5856D6',
+   defaultVarianten:[
+    {onderwerp:'Betaalverzoek — Camping Cosmopolite',inhoud:`Beste {{voornaam}},\n\nGraag ontvangen wij de betaling voor je verblijf ({{aankomst}} → {{vertrek}}).\n\n💶 Bedrag: {{bedrag}}\n🔢 Mededeling: {{ogm}}\n\nBetaal bij voorkeur 14 dagen voor aankomst.\nBedankt!\nCamping Cosmopolite`},
+    {onderwerp:'Betalingsherinnering — je verblijf op {{aankomst}}',inhoud:`Dag {{voornaam}},\n\nWe sturen je een vriendelijke herinnering om het verblijfsbedrag over te maken:\n\n• Bedrag: {{bedrag}}\n• Mededeling: {{ogm}}\n• Verblijf: {{aankomst}} → {{vertrek}}\n\nVragen? Antwoord gerust!\nTeam Camping Cosmopolite`},
+   ],
+   defaultOnderwerp:'Betaalverzoek — Camping Cosmopolite',
+   defaultInhoud:`Beste {{voornaam}},\n\nGraag {{bedrag}} overmaken met mededeling {{ogm}}.\n\nBedankt!\nCamping Cosmopolite`},
+  {key:'uitchecken',label:'👋 Uitchecken',icon:'👋',color:'#007AFF',
+   defaultVarianten:[
+    {onderwerp:'Tot ziens! Bedankt voor je verblijf 🏕️',inhoud:`Beste {{voornaam}},\n\nBedankt voor je verblijf bij Camping Cosmopolite van {{aankomst}} tot {{vertrek}}!\n\nWe hopen dat je genoten hebt en verwelkomen je graag opnieuw. 🌟\n\nLaat gerust een recensie achter als je tevreden was!\n\nVriendelijke groeten,\nCamping Cosmopolite`},
+    {onderwerp:'We hopen tot ziens — Camping Cosmopolite',inhoud:`Hallo {{voornaam}},\n\nJe verblijf bij ons zit er op — we hopen dat je je hebt vermaakt! 😊\n\nHeb je een momentje? We stellen een korte review erg op prijs.\nTot een volgende keer!\n\nCamping Cosmopolite`},
+   ],
+   defaultOnderwerp:'Tot ziens! — Camping Cosmopolite',
+   defaultInhoud:`Beste {{voornaam}},\n\nBedankt voor je verblijf!\nTot een volgende keer.\n\nCamping Cosmopolite`},
 ];
 let mailTemplates={};// {bevestiging:[{onderwerp,inhoud},...], ...}
 
@@ -632,7 +657,7 @@ async function loadMailTemplatesPage(){
   MAIL_TYPES.forEach(t=>{
     const raw=rows?.find(r=>r.key==='mailtemplate_'+t.key)?.value;
     try{mailTemplates[t.key]=JSON.parse(raw||'[]');}catch(e){mailTemplates[t.key]=[];}
-    if(!mailTemplates[t.key].length)mailTemplates[t.key]=[{onderwerp:t.defaultOnderwerp,inhoud:t.defaultInhoud}];
+    if(!mailTemplates[t.key].length)mailTemplates[t.key]=t.defaultVarianten||[{onderwerp:t.defaultOnderwerp,inhoud:t.defaultInhoud}];
   });
   renderMailTemplateBlocksPage();
 }
@@ -687,7 +712,7 @@ async function loadMailTemplates(){
   MAIL_TYPES.forEach(t=>{
     const raw=rows?.find(r=>r.key==='mailtemplate_'+t.key)?.value;
     try{mailTemplates[t.key]=JSON.parse(raw||'[]')}catch(e){mailTemplates[t.key]=[]}
-    if(!mailTemplates[t.key].length) mailTemplates[t.key]=[{onderwerp:t.defaultOnderwerp,inhoud:t.defaultInhoud}];
+    if(!mailTemplates[t.key].length)mailTemplates[t.key]=t.defaultVarianten||[{onderwerp:t.defaultOnderwerp,inhoud:t.defaultInhoud}];
   });
   renderMailTemplateBlocks();
 }
@@ -2338,11 +2363,12 @@ function openAddGuestSheet(bookingId){
 
 function openEditGuestSheet(gastId){
   const g=_gastenCache[gastId];if(!g){toast('⚠️ Gast niet gevonden');return;}
+  // Reset eerst, dan waarden invullen (anders wist reset() de hidden velden)
+  document.getElementById('addGuestForm').reset();
   document.getElementById('addGuestBookingId').value=g.booking_id;
   document.getElementById('editGastId').value=g.id;
   const title=document.getElementById('addGuestSheetTitle');
   if(title)title.textContent='✏️ Gast bewerken';
-  document.getElementById('addGuestForm').reset();
   document.getElementById('gNaam').value=g.naam||'';
   document.getElementById('gGeboortedatum').value=g.geboortedatum||'';
   document.getElementById('gNationaliteit').value=g.nationaliteit||'';
