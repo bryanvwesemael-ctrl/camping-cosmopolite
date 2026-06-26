@@ -1689,6 +1689,7 @@ async function loadSettings(){
   if(cfg.max_plaatsen)PRICES.maxPlaatsen=parseInt(cfg.max_plaatsen)||0;
   if(cfg.prijs_waarborg!==undefined)PRICES.waarborg=parseFloat(cfg.prijs_waarborg)||0;
   if(cfg.extra_tarieven){try{extraTarieven=JSON.parse(cfg.extra_tarieven)||[];}catch(e){extraTarieven=[]}}
+  if(cfg.accommodatie_types){try{accTypes=JSON.parse(cfg.accommodatie_types)||[];}catch(e){accTypes=[]}}
   // Juridische instellingen laden
   ['cfgKBO','cfgBTW','cfgAdres','cfgGemeente','cfgAnnulering'].forEach(id=>{
     const el=document.getElementById(id);if(el&&cfg[id.replace('cfg','').toLowerCase()])el.value=cfg[id.replace('cfg','').toLowerCase()];
@@ -1807,7 +1808,46 @@ async function loadUsers(){
 }
 
 /* ═══════════ TARIEVEN ═══════════ */
-let extraTarieven=[];// [{naam,prijs,key}]
+let extraTarieven=[];
+let accTypes=[];// extra accommodatietypes (safaritent, glamping…)
+
+function renderAccTypes(){
+  const el=document.getElementById('accTypesList');if(!el)return;
+  el.innerHTML=accTypes.map((t,i)=>`
+    <div style="border:1px solid var(--sep);border-radius:10px;padding:12px;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+        <input class="cfg-row-input" style="width:36px;text-align:center;font-size:18px;padding:4px;" value="${t.emoji||'🏕️'}" placeholder="🏕️" oninput="accTypes[${i}].emoji=this.value">
+        <input class="cfg-row-input" style="flex:2;" value="${t.naam||''}" placeholder="Naam (bv. Safaritent)" oninput="accTypes[${i}].naam=this.value">
+        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
+          <span style="color:var(--lbl3);font-size:13px;">€</span>
+          <input class="cfg-row-input" type="number" min="0" step="0.5" style="width:64px;text-align:right;" value="${t.prijs||0}" oninput="accTypes[${i}].prijs=parseFloat(this.value)||0">
+          <span style="color:var(--lbl3);font-size:11px;">/n</span>
+        </div>
+        <button onclick="verwijderAccType(${i})" style="background:rgba(255,59,48,.1);color:#FF3B30;border:none;border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;flex-shrink:0;">🗑</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="cfg-row" style="gap:6px;background:var(--bg2);border-radius:8px;padding:8px 10px;">
+          <span style="font-size:12px;color:var(--lbl2);">👥 Max. personen</span>
+          <input class="cfg-row-input" type="number" min="0" step="1" style="width:50px;text-align:right;" value="${t.maxPersonen||0}" placeholder="0=∞" oninput="accTypes[${i}].maxPersonen=parseInt(this.value)||0">
+        </div>
+        <div class="cfg-row" style="gap:6px;background:var(--bg2);border-radius:8px;padding:8px 10px;">
+          <span style="font-size:12px;color:var(--lbl2);">🔒 Waarborg €</span>
+          <input class="cfg-row-input" type="number" min="0" step="10" style="width:60px;text-align:right;" value="${t.waarborgBedrag||0}" placeholder="0" oninput="accTypes[${i}].waarborgBedrag=parseFloat(this.value)||0">
+        </div>
+      </div>
+      <div style="margin-top:8px;">
+        <input class="cfg-row-input" value="${t.beschrijving||''}" placeholder="Korte beschrijving (optioneel, bv. 'Voor max. 6 personen, incl. beddengoed')" oninput="accTypes[${i}].beschrijving=this.value" style="font-size:12px;">
+      </div>
+    </div>`).join('')||'<div style="font-size:12px;color:var(--lbl4);padding:4px 0;">Nog geen extra types</div>';
+}
+function voegAccTypesToe(){
+  accTypes.push({id:'custom_'+Date.now(),naam:'',emoji:'🏕️',prijs:0,maxPersonen:0,waarborgBedrag:0,beschrijving:''});
+  renderAccTypes();
+}
+function verwijderAccType(i){
+  accTypes.splice(i,1);
+  renderAccTypes();
+}
 
 function loadTarieven(){
   document.getElementById('tarTent').value=PRICES.tent;
@@ -1821,7 +1861,7 @@ function loadTarieven(){
   document.getElementById('tarAfval').value=PRICES.afvalPer6;
   document.getElementById('tarTaks').value=PRICES.toeristentaks;
   const mp=document.getElementById('tarMaxPlaatsen');if(mp)mp.value=PRICES.maxPlaatsen||0;
-  const wb=document.getElementById('tarWaarborg');if(wb)wb.value=PRICES.waarborg??100;
+  renderAccTypes();
   renderExtraTarieven();
 }
 function renderExtraTarieven(){
@@ -1861,14 +1901,13 @@ async function saveTarieven(){
   try{
     const {data:{session}}=await sb.auth.getSession();
     PRICES.maxPlaatsen=parseInt(document.getElementById('tarMaxPlaatsen')?.value)||0;
-    PRICES.waarborg=parseFloat(document.getElementById('tarWaarborg')?.value)||0;
     const pairs=[['prijs_tent',PRICES.tent],['prijs_camper',PRICES.camper],
       ['prijs_volwassene',PRICES.volwassene],['prijs_kind',PRICES.kind],['prijs_baby',PRICES.baby],
       ['prijs_hond',PRICES.hond],['prijs_extra_auto',PRICES.extraAuto],
       ['prijs_elektriciteit',PRICES.elektriciteit],['prijs_afval_per_6',PRICES.afvalPer6],['toeristentaks',PRICES.toeristentaks],
       ['max_plaatsen',PRICES.maxPlaatsen],
-      ['prijs_waarborg',PRICES.waarborg],
-      ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>t.naam.trim()))]];
+      ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>t.naam.trim()))],
+      ['accommodatie_types',JSON.stringify(accTypes.filter(t=>t.naam.trim()))]];
     for(const [key,value] of pairs){
       await sb.from('settings').upsert({user_id:session.user.id,key,value:String(value),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
     }

@@ -128,17 +128,14 @@ button{cursor:pointer;border:none;background:none}
     <span class="nights-pill" id="nightsPill">3 nachten</span>
   </div>
 
-  <!-- Standplaats -->
-  <div class="card">
-    <h2>⛺ Standplaats</h2>
-    <div class="stepper-row">
-      <div class="sr-info"><div class="sr-title">Tent</div><div class="sr-sub">€15 / nacht per tent</div></div>
-      <div class="stepper"><button class="stp-btn" onclick="step('tenten',-1)">−</button><span class="stp-val" id="v-tenten">1</span><button class="stp-btn" onclick="step('tenten',1)">+</button></div>
+  <!-- Verblijfstype -->
+  <div class="card" id="cardVerblijf">
+    <h2>🏕️ Verblijfstype</h2>
+    <div id="verblijfTypeList">
+      <!-- dynamisch ingeladen via JS -->
+      <div style="color:var(--lbl4);font-size:13px;padding:8px 0;">Laden…</div>
     </div>
-    <div class="stepper-row">
-      <div class="sr-info"><div class="sr-title">Camper / Caravan</div><div class="sr-sub">€15 / nacht per stuk</div></div>
-      <div class="stepper"><button class="stp-btn" onclick="step('campers',-1)">−</button><span class="stp-val" id="v-campers">0</span><button class="stp-btn" onclick="step('campers',1)">+</button></div>
-    </div>
+    <div id="maxPersonenWaarschuwing" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(255,149,0,.1);border-radius:10px;font-size:13px;font-weight:600;color:#CC7A00;"></div>
   </div>
 
   <!-- Personen -->
@@ -350,9 +347,13 @@ function ogmReference(volgnummer){
   return `+++${full.slice(0,3)}/${full.slice(3,7)}/${full.slice(7,12)}+++`;
 }
 
-const PRICES={tent:15,camper:15,volwassene:7,kind:5,baby:0,hond:3,extraAuto:2,elektriciteit:6,afvalPer6:2,toeristentaks:1,waarborg:100};
-let state={tenten:1,campers:0,volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,elek:false,akkoord:false};
-let extraTarievenPublic=[];// geladen uit settings
+const PRICES={tent:15,camper:15,volwassene:7,kind:5,baby:0,hond:3,extraAuto:2,elektriciteit:6,afvalPer6:2,toeristentaks:1,waarborg:0};
+let state={verblijfstype:'tent',tenten:1,campers:0,volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,elek:false,akkoord:false};
+let extraTarievenPublic=[];
+let accommodatieTypes=[
+  {id:'tent',naam:'Tent',emoji:'⛺',prijs:15,maxPersonen:0,waarborg:0,waarborgBedrag:0,isStandaard:true},
+  {id:'camper',naam:'Camper / Caravan',emoji:'🚐',prijs:15,maxPersonen:0,waarborg:0,waarborgBedrag:0,isStandaard:true},
+];
 
 /* Tarieven laden uit Supabase (sync met dashboard instellingen) */
 (async function loadPrices(){
@@ -360,12 +361,12 @@ let extraTarievenPublic=[];// geladen uit settings
     const {data}=await sb.from('settings').select('key,value').in('key',[
       'prijs_tent','prijs_camper','prijs_volwassene','prijs_kind','prijs_baby',
       'prijs_hond','prijs_extra_auto','prijs_elektriciteit','prijs_afval_per_6',
-      'toeristentaks','prijs_waarborg','extra_tarieven'
+      'toeristentaks','prijs_waarborg','extra_tarieven','accommodatie_types'
     ]);
     if(!data||!data.length)return;
     const m={};data.forEach(r=>m[r.key]=r.value);
-    if(m.prijs_tent)PRICES.tent=parseFloat(m.prijs_tent)||0;
-    if(m.prijs_camper)PRICES.camper=parseFloat(m.prijs_camper)||0;
+    if(m.prijs_tent){PRICES.tent=parseFloat(m.prijs_tent)||0;accommodatieTypes.find(t=>t.id==='tent').prijs=PRICES.tent;}
+    if(m.prijs_camper){PRICES.camper=parseFloat(m.prijs_camper)||0;accommodatieTypes.find(t=>t.id==='camper').prijs=PRICES.camper;}
     if(m.prijs_volwassene)PRICES.volwassene=parseFloat(m.prijs_volwassene)||0;
     if(m.prijs_kind)PRICES.kind=parseFloat(m.prijs_kind)||0;
     if(m.prijs_baby!==undefined)PRICES.baby=parseFloat(m.prijs_baby)||0;
@@ -376,27 +377,80 @@ let extraTarievenPublic=[];// geladen uit settings
     if(m.toeristentaks)PRICES.toeristentaks=parseFloat(m.toeristentaks)||0;
     if(m.prijs_waarborg!==undefined)PRICES.waarborg=parseFloat(m.prijs_waarborg)||0;
     try{extraTarievenPublic=JSON.parse(m.extra_tarieven||'[]')}catch(e){}
-    // Labels in de UI bijwerken
-    const srSubs=document.querySelectorAll('.sr-sub');
+    try{
+      const custom=JSON.parse(m.accommodatie_types||'[]');
+      if(custom.length) accommodatieTypes=[...accommodatieTypes.filter(t=>t.isStandaard),...custom];
+    }catch(e){}
+    renderVerblijfTypes();
+    // Labels bijwerken die nog in DOM staan
+    const babyEl=document.getElementById('srBaby');
+    if(babyEl)babyEl.textContent=PRICES.baby>0?`€${PRICES.baby} / nacht`:'Gratis';
+    const elekEl=document.querySelector('.toggle-row .sr-sub');
+    if(elekEl)elekEl.textContent=`€${PRICES.elektriciteit} eenmalig per aanvraag`;
+    // Personen-labels
+    const srSubs=document.querySelectorAll('.stepper-row .sr-sub');
     srSubs.forEach(el=>{
       const t=el.closest('.stepper-row')?.querySelector('.sr-title')?.textContent||'';
-      if(t==='Tent')el.textContent=`€${PRICES.tent} / nacht per tent`;
-      if(t==='Camper / Caravan')el.textContent=`€${PRICES.camper} / nacht per stuk`;
       if(t==='Volwassenen')el.textContent=`€${PRICES.volwassene} / nacht — vanaf 12 jaar, incl. toeristentaks`;
       if(t.startsWith('Kinderen 3'))el.textContent=`€${PRICES.kind} / nacht — geen toeristentaks`;
       if(t==='Hond')el.textContent=`€${PRICES.hond} / nacht per hond`;
       if(t==="Auto's")el.textContent=`1e auto gratis, elke volgende €${PRICES.extraAuto} / nacht`;
     });
-    const babyEl=document.getElementById('srBaby');
-    if(babyEl)babyEl.textContent=PRICES.baby>0?`€${PRICES.baby} / nacht`:'Gratis';
-    document.querySelector('.toggle-row .sr-sub').textContent=`€${PRICES.elektriciteit} eenmalig per aanvraag`;
     calc();
   }catch(e){}
 })();
 
+function renderVerblijfTypes(){
+  const el=document.getElementById('verblijfTypeList');if(!el)return;
+  el.innerHTML=accommodatieTypes.map(t=>{
+    const isSelected=state.verblijfstype===t.id;
+    return`<div onclick="selectVerblijfType('${t.id}')" style="display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:12px;cursor:pointer;margin-bottom:8px;border:2px solid ${isSelected?'var(--green)':'var(--sep)'};background:${isSelected?'rgba(27,138,91,.06)':'transparent'};transition:.15s;">
+      <div style="font-size:28px;flex-shrink:0;">${t.emoji||'🏕️'}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--lbl1);">${t.naam}</div>
+        <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">€${t.prijs} / nacht${t.maxPersonen>0?' · max '+t.maxPersonen+' personen':''}${t.waarborgBedrag>0?' · waarborg €'+t.waarborgBedrag:''}${t.beschrijving?' · '+t.beschrijving:''}</div>
+      </div>
+      <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${isSelected?'var(--green)':'var(--sep)'};background:${isSelected?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        ${isSelected?'<div style="width:8px;height:8px;border-radius:50%;background:#fff;"></div>':''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function selectVerblijfType(id){
+  state.verblijfstype=id;
+  const t=accommodatieTypes.find(x=>x.id===id);
+  // Reset standplaatsaantallen op 0 behalve het gekozen type
+  state.tenten=0;state.campers=0;
+  if(id==='tent')state.tenten=1;
+  else if(id==='camper')state.campers=1;
+  // Max personen check bij wisseling
+  if(t?.maxPersonen>0){
+    const totaal=state.volwassenen+state.kinderen+state.baby;
+    if(totaal>t.maxPersonen){state.volwassenen=Math.min(state.volwassenen,t.maxPersonen);state.kinderen=0;state.baby=0;}
+    document.getElementById('v-volwassenen').textContent=state.volwassenen;
+    document.getElementById('v-kinderen').textContent=state.kinderen;
+    document.getElementById('v-baby').textContent=state.baby;
+  }
+  renderVerblijfTypes();
+  calc();
+}
+
 function step(key,delta){
   const min = key==='volwassenen' ? 1 : 0;
-  state[key]=Math.max(min,(state[key]||0)+delta);
+  const newVal=Math.max(min,(state[key]||0)+delta);
+  // Max personen check
+  const t=accommodatieTypes.find(x=>x.id===state.verblijfstype);
+  if(t?.maxPersonen>0&&['volwassenen','kinderen','baby'].includes(key)){
+    const totaalZonderKey=(key==='volwassenen'?0:state.volwassenen)+(key==='kinderen'?0:state.kinderen)+(key==='baby'?0:state.baby);
+    if(totaalZonderKey+newVal>t.maxPersonen){
+      const el=document.getElementById('maxPersonenWaarschuwing');
+      if(el){el.style.display='block';el.textContent=`⚠️ ${t.naam} heeft een maximum van ${t.maxPersonen} personen.`;}
+      return;
+    }
+  }
+  const el=document.getElementById('maxPersonenWaarschuwing');
+  if(el)el.style.display='none';
+  state[key]=newVal;
   document.getElementById('v-'+key).textContent=state[key];
   calc();
 }
@@ -417,13 +471,22 @@ function nightCount(){
 }
 function fmt(n){return '€'+n.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2})}
 
+// Init verblijfTypes renderen (prices nog niet geladen, maar defaults staan er al)
+renderVerblijfTypes();
+
 function calc(){
   const nights=nightCount();
   document.getElementById('nightsPill').textContent = nights>0 ? `${nights} nacht${nights===1?'':'en'}` : 'Kies geldige data';
 
+  // Gekozen verblijfstype
+  const gekozenType=accommodatieTypes.find(x=>x.id===state.verblijfstype)||accommodatieTypes[0];
+  const standplaatsKost=gekozenType.prijs;
+  const typeWaarborg=gekozenType.waarborgBedrag||0;
+
   const totaalPersonen = state.volwassenen + state.kinderen + state.baby;
-  const tentenKost = state.tenten*PRICES.tent;
-  const campersKost = state.campers*PRICES.camper;
+  const tentenKost = state.tenten*standplaatsKost;
+  const campersKost = state.campers*standplaatsKost;
+  const extraTypeKost = (!['tent','camper'].includes(gekozenType.id)) ? standplaatsKost : 0;
   const volwKost = state.volwassenen*PRICES.volwassene;
   const kindKost = state.kinderen*PRICES.kind;
   const babyKost = state.baby*(PRICES.baby||0);
@@ -432,7 +495,8 @@ function calc(){
   const afvalKost = Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6;
   const taksKost = state.volwassenen*PRICES.toeristentaks;
 
-  const diensten_per_nacht = tentenKost+campersKost+volwKost+kindKost+babyKost+hondKost+extraAutoKost+afvalKost;
+  const standplaatsTotaalPerNacht = tentenKost + campersKost + extraTypeKost;
+  const diensten_per_nacht = standplaatsTotaalPerNacht+volwKost+kindKost+babyKost+hondKost+extraAutoKost+afvalKost;
   const elekKost = state.elek ? PRICES.elektriciteit : 0;
   // Extra vrije tarieven uit instellingen
   let extraPerNachtBasis=0, extraEenmaligBasis=0;
@@ -463,14 +527,19 @@ function calc(){
   const taks_totaal = taksKost*nights;
 
   // Waarborg: apart vermeld, NIET in online betaling
-  const waarborg = PRICES.waarborg||0;
+  const waarborg = typeWaarborg;
 
   const totaal = Math.round((dienstenTotaalBTW + btw + taks_totaal)*100)/100;
   const perNacht = diensten_per_nacht + taksKost;
 
   const lines=[];
-  if(state.tenten>0) lines.push([`⛺ Tent (${state.tenten} × €${PRICES.tent}/n)`, tentenKost]);
-  if(state.campers>0) lines.push([`🚐 Camper/Caravan (${state.campers} × €${PRICES.camper}/n)`, campersKost]);
+  // Standplaats regel op basis van gekozen type
+  if(['tent','camper'].includes(gekozenType.id)){
+    if(state.tenten>0) lines.push([`${gekozenType.emoji||'⛺'} Tent (${state.tenten} × €${standplaatsKost}/n)`, tentenKost]);
+    if(state.campers>0) lines.push([`🚐 Camper/Caravan (${state.campers} × €${standplaatsKost}/n)`, campersKost]);
+  } else {
+    lines.push([`${gekozenType.emoji||'🏕️'} ${gekozenType.naam} (€${standplaatsKost}/n)`, extraTypeKost]);
+  }
   if(state.volwassenen>0) lines.push([`🧑 Volwassenen (${state.volwassenen} × €${PRICES.volwassene}/n)`, volwKost]);
   if(state.kinderen>0) lines.push([`🧒 Kinderen 3-11j (${state.kinderen} × €${PRICES.kind}/n)`, kindKost]);
   if(state.baby>0) lines.push([`👶 Baby's <3j (${state.baby}×)`, babyKost>0?babyKost:0, babyKost===0]);
@@ -539,7 +608,12 @@ async function submitForm(){
 
     // 2. Boeking aanmaken
     const totaalPersonen=state.volwassenen+state.kinderen+state.baby;
-    const dienstenPerNacht=(state.tenten*PRICES.tent)+(state.campers*PRICES.camper)+(state.volwassenen*PRICES.volwassene)+(state.kinderen*PRICES.kind)+(state.baby*(PRICES.baby||0))+(state.honden*PRICES.hond)+(Math.max(0,state.autos-1)*PRICES.extraAuto)+(Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6);
+    const gekozenType=accommodatieTypes.find(x=>x.id===state.verblijfstype)||accommodatieTypes[0];
+    const standplaatsPrijs=gekozenType.prijs;
+    const standplaatsPerNacht=['tent','camper'].includes(gekozenType.id)
+      ?(state.tenten*standplaatsPrijs)+(state.campers*standplaatsPrijs)
+      :standplaatsPrijs;
+    const dienstenPerNacht=standplaatsPerNacht+(state.volwassenen*PRICES.volwassene)+(state.kinderen*PRICES.kind)+(state.baby*(PRICES.baby||0))+(state.honden*PRICES.hond)+(Math.max(0,state.autos-1)*PRICES.extraAuto)+(Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6);
     const elekNow=state.elek?PRICES.elektriciteit:0;
     // Extra vrije tarieven
     let extraPerNachtSom=0, extraEenmaligSom=0;
@@ -562,7 +636,10 @@ async function submitForm(){
       client_id:client.id,
       aankomst:document.getElementById('fAankomst').value,
       vertrek:document.getElementById('fVertrek').value,
-      tenten:state.tenten, campers:state.campers, volwassenen:state.volwassenen,
+      tenten:['tent','camper'].includes(gekozenType.id)?state.tenten:0,
+      campers:gekozenType.id==='camper'?state.campers:0,
+      type:gekozenType.naam,
+      volwassenen:state.volwassenen,
       kinderen:state.kinderen, baby:state.baby, honden:state.honden, autos:state.autos,
       elektriciteit:state.elek, bedrag_per_nacht:dienstenPerNacht, bedrag_totaal:totaalNow,
       nota:nota||null, bron:'website', status:'aanvraag'
