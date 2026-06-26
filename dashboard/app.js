@@ -509,15 +509,11 @@ function openBookingDetail(id){
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">📬 Communicatiehistoriek</div>
       <div id="commHistory">Laden…</div>
-      <div style="margin-top:20px;padding-top:18px;border-top:1.5px solid var(--sep);">
-        <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">✏️ Templates beheren</div>
-        <div style="font-size:12px;color:var(--lbl3);margin-bottom:12px;line-height:1.5;">Variabelen: <code>{{voornaam}}</code> <code>{{aankomst}}</code> <code>{{vertrek}}</code> <code>{{nachten}}</code> <code>{{bedrag}}</code> <code>{{ogm}}</code></div>
-        <div id="mailTemplateBlocksDetail"></div>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:14px;">
-          <button onclick="slaMailTemplatesOp()" style="flex:1;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💾 Templates opslaan</button>
-          <span id="mailTplMsg" style="font-size:12px;color:var(--green);"></span>
-        </div>
+      <div style="margin-top:16px;padding:12px;background:var(--bg);border:1.5px solid var(--sep);border-radius:10px;text-align:center;">
+        <div style="font-size:12px;color:var(--lbl3);">Templates beheren → <button onclick="closeSheet('shDetail');showView('mail',null);setTimeout(()=>switchMailSeg('templates'),200)" style="background:none;border:none;color:var(--green);font-weight:700;cursor:pointer;font-size:12px;">Mail → Templates ↗</button></div>
       </div>
+      <div id="mailTemplateBlocksDetail" style="display:none;"></div>
+      <span id="mailTplMsg" style="display:none;"></span>
     </div>
     <div style="height:24px;"></div>`;
 
@@ -2303,21 +2299,22 @@ async function saveApiKeys(){
 }
 
 /* ═══════════ GASTEN ═══════════ */
+const _gastenCache={};  // {id: gastObject}
 async function loadGasten(bookingId){
   const el=document.getElementById('gastenList');if(!el)return;
   const {data,error}=await sb.from('gasten').select('*').eq('booking_id',bookingId).order('is_hoofdgast',{ascending:false}).order('created_at');
   if(error){el.textContent='Kon gasten niet laden';return}
   if(!data||!data.length){el.innerHTML='<div style="padding:4px 0 12px;font-size:13px;color:var(--lbl4);">Nog geen gasten toegevoegd</div>';return}
+  data.forEach(g=>_gastenCache[g.id]=g);
   el.innerHTML=data.map(g=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:.5px solid var(--sep);">
-      ${g.foto_url?`<img src="${g.foto_url}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
-        :`<div style="width:38px;height:38px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">👤</div>`}
-      <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditGuestSheet(${JSON.stringify(g).replace(/"/g,"'")})">
-        <div style="font-size:14px;font-weight:700;color:var(--lbl1);">${g.naam}${g.is_hoofdgast?' <span style="font-size:10px;background:var(--green);color:#fff;padding:2px 6px;border-radius:8px;margin-left:4px;">Hoofd</span>':''}</div>
+      <div style="width:38px;height:38px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">👤</div>
+      <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditGuestSheet('${g.id}')">
+        <div style="font-size:14px;font-weight:700;color:var(--lbl1);">${escHtml(g.naam)}${g.is_hoofdgast?' <span style="font-size:10px;background:var(--green);color:#fff;padding:2px 6px;border-radius:8px;margin-left:4px;">Hoofd</span>':''}</div>
         <div style="font-size:11.5px;color:var(--lbl3);margin-top:1px;">${[g.geboortedatum?fmtDateLong(g.geboortedatum):'',g.nationaliteit||'',g.id_nummer||''].filter(Boolean).join(' · ')||'Tik om te bewerken…'}</div>
-        ${g.nummerplaat?`<div style="font-size:11px;color:var(--lbl4);font-family:monospace;">${g.nummerplaat}</div>`:''}
+        ${g.nummerplaat?`<div style="font-size:11px;color:var(--lbl4);font-family:monospace;">${escHtml(g.nummerplaat)}</div>`:''}
       </div>
-      <button onclick="openEditGuestSheet(${JSON.stringify(g).replace(/"/g,"'")})" style="color:var(--blue);font-size:14px;padding:6px;background:rgba(0,122,255,.08);border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">✏️</button>
+      <button onclick="openEditGuestSheet('${g.id}')" style="color:var(--blue);font-size:14px;padding:6px;background:rgba(0,122,255,.08);border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">✏️</button>
       <button onclick="deleteGast('${g.id}','${bookingId}')" style="color:var(--red);font-size:14px;padding:6px;background:rgba(255,59,48,.08);border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">🗑</button>
     </div>`).join('')
 }
@@ -2339,9 +2336,8 @@ function openAddGuestSheet(bookingId){
   openSheet('shAddGuest');
 }
 
-function openEditGuestSheet(g){
-  // g kan string zijn (uit onclick attribuut) of object
-  if(typeof g==='string'){try{g=JSON.parse(g.replace(/'/g,'"'));}catch(e){return;}}
+function openEditGuestSheet(gastId){
+  const g=_gastenCache[gastId];if(!g){toast('⚠️ Gast niet gevonden');return;}
   document.getElementById('addGuestBookingId').value=g.booking_id;
   document.getElementById('editGastId').value=g.id;
   const title=document.getElementById('addGuestSheetTitle');
