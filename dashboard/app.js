@@ -664,47 +664,87 @@ async function loadMailTemplatesPage(){
   });
   renderMailTemplateBlocksPage();
 }
+// Actieve edit-staat per type: {typeKey: variantIndex|null}
+const _tplEditState={};
+
 function renderMailTemplateBlocksPage(){
   const el=document.getElementById('mailTemplateBlocksPage');if(!el)return;
+  const PREVIEW_VARS={voornaam:'Jan',aankomst:'26 jun 2026',vertrek:'28 jun 2026',nachten:'2',personen:'4',bedrag:'€ 178,50',ogm:'+++123/4567/89012+++'};
+  function previewFill(str){return str.replace(/\{\{(\w+)\}\}/g,(_,k)=>`<span style="background:rgba(27,138,91,.15);color:var(--green);border-radius:3px;padding:0 3px;font-weight:700;">${PREVIEW_VARS[k]||'{{'+k+'}}'}</span>`);}
   el.innerHTML=MAIL_TYPES.map(t=>{
     const variants=mailTemplates[t.key]||[];
-    return `<div style="margin-bottom:20px;">
+    const editIdx=_tplEditState[t.key]??null;
+    const isEditing=editIdx!==null;
+    const ev=isEditing?variants[editIdx]:null;
+    return `<div style="border:1.5px solid var(--sep);border-radius:16px;overflow:hidden;margin-bottom:18px;">
       <!-- Type header -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <div style="font-size:20px;">${t.icon||'📧'}</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg2);border-bottom:1.5px solid var(--sep);">
+        <div style="width:36px;height:36px;border-radius:10px;background:${t.color}22;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${t.icon||'📧'}</div>
         <div style="flex:1;">
-          <div style="font-size:15px;font-weight:800;color:var(--lbl1);">${t.label}</div>
-          <div style="font-size:11px;color:var(--lbl3);">${variants.length} variant${variants.length!==1?'en':''} — systeem kiest er willekeurig één</div>
+          <div style="font-size:14px;font-weight:800;color:var(--lbl1);">${t.label}</div>
+          <div style="font-size:11px;color:var(--lbl3);">${variants.length} variant${variants.length!==1?'en':''} · systeem kiest willekeurig</div>
         </div>
-        <button onclick="voegMailVariantToePage('${t.key}')" style="padding:6px 12px;border-radius:10px;background:rgba(27,138,91,.12);color:var(--green);border:1.5px solid rgba(27,138,91,.3);font-size:12px;font-weight:700;cursor:pointer;">+ Variant</button>
+        <button onclick="voegMailVariantToePage('${t.key}')" style="padding:6px 10px;border-radius:8px;background:${t.color}22;color:${t.color};border:1.5px solid ${t.color}44;font-size:12px;font-weight:700;cursor:pointer;">+ Variant</button>
       </div>
-      <!-- Variant cards -->
-      ${variants.map((v,vi)=>`
-        <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:14px;margin-bottom:10px;overflow:hidden;">
-          <!-- Mail header bar -->
-          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--sep);">
-            <div style="width:8px;height:8px;border-radius:50%;background:${t.color};flex-shrink:0;"></div>
-            <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;flex:1;">Variant ${vi+1}</div>
-            ${variants.length>1?`<button onclick="verwijderMailVariantPage('${t.key}',${vi})" style="padding:3px 8px;border-radius:6px;background:rgba(255,59,48,.1);color:var(--red);border:none;font-size:11px;cursor:pointer;">Verwijder</button>`:''}
-          </div>
-          <!-- Onderwerp -->
-          <div style="padding:10px 12px 0;">
-            <div style="font-size:10px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Onderwerp</div>
-            <input value="${escHtml(v.onderwerp)}" placeholder="Onderwerp van de mail…"
-              oninput="mailTemplates['${t.key}'][${vi}].onderwerp=this.value"
-              style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid var(--sep);background:var(--bg2);font-size:13px;font-weight:600;color:var(--lbl1);box-sizing:border-box;outline:none;">
-          </div>
-          <!-- Inhoud -->
-          <div style="padding:10px 12px 12px;">
-            <div style="font-size:10px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Inhoud</div>
-            <textarea rows="7" placeholder="Beste {{voornaam}},&#10;&#10;…&#10;&#10;Groeten,&#10;Camping Cosmopolite"
-              oninput="mailTemplates['${t.key}'][${vi}].inhoud=this.value"
-              style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--sep);background:var(--bg2);font-size:13px;color:var(--lbl1);resize:vertical;box-sizing:border-box;outline:none;line-height:1.6;font-family:inherit;">${escHtml(v.inhoud)}</textarea>
-          </div>
-        </div>`).join('')}
-      <button onclick="slaMailTemplatesOpPage('${t.key}')" style="width:100%;padding:9px;background:var(--green);color:#fff;border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;margin-bottom:4px;">💾 ${t.label} opslaan</button>
+      <!-- Varianten lijst (altijd zichtbaar) -->
+      <div style="padding:10px 12px;">
+        ${variants.map((v,vi)=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:${editIdx===vi?t.color+'18':'var(--bg2)'};border:1.5px solid ${editIdx===vi?t.color+'66':'var(--sep)'};margin-bottom:6px;cursor:pointer;" onclick="tplSelectVariant('${t.key}',${vi})">
+            <div style="width:22px;height:22px;border-radius:50%;background:${t.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;">${vi+1}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12.5px;font-weight:700;color:var(--lbl1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(v.onderwerp)||'(geen onderwerp)'}</div>
+              <div style="font-size:11px;color:var(--lbl3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml((v.inhoud||'').split('\n')[0])}</div>
+            </div>
+            <div style="display:flex;gap:4px;flex-shrink:0;">
+              <button onclick="event.stopPropagation();tplPreviewVariant('${t.key}',${vi})" style="padding:4px 7px;border-radius:6px;background:rgba(0,122,255,.1);color:#007AFF;border:none;font-size:11px;cursor:pointer;">👁 Preview</button>
+              ${variants.length>1?`<button onclick="event.stopPropagation();verwijderMailVariantPage('${t.key}',${vi})" style="padding:4px 7px;border-radius:6px;background:rgba(255,59,48,.1);color:var(--red);border:none;font-size:11px;cursor:pointer;">✕</button>`:''}
+            </div>
+          </div>`).join('')}
+      </div>
+      <!-- Editor (alleen zichtbaar als editIdx != null) -->
+      ${isEditing&&ev?`
+      <div style="border-top:1.5px solid var(--sep);padding:12px 14px;background:var(--bg);">
+        <div style="font-size:11px;font-weight:700;color:${t.color};text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">✏️ Variant ${editIdx+1} bewerken</div>
+        <div style="font-size:10.5px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Onderwerp</div>
+        <input id="tplInpOnderwerp_${t.key}" value="${escHtml(ev.onderwerp)}" placeholder="Onderwerp van de mail…"
+          oninput="mailTemplates['${t.key}'][${editIdx}].onderwerp=this.value"
+          style="width:100%;padding:9px 11px;border-radius:9px;border:1.5px solid ${t.color}66;background:var(--bg2);font-size:13px;font-weight:600;color:var(--lbl1);box-sizing:border-box;outline:none;margin-bottom:10px;">
+        <div style="font-size:10.5px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Inhoud</div>
+        <textarea id="tplInpInhoud_${t.key}" rows="8"
+          oninput="mailTemplates['${t.key}'][${editIdx}].inhoud=this.value"
+          style="width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid ${t.color}66;background:var(--bg2);font-size:13px;color:var(--lbl1);resize:vertical;box-sizing:border-box;outline:none;line-height:1.6;font-family:inherit;">${escHtml(ev.inhoud)}</textarea>
+        <div style="font-size:11px;color:var(--lbl3);margin:6px 0 10px;">
+          Variabelen: <code style="background:var(--bg2);padding:1px 4px;border-radius:4px;font-size:11px;">{{voornaam}}</code>
+          <code style="background:var(--bg2);padding:1px 4px;border-radius:4px;font-size:11px;">{{aankomst}}</code>
+          <code style="background:var(--bg2);padding:1px 4px;border-radius:4px;font-size:11px;">{{vertrek}}</code>
+          <code style="background:var(--bg2);padding:1px 4px;border-radius:4px;font-size:11px;">{{nachten}}</code>
+          <code style="background:var(--bg2);padding:1px 4px;border-radius:4px;font-size:11px;">{{personen}}</code>
+          <code style="background:var(--bg2);padding:1px 4px;border-radius:4px;font-size:11px;">{{bedrag}}</code>
+          <code style="background:var(--bg2);padding:1px 4px;border-radius:4px;font-size:11px;">{{ogm}}</code>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="tplPreviewVariant('${t.key}',${editIdx})" style="flex:1;padding:9px;background:rgba(0,122,255,.1);color:#007AFF;border:1.5px solid rgba(0,122,255,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">👁 Preview</button>
+          <button onclick="slaMailTemplatesOpPage('${t.key}')" style="flex:2;padding:9px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💾 Opslaan</button>
+        </div>
+      </div>`:''}
     </div>`;
-  }).join('<div style="height:1px;background:var(--sep);margin:4px 0 20px;"></div>');
+  }).join('');
+}
+function tplSelectVariant(typeKey,vi){
+  _tplEditState[typeKey]=(_tplEditState[typeKey]===vi)?null:vi;
+  renderMailTemplateBlocksPage();
+}
+function tplPreviewVariant(typeKey,vi){
+  const v=(mailTemplates[typeKey]||[])[vi];if(!v)return;
+  const DEMO={voornaam:'Jan',aankomst:'26 jun 2026',vertrek:'28 jun 2026',nachten:'2',personen:'4',bedrag:'€ 178,50',ogm:'+++123/4567/89012+++'};
+  function fill(s){return(s||'').replace(/\{\{(\w+)\}\}/g,(_,k)=>DEMO[k]||'{{'+k+'}}');}
+  const t=MAIL_TYPES.find(x=>x.key===typeKey)||{};
+  const body=document.getElementById('tplPreviewModal');
+  if(!body)return;
+  document.getElementById('tplPreviewTitle').textContent='Preview: '+t.label;
+  document.getElementById('tplPreviewSubject').textContent=fill(v.onderwerp);
+  document.getElementById('tplPreviewBody').innerHTML=fill(v.inhoud).replace(/\n/g,'<br>');
+  body.style.display='flex';
 }
 function voegMailVariantToePage(typeKey){
   const t=MAIL_TYPES.find(x=>x.key===typeKey);
@@ -1016,25 +1056,25 @@ async function _autoMailSilent(bookingId, templateKey){
 function openEditSheet(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
   editingId=id;
-  document.getElementById('eNaam').value=b.naam;
-  document.getElementById('ePlaat').value=b.plaat;
-  document.getElementById('eVolwassenen').value=b.volwassenen??b.personen;
+  document.getElementById('eNaam').value=b.naam||'';
+  document.getElementById('ePlaat').value=b.plaat||'';
+  document.getElementById('eVolwassenen').value=b.volwassenen??b.personen??1;
   document.getElementById('eKinderen').value=b.kinderen??0;
-  document.getElementById('eAankomst').value=b.aankomst;
-  document.getElementById('eVertrek').value=b.vertrek;
-  document.getElementById('eTenten').value=b.tenten??1;
+  document.getElementById('eAankomst').value=b.aankomst||'';
+  document.getElementById('eVertrek').value=b.vertrek||'';
+  document.getElementById('eTenten').value=b.tenten??0;
   document.getElementById('eCampers').value=b.campers??0;
-  document.getElementById('eHonden').value=b.honden??0;
-  document.getElementById('eBron').value=b.bron;
-  document.getElementById('eBedrag').value=b.bedrag;
-  document.getElementById('eNota').value=b.nota;
+  document.getElementById('eHonden').value=b.hond?1:0;
+  document.getElementById('eBron').value=b.bron||'';
+  document.getElementById('eBedrag').value=b.bedrag||0;
+  document.getElementById('eNota').value=b.nota||'';
   document.getElementById('eExtraAuto').checked=!!b.extraAuto;
   document.getElementById('eElektriciteit').checked=!!b.elektriciteit;
   eFotoData=b.foto||null;
   const img=document.getElementById('eFotoPreview');
-  if(b.foto){img.src=b.foto;img.classList.add('show')}else{img.classList.remove('show')}
+  if(img){if(b.foto){img.src=b.foto;img.classList.add('show')}else{img.classList.remove('show')}}
   updatePriceLiveEdit();
-  closeSheet('shDetail');openSheet('shEdit')
+  closeSheet('shDetail');openSheet('shEdit');
 }
 async function saveEdit(){
   const b=bookings.find(x=>x.id===editingId);if(!b)return;
@@ -1053,7 +1093,7 @@ async function saveEdit(){
   const extraAuto=document.getElementById('eExtraAuto').checked;
   const elektriciteit=document.getElementById('eElektriciteit').checked;
   if(!naam||!aankomst||!vertrek){toast('⚠️ Vul naam en datums in');return}
-  if(tenten+campers<1){toast('⚠️ Minstens 1 tent of camper verplicht');return}
+  // Geen strikte tent/camper check: kan ook alleen accType (Safaritent etc.) zijn
   if(aankomst>=vertrek){toast('⚠️ Vertrek moet na aankomst zijn');return}
   if(volwassenen+kinderen<1){toast('⚠️ Minstens 1 persoon is verplicht');return}
   const {error:bErr}=await sb.from('bookings').update({

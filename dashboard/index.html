@@ -572,6 +572,33 @@
   </div>
 </div>
 
+<!-- Mail Template Preview Modal -->
+<div id="tplPreviewModal" onclick="this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
+  <div onclick="event.stopPropagation()" style="background:var(--card);border-radius:18px;max-width:480px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1.5px solid var(--sep);">
+      <div style="flex:1;font-size:14px;font-weight:800;color:var(--lbl1);" id="tplPreviewTitle">Preview</div>
+      <button onclick="document.getElementById('tplPreviewModal').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--lbl3);">✕</button>
+    </div>
+    <!-- Mail envelope look -->
+    <div style="overflow-y:auto;padding:16px;">
+      <div style="background:var(--bg2);border-radius:12px;overflow:hidden;border:1.5px solid var(--sep);">
+        <!-- Header -->
+        <div style="padding:12px 14px;border-bottom:1px solid var(--sep);background:var(--bg);">
+          <div style="font-size:10px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">Van</div>
+          <div style="font-size:12.5px;color:var(--lbl2);">Camping Cosmopolite &lt;info@campingcosmopolite.be&gt;</div>
+        </div>
+        <div style="padding:12px 14px;border-bottom:1px solid var(--sep);">
+          <div style="font-size:10px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">Onderwerp</div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--lbl1);" id="tplPreviewSubject"></div>
+        </div>
+        <!-- Body -->
+        <div style="padding:16px 14px;font-size:13.5px;color:var(--lbl1);line-height:1.75;white-space:pre-wrap;" id="tplPreviewBody"></div>
+      </div>
+      <div style="text-align:center;font-size:11px;color:var(--lbl4);margin-top:10px;">Preview met voorbeelddata · Tik buiten modal om te sluiten</div>
+    </div>
+  </div>
+</div>
+
 <!-- Gast Toevoegen Sheet -->
 <div class="sh-overlay" id="shAddGuest" onclick="closeSheetOnOverlay(event,'shAddGuest')">
   <div class="sheet">
