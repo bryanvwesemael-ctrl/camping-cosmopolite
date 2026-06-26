@@ -1,3 +1,6 @@
+/* ═══════════ HELPERS ═══════════ */
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
 /* ═══════════ SUPABASE ═══════════ */
 const SUPABASE_URL='https://whubbowuqhjdkdequbmb.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWJib3d1cWhqZGtkZXF1Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjM3NTYsImV4cCI6MjA5Nzc5OTc1Nn0.1S-eme0sMmC_25H-XnZ9r3AMKFSSxnpRx3-GRefSyzs';
@@ -663,32 +666,51 @@ async function loadMailTemplatesPage(){
 }
 function renderMailTemplateBlocksPage(){
   const el=document.getElementById('mailTemplateBlocksPage');if(!el)return;
-  el.innerHTML=MAIL_TYPES.map(t=>`
-    <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:14px;margin-bottom:14px;overflow:hidden;">
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--sep);background:var(--bg2);">
-        <div style="font-size:18px;">${t.icon}</div>
-        <div style="flex:1;font-size:14px;font-weight:700;color:var(--lbl1);">${t.label}</div>
-        <button onclick="voegMailVariantToePage('${t.key}')" style="padding:5px 10px;border-radius:8px;background:rgba(27,138,91,.1);color:var(--green);border:none;font-size:12px;font-weight:700;cursor:pointer;">+ Variant</button>
+  el.innerHTML=MAIL_TYPES.map(t=>{
+    const variants=mailTemplates[t.key]||[];
+    return `<div style="margin-bottom:20px;">
+      <!-- Type header -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="font-size:20px;">${t.icon||'📧'}</div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:800;color:var(--lbl1);">${t.label}</div>
+          <div style="font-size:11px;color:var(--lbl3);">${variants.length} variant${variants.length!==1?'en':''} — systeem kiest er willekeurig één</div>
+        </div>
+        <button onclick="voegMailVariantToePage('${t.key}')" style="padding:6px 12px;border-radius:10px;background:rgba(27,138,91,.12);color:var(--green);border:1.5px solid rgba(27,138,91,.3);font-size:12px;font-weight:700;cursor:pointer;">+ Variant</button>
       </div>
-      ${(mailTemplates[t.key]||[]).map((v,vi)=>`
-        <div style="padding:12px 14px;border-bottom:1px solid var(--sep);">
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-            <input value="${escHtml(v.onderwerp)}" placeholder="Onderwerp" oninput="mailTemplates['${t.key}'][${vi}].onderwerp=this.value"
-              style="flex:1;padding:7px 10px;border-radius:8px;border:1.5px solid var(--sep);background:var(--bg);font-size:13px;font-weight:600;color:var(--lbl1);">
-            ${(mailTemplates[t.key].length>1)?`<button onclick="verwijderMailVariantPage('${t.key}',${vi})" style="padding:5px 8px;border-radius:8px;background:rgba(255,59,48,.1);color:var(--red);border:none;font-size:12px;cursor:pointer;">✕</button>`:''}
+      <!-- Variant cards -->
+      ${variants.map((v,vi)=>`
+        <div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:14px;margin-bottom:10px;overflow:hidden;">
+          <!-- Mail header bar -->
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--sep);">
+            <div style="width:8px;height:8px;border-radius:50%;background:${t.color};flex-shrink:0;"></div>
+            <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;flex:1;">Variant ${vi+1}</div>
+            ${variants.length>1?`<button onclick="verwijderMailVariantPage('${t.key}',${vi})" style="padding:3px 8px;border-radius:6px;background:rgba(255,59,48,.1);color:var(--red);border:none;font-size:11px;cursor:pointer;">Verwijder</button>`:''}
           </div>
-          <textarea rows="5" placeholder="Inhoud…" oninput="mailTemplates['${t.key}'][${vi}].inhoud=this.value"
-            style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid var(--sep);background:var(--bg);font-size:12.5px;color:var(--lbl1);resize:vertical;box-sizing:border-box;">${escHtml(v.inhoud)}</textarea>
+          <!-- Onderwerp -->
+          <div style="padding:10px 12px 0;">
+            <div style="font-size:10px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Onderwerp</div>
+            <input value="${escHtml(v.onderwerp)}" placeholder="Onderwerp van de mail…"
+              oninput="mailTemplates['${t.key}'][${vi}].onderwerp=this.value"
+              style="width:100%;padding:8px 10px;border-radius:8px;border:1.5px solid var(--sep);background:var(--bg2);font-size:13px;font-weight:600;color:var(--lbl1);box-sizing:border-box;outline:none;">
+          </div>
+          <!-- Inhoud -->
+          <div style="padding:10px 12px 12px;">
+            <div style="font-size:10px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Inhoud</div>
+            <textarea rows="7" placeholder="Beste {{voornaam}},&#10;&#10;…&#10;&#10;Groeten,&#10;Camping Cosmopolite"
+              oninput="mailTemplates['${t.key}'][${vi}].inhoud=this.value"
+              style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--sep);background:var(--bg2);font-size:13px;color:var(--lbl1);resize:vertical;box-sizing:border-box;outline:none;line-height:1.6;font-family:inherit;">${escHtml(v.inhoud)}</textarea>
+          </div>
         </div>`).join('')}
-      <div style="padding:10px 14px;">
-        <button onclick="slaMailTemplatesOpPage()" style="width:100%;padding:9px;background:var(--green);color:#fff;border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;">💾 Opslaan</button>
-      </div>
-    </div>`).join('');
+      <button onclick="slaMailTemplatesOpPage('${t.key}')" style="width:100%;padding:9px;background:var(--green);color:#fff;border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;margin-bottom:4px;">💾 ${t.label} opslaan</button>
+    </div>`;
+  }).join('<div style="height:1px;background:var(--sep);margin:4px 0 20px;"></div>');
 }
 function voegMailVariantToePage(typeKey){
   const t=MAIL_TYPES.find(x=>x.key===typeKey);
   if(!mailTemplates[typeKey])mailTemplates[typeKey]=[];
-  mailTemplates[typeKey].push({onderwerp:t?.defaultOnderwerp||'',inhoud:t?.defaultInhoud||''});
+  const dv=(t?.defaultVarianten||[])[0]||{onderwerp:'',inhoud:''};
+  mailTemplates[typeKey].push({onderwerp:dv.onderwerp,inhoud:dv.inhoud});
   renderMailTemplateBlocksPage();
 }
 function verwijderMailVariantPage(typeKey,idx){
@@ -696,13 +718,15 @@ function verwijderMailVariantPage(typeKey,idx){
   mailTemplates[typeKey].splice(idx,1);
   renderMailTemplateBlocksPage();
 }
-async function slaMailTemplatesOpPage(){
+async function slaMailTemplatesOpPage(typeKey){
   const msg=document.getElementById('mailTplPageMsg');
   const {data:{session}}=await sb.auth.getSession();if(!session)return;
-  for(const t of MAIL_TYPES){
+  const types=typeKey?MAIL_TYPES.filter(t=>t.key===typeKey):MAIL_TYPES;
+  for(const t of types){
     await sb.from('settings').upsert({user_id:session.user.id,key:'mailtemplate_'+t.key,value:JSON.stringify(mailTemplates[t.key]||[])},{onConflict:'user_id,key'});
   }
-  if(msg){msg.textContent='✅ Templates opgeslagen';setTimeout(()=>msg.textContent='',2500);}
+  toast('✅ Templates opgeslagen');
+  if(msg){msg.textContent='✅ Opgeslagen';setTimeout(()=>msg.textContent='',2000);}
 }
 
 async function loadMailTemplates(){
@@ -2351,9 +2375,9 @@ async function deleteGast(gastId,bookingId){
 }
 
 function openAddGuestSheet(bookingId){
+  document.getElementById('addGuestForm').reset();
   document.getElementById('addGuestBookingId').value=bookingId;
   document.getElementById('editGastId').value='';
-  document.getElementById('addGuestForm').reset();
   const title=document.getElementById('addGuestSheetTitle');
   if(title)title.textContent='👤 Gast toevoegen';
   document.getElementById('guestFotoPreview').style.display='none';
