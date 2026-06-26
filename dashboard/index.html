@@ -212,9 +212,12 @@
     <div class="sg"><div class="sg-lbl">Verblijf</div><div class="cells">
       <div class="cell"><div class="cell-icon ci-green">📅</div><div class="cell-body"><div class="cell-lbl">Aankomst</div><input type="date" id="fAankomst" oninput="updatePriceLive()"></div></div>
       <div class="cell"><div class="cell-icon ci-orange">📅</div><div class="cell-body"><div class="cell-lbl">Vertrek</div><input type="date" id="fVertrek" oninput="updatePriceLive()"></div></div>
-      <div class="cell"><div class="cell-icon ci-green">⛺</div><div class="cell-body"><div class="cell-lbl">Tenten <span id="lblPrijsTent" style="font-weight:400;color:var(--lbl4)">€15/nacht</span></div><div class="num-stepper"><button onclick="stepField('fTenten',-1)">−</button><input type="number" id="fTenten" value="1" min="0" max="20" oninput="updatePriceLive()"><button onclick="stepField('fTenten',1)">+</button></div></div></div>
-      <div class="cell"><div class="cell-icon ci-blue">🚐</div><div class="cell-body"><div class="cell-lbl">Campers/Caravans <span id="lblPrijsCamper" style="font-weight:400;color:var(--lbl4)">€15/nacht</span></div><div class="num-stepper"><button onclick="stepField('fCampers',-1)">−</button><input type="number" id="fCampers" value="0" min="0" max="20" oninput="updatePriceLive()"><button onclick="stepField('fCampers',1)">+</button></div></div></div>
     </div></div>
+    <div class="sg"><div class="sg-lbl">Verblijfstype</div>
+      <div id="verblijfTypesNB" style="padding:0 16px 12px;">
+        <div style="padding:12px;text-align:center;color:var(--lbl4);font-size:13px;">Laden…</div>
+      </div>
+    </div>
 
     <div class="sg"><div class="sg-lbl">Extra's</div><div class="cells">
       <div class="cell"><div class="cell-icon ci-orange">🐕</div><div class="cell-body"><div class="cell-lbl">Honden <span id="lblPrijsHond" style="font-weight:400;color:var(--lbl4)">€3/hond/nacht</span></div><div class="num-stepper"><button onclick="stepField('fHonden',-1)">−</button><input type="number" id="fHonden" value="0" min="0" max="5" oninput="updatePriceLive()"><button onclick="stepField('fHonden',1)">+</button></div></div></div>
