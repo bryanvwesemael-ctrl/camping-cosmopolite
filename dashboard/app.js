@@ -194,6 +194,7 @@ async function loadData(){
       volwassenen:row.volwassenen||0, kinderen:row.kinderen||0, baby:row.baby||0,
       aankomst:row.aankomst, vertrek:row.vertrek, type,
       tenten:row.tenten||0, campers:row.campers||0,
+      extraTypeUnits:(()=>{try{return typeof row.extra_type_units==='string'?JSON.parse(row.extra_type_units):(row.extra_type_units||[]);}catch(e){return[];}})(),
       status:row.status, bron:row.bron, bedrag:row.bedrag_totaal||0,
       nota:row.nota||'', honden:row.honden||0, autos:row.autos||1,
       hond:(row.honden||0)>0, extraAuto:(row.autos||0)>1,
