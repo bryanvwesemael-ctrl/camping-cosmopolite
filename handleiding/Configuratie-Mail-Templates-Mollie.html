@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Configuratiehandleiding — Camping Cosmopolite</title>
+<style>
+  :root{--green:#1B8A5B;--dark:#0D4D33;--ink:#1c1c1e;--muted:#6c6c70;--line:#e5e5ea;--soft:#f2f7f4;--amber:#FF9500;--red:#FF3B30;--blue:#007AFF;--purple:#5856D6}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink);line-height:1.6;font-size:13px}
+  .page{padding:24mm 20mm;page-break-after:always;position:relative;min-height:100vh}
+  h1,h2,h3{line-height:1.25;color:var(--dark)}
+  h2{font-size:23px;margin-bottom:14px}
+  h3{font-size:15px;margin:20px 0 8px}
+  p{margin-bottom:10px}
+  ul,ol{margin:0 0 12px 22px}
+  li{margin-bottom:6px}
+  strong{color:var(--ink)}
+  .chapter{page-break-before:always}
+  .cover{background:linear-gradient(160deg,#0D4D33,#1B8A5B);color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:100vh;padding:40mm}
+  .cover .logo{font-size:60px;margin-bottom:18px}
+  .cover h1{color:#fff;font-size:36px;margin-bottom:10px;letter-spacing:-1px}
+  .cover .sub{font-size:17px;opacity:.9;margin-bottom:36px}
+  .cover .badge{background:rgba(255,255,255,.15);padding:8px 18px;border-radius:40px;font-size:13px;font-weight:600}
+  .cover .meta{font-size:12px;opacity:.7;margin-top:36px}
+  .tip,.warning,.testfase,.crit{border-radius:12px;padding:13px 16px;margin:14px 0;font-size:12.5px}
+  .tip{background:#eaf6f0;border-left:4px solid var(--green)}
+  .warning{background:#fff4e5;border-left:4px solid var(--amber)}
+  .testfase{background:#eef3ff;border-left:4px solid var(--blue)}
+  .crit{background:#fdeeed;border-left:4px solid var(--red)}
+  .tip b,.warning b,.testfase b,.crit b{display:block;margin-bottom:3px}
+  ol.steps{counter-reset:s;list-style:none;margin-left:0}
+  ol.steps>li{counter-increment:s;position:relative;padding:8px 0 8px 40px;border-bottom:1px solid #f0f0f2}
+  ol.steps>li::before{content:counter(s);position:absolute;left:0;top:7px;width:26px;height:26px;background:var(--green);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .kbd{background:#f2f2f7;border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-family:monospace;font-size:12px}
+  .section-tag{display:inline-block;color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:30px;margin-bottom:10px;letter-spacing:.3px}
+  .tag-mail{background:var(--blue)} .tag-tpl{background:var(--green)} .tag-pay{background:var(--purple)}
+  table.ref{width:100%;border-collapse:collapse;font-size:12.5px;margin:12px 0}
+  table.ref th{background:var(--soft);text-align:left;padding:9px 11px;border-bottom:2px solid var(--line);color:var(--dark)}
+  table.ref td{padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  .path{background:var(--soft);border-radius:8px;padding:8px 12px;font-size:12px;margin:8px 0;font-weight:600;color:var(--dark)}
+  .path .arrow{color:var(--green)}
+  .footer{position:absolute;bottom:12mm;left:20mm;right:20mm;display:flex;justify-content:space-between;font-size:10px;color:var(--muted);border-top:1px solid var(--line);padding-top:6px}
+  @page{size:A4;margin:0}
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="logo">⚙️</div>
+  <h1>Configuratiehandleiding</h1>
+  <div class="sub">E-mail · Mailtemplates · Mollie betalingen</div>
+  <div class="badge">Voor de beheerder — stap voor stap instellen</div>
+  <div class="meta">Camping Cosmopolite · Versie 1.0</div>
+</div>
+
+<!-- INHOUD -->
+<div class="page">
+  <h2>Wat ga je instellen?</h2>
+  <p>Deze handleiding helpt je drie zaken correct te configureren. Je hoeft dit maar <strong>één keer</strong> te doen.</p>
+  <table class="ref">
+    <tr><th>Onderdeel</th><th>Waarvoor?</th><th>Externe dienst</th></tr>
+    <tr><td>1. E-mailconfiguratie</td><td>Bevestigings- en herinneringsmails versturen</td><td>Resend</td></tr>
+    <tr><td>2. Mailtemplates</td><td>De standaardteksten van die mails</td><td>—</td></tr>
+    <tr><td>3. Mollie betalingen</td><td>Gasten online laten betalen</td><td>Mollie</td></tr>
+  </table>
+  <div class="tip"><b>💡 Hoe het samenhangt</b><strong>Resend</strong> verstuurt de mails, de <strong>templates</strong> bepalen wat erin staat, en <strong>Mollie</strong> regelt het betalen. De geheime sleutels van Resend en Mollie worden veilig op de server bewaard — niemand kan ze nadien nog uitlezen.</p>
+  <div class="testfase"><b>🔵 Testfase</b>Het effectief versturen van mails en het online betalen worden nog technisch afgewerkt. Je kan de configuratie nu al volledig klaarzetten zodat alles werkt zodra de testfase voorbij is.</div>
+  <div class="footer"><span>Configuratiehandleiding — Camping Cosmopolite</span><span>Overzicht</span></div>
+</div>
+
+<!-- 1. EMAIL -->
+<div class="page chapter">
+  <span class="section-tag tag-mail">Deel 1</span>
+  <h2>E-mailconfiguratie (Resend)</h2>
+  <p><strong>Resend</strong> is de dienst die de mails effectief verstuurt. Gratis tot 3.000 mails per maand — ruim voldoende voor een camping.</p>
+
+  <h3>Stap A — Account aanmaken</h3>
+  <ol class="steps">
+    <li>Ga naar <span class="kbd">resend.com</span> en maak een gratis account aan</li>
+    <li>Bevestig je e-mailadres</li>
+  </ol>
+
+  <h3>Stap B — Je domein verifiëren <span style="color:var(--red);font-size:12px">(belangrijkste stap!)</span></h3>
+  <p>Om mails te sturen vanaf <span class="kbd">info@campingcosmopolite.be</span> moet je bewijzen dat je dat domein bezit. Anders belanden de mails in de spam of worden ze geweigerd.</p>
+  <ol class="steps">
+    <li>In Resend: ga naar <strong>Domains</strong> → <strong>Add Domain</strong></li>
+    <li>Vul je domein in (bv. <span class="kbd">campingcosmopolite.be</span>)</li>
+    <li>Resend toont enkele <strong>DNS-records</strong> (TXT/CNAME)</li>
+    <li>Voeg die records toe bij je domeinbeheerder (waar je het domein kocht)</li>
+    <li>Wacht tot Resend "Verified" toont (kan tot enkele uren duren)</li>
+  </ol>
+  <div class="crit"><b>⚠️ Geen eigen domein?</b>Heb je (nog) geen eigen domein, dan kan je tijdelijk testen met het standaard testadres van Resend. Maar voor échte gasten heb je een geverifieerd domein nodig — anders komen mails niet of in de spam aan.</div>
+
+  <h3>Stap C — API-sleutel aanmaken</h3>
+  <ol class="steps">
+    <li>In Resend: ga naar <strong>API Keys</strong> → <strong>Create API Key</strong></li>
+    <li>Geef een naam (bv. "Camping dashboard") en kies <strong>Sending access</strong></li>
+    <li>Kopieer de sleutel — ze begint met <span class="kbd">re_</span></li>
+  </ol>
+  <div class="warning"><b>⚠️ Eénmalig zichtbaar</b>Resend toont de sleutel maar <strong>één keer</strong>. Kopieer ze meteen. Ben je ze kwijt, maak dan gewoon een nieuwe aan.</div>
+
+  <h3>Stap D — Invullen in het dashboard</h3>
+  <div class="path">⚙️ Instellingen <span class="arrow">→</span> Mail</div>
+  <ol class="steps">
+    <li>Vul bij <strong>Afzender → Naam</strong> in: <span class="kbd">Camping Cosmopolite</span></li>
+    <li>Vul bij <strong>Afzender → E-mail</strong> je geverifieerde adres in (bv. <span class="kbd">info@campingcosmopolite.be</span>)</li>
+    <li>Plak je Resend-sleutel bij <strong>Resend API Key</strong></li>
+    <li>Klik op opslaan</li>
+  </ol>
+  <div class="tip"><b>💡 Afzender-e-mail = geverifieerd domein</b>Het e-mailadres bij "Afzender" moet op hetzelfde domein zitten dat je in stap B verifieerde. Anders weigert Resend te versturen.</div>
+
+  <div class="footer"><span>Configuratiehandleiding — Camping Cosmopolite</span><span>1 · E-mail</span></div>
+</div>
+
+<!-- 2. TEMPLATES -->
+<div class="page chapter">
+  <span class="section-tag tag-tpl">Deel 2</span>
+  <h2>Mailtemplates</h2>
+  <p>Templates zijn de <strong>standaardteksten</strong> die je hergebruikt. Je stelt ze één keer in en gebruikt ze telkens opnieuw.</p>
+  <div class="path">📧 Mail (bovenaan) <span class="arrow">→</span> tabblad Templates</div>
+
+  <h3>De types</h3>
+  <table class="ref">
+    <tr><th>Type</th><th>Wanneer?</th></tr>
+    <tr><td>Bevestiging</td><td>Wanneer je een aanvraag bevestigt</td></tr>
+    <tr><td>Herinnering</td><td>Een paar dagen voor aankomst</td></tr>
+    <tr><td>Betaling</td><td>Om aan een openstaande betaling te herinneren</td></tr>
+    <tr><td>Uitchecken</td><td>Bij of na vertrek (bv. bedankt + review-vraag)</td></tr>
+  </table>
+
+  <h3>Variabelen — automatisch invullen</h3>
+  <p>Gebruik variabelen in je tekst; ze worden automatisch vervangen door de echte gegevens van de gast.</p>
+  <table class="ref">
+    <tr><th>Variabele</th><th>Wordt</th><th>Variabele</th><th>Wordt</th></tr>
+    <tr><td><span class="kbd">{{voornaam}}</span></td><td>Voornaam</td><td><span class="kbd">{{personen}}</span></td><td>Aantal personen</td></tr>
+    <tr><td><span class="kbd">{{aankomst}}</span></td><td>Aankomstdatum</td><td><span class="kbd">{{bedrag}}</span></td><td>Totaalbedrag</td></tr>
+    <tr><td><span class="kbd">{{vertrek}}</span></td><td>Vertrekdatum</td><td><span class="kbd">{{ogm}}</span></td><td>Betaalreferentie</td></tr>
+    <tr><td><span class="kbd">{{nachten}}</span></td><td>Aantal nachten</td><td></td><td></td></tr>
+  </table>
+  <div class="tip"><b>💡 Voorbeeld</b><em>"Beste {{voornaam}}, je verblijf van {{aankomst}} tot {{vertrek}} ({{nachten}} nachten) is bevestigd. Totaal: {{bedrag}}."</em> → wordt automatisch: <em>"Beste Jan, je verblijf van 26 jun tot 28 jun (2 nachten) is bevestigd. Totaal: €178,50."</em></div>
+
+  <h3>Meerdere varianten = natuurlijker</h3>
+  <p>Voeg per type <strong>meerdere varianten</strong> toe. Bij het versturen kiest het systeem er willekeurig één. Zo klinken je mails nooit twee keer identiek — persoonlijker, en minder kans op spam.</p>
+
+  <h3>Een template bewerken</h3>
+  <ol class="steps">
+    <li>Ga naar <strong>📧 Mail → Templates</strong></li>
+    <li>Klik op een variant om ze open te klappen</li>
+    <li>Pas onderwerp en inhoud aan (gebruik gerust variabelen)</li>
+    <li>Klik op <strong>👁 Preview</strong> om de mail met voorbeeldgegevens te zien</li>
+    <li>Klik op <strong>+ Variant</strong> om een extra versie toe te voegen</li>
+    <li>Klik op <strong>Opslaan</strong></li>
+  </ol>
+  <div class="tip"><b>💡 Goede mails</b>Hou het kort en vriendelijk. Begin met <span class="kbd">{{voornaam}}</span>, zet de belangrijkste info (datum, bedrag, referentie) duidelijk, en eindig met je campingnaam. Gebruik de Preview vóór je opslaat.</div>
+
+  <div class="footer"><span>Configuratiehandleiding — Camping Cosmopolite</span><span>2 · Templates</span></div>
+</div>
+
+<!-- 3. MOLLIE -->
+<div class="page chapter">
+  <span class="section-tag tag-pay">Deel 3</span>
+  <h2>Mollie betalingen</h2>
+  <p><strong>Mollie</strong> regelt online betalingen (Bancontact, kaart, ...). Gasten krijgen een betaallink; zodra ze betalen, springt de boeking automatisch op "betaald".</p>
+
+  <h3>Stap A — Account aanmaken</h3>
+  <ol class="steps">
+    <li>Ga naar <span class="kbd">mollie.com</span> en maak een zakelijk account aan</li>
+    <li>Vul je bedrijfsgegevens in (KBO, rekeningnummer...) voor de verificatie</li>
+  </ol>
+  <div class="warning"><b>⚠️ Verificatie duurt even</b>Mollie controleert je bedrijfsgegevens voor je échte betalingen kan ontvangen. Start dit tijdig op. Ondertussen kan je al testen met de test-sleutel (zie hieronder).</div>
+
+  <h3>Stap B — De API-sleutel ophalen</h3>
+  <p>Mollie heeft twee soorten sleutels:</p>
+  <table class="ref">
+    <tr><th>Sleutel</th><th>Begint met</th><th>Gebruik</th></tr>
+    <tr><td><strong>Test</strong></td><td><span class="kbd">test_</span></td><td>Om uit te proberen — geen echt geld</td></tr>
+    <tr><td><strong>Live</strong></td><td><span class="kbd">live_</span></td><td>Echte betalingen (na verificatie)</td></tr>
+  </table>
+  <ol class="steps">
+    <li>In Mollie: ga naar <strong>Developers → API keys</strong></li>
+    <li>Kopieer eerst je <strong>test-sleutel</strong> (<span class="kbd">test_...</span>)</li>
+    <li>Later, na verificatie, vervang je die door de <strong>live-sleutel</strong></li>
+  </ol>
+
+  <h3>Stap C — Invullen in het dashboard</h3>
+  <div class="path">⚙️ Instellingen <span class="arrow">→</span> Mollie</div>
+  <ol class="steps">
+    <li>Plak je Mollie-sleutel in het veld</li>
+    <li>Klik op <strong>Sleutel opslaan</strong></li>
+  </ol>
+  <div class="tip"><b>💡 Begin altijd met de test-sleutel</b>Test eerst de volledige flow met <span class="kbd">test_</span>. Pas als alles klopt, schakel je over naar de <span class="kbd">live_</span>-sleutel.</div>
+
+  <h3>Stap D — De webhook (technisch, eenmalig)</h3>
+  <p>Opdat een betaling automatisch als "betaald" wordt geregistreerd, meldt Mollie dit terug aan het systeem via een <strong>webhook</strong>. Die moet ingesteld zijn op de server.</p>
+  <div class="crit"><b>⚠️ Belangrijk veiligheidspunt</b>De webhook mag uitsluitend via de beveiligde serversleutel (service_role) werken — nooit via de publieke sleutel. Zo kan niemand zelf een boeking op "betaald" zetten zonder te betalen. Laat dit door je ontwikkelaar nakijken vóór je live gaat.</div>
+
+  <h3>Een betaling versturen (in de praktijk)</h3>
+  <ol class="steps">
+    <li>Open een boeking → klik op <strong>💳 Betalen</strong></li>
+    <li>Bevestig — er wordt een betaallink aangemaakt</li>
+    <li>Stuur die link naar de gast (mail of bericht)</li>
+    <li>Na betaling springt de status automatisch op "betaald"</li>
+  </ol>
+
+  <div class="footer"><span>Configuratiehandleiding — Camping Cosmopolite</span><span>3 · Mollie</span></div>
+</div>
+
+<!-- CHECKLIST -->
+<div class="page chapter">
+  <span class="section-tag" style="background:var(--dark)">Tot slot</span>
+  <h2>Checklist &amp; problemen oplossen</h2>
+
+  <h3>✅ Configuratie-checklist</h3>
+  <table class="ref">
+    <tr><th>✔</th><th>Taak</th></tr>
+    <tr><td>☐</td><td>Resend-account aangemaakt</td></tr>
+    <tr><td>☐</td><td>Domein geverifieerd in Resend (DNS-records)</td></tr>
+    <tr><td>☐</td><td>Resend API-sleutel ingevuld in het dashboard</td></tr>
+    <tr><td>☐</td><td>Afzendernaam + e-mail ingesteld</td></tr>
+    <tr><td>☐</td><td>Minstens 1 variant per mailtype ingevuld</td></tr>
+    <tr><td>☐</td><td>Templates getest met de Preview-knop</td></tr>
+    <tr><td>☐</td><td>Mollie-account aangemaakt + verificatie gestart</td></tr>
+    <tr><td>☐</td><td>Mollie test-sleutel ingevuld</td></tr>
+    <tr><td>☐</td><td>Webhook nagekeken (service_role)</td></tr>
+    <tr><td>☐</td><td>Testbetaling gedaan met test-sleutel</td></tr>
+    <tr><td>☐</td><td>Overgeschakeld naar live-sleutels</td></tr>
+  </table>
+
+  <h3>🔧 Veelvoorkomende problemen</h3>
+  <table class="ref">
+    <tr><th>Probleem</th><th>Oplossing</th></tr>
+    <tr><td>Mails komen niet aan / in spam</td><td>Domein niet (volledig) geverifieerd in Resend. Controleer de DNS-records.</td></tr>
+    <tr><td>"Domain not verified"</td><td>Het afzender-e-mailadres zit niet op een geverifieerd domein.</td></tr>
+    <tr><td>Mail-limiet bereikt</td><td>Gratis plan = 3.000/maand. Upgrade bij Resend indien nodig.</td></tr>
+    <tr><td>Betaling blijft op "open"</td><td>De webhook werkt niet. Laat de webhook-instelling nakijken.</td></tr>
+    <tr><td>Mollie weigert sleutel</td><td>Controleer of je een geldige test_- of live_-sleutel plakte.</td></tr>
+    <tr><td>Variabele blijft als {{...}} staan</td><td>Controleer de schrijfwijze (exact zoals in de tabel, met dubbele accolades).</td></tr>
+  </table>
+
+  <div class="tip"><b>💡 Volgorde van aanpak</b>Doe eerst de <strong>e-mail</strong> (Resend) volledig, test daarna de <strong>templates</strong> met Preview, en pak als laatste <strong>Mollie</strong> aan met de test-sleutel. Stap voor stap, niet alles tegelijk.</div>
+
+  <div style="margin-top:30px;text-align:center;color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:18px;">
+    <p style="font-size:14px;color:var(--green);font-weight:700;">Eén keer goed instellen = altijd vlot werken 🏕️</p>
+  </div>
+
+  <div class="footer"><span>Configuratiehandleiding — Camping Cosmopolite</span><span>Checklist</span></div>
+</div>
+
+</body>
+</html>
