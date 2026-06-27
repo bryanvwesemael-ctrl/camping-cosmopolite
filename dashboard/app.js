@@ -498,7 +498,10 @@ function openBookingDetail(id){
     <!-- TAB: GASTEN -->
     <div id="dtab-content-gasten" style="display:none;padding:14px 16px;">
       <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Wettelijk verplicht reizigersregister (KB 27/04/2007). Voeg alle aanwezige gasten toe inclusief de hoofdboeker.</div>
-      <button onclick="openAddGuestSheet('${b.id}')" style="width:100%;padding:10px;background:var(--green);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:700;border:none;cursor:pointer;margin-bottom:12px;">+ Gast toevoegen</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <button onclick="openBulkGastenSheet('${b.id}',${b.volwassenen||0},${b.kinderen||0},${b.baby||0})" style="padding:10px;background:var(--green);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:700;border:none;cursor:pointer;">👥 Alle gasten</button>
+        <button onclick="openAddGuestSheet('${b.id}')" style="padding:10px;background:var(--bg2);color:var(--lbl1);border:1.5px solid var(--sep);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;">+ Individueel</button>
+      </div>
       <div id="gastenList">Laden…</div>
     </div>
 
@@ -1077,6 +1080,8 @@ function openEditSheet(id){
   eFotoData=b.foto||null;
   const img=document.getElementById('eFotoPreview');
   if(img){if(b.foto){img.src=b.foto;img.classList.add('show')}else{img.classList.remove('show')}}
+  // Render verblijfstype kaarten vanuit tarieven
+  renderVerblijfTypesEdit(b.tenten,b.campers,b.extraTypeUnits||[]);
   updatePriceLiveEdit();
   closeSheet('shDetail');openSheet('shEdit');
 }
@@ -1087,8 +1092,10 @@ async function saveEdit(){
   const telefoon=document.getElementById('eTelefoon').value.trim();
   const aankomst=document.getElementById('eAankomst').value;
   const vertrek=document.getElementById('eVertrek').value;
-  const tenten=parseInt(document.getElementById('eTenten').value)||0;
-  const campers=parseInt(document.getElementById('eCampers').value)||0;
+  const editUnits=getEditTypeUnits();
+  const tenten=editUnits.find(t=>t.id==='tent')?.count||0;
+  const campers=editUnits.find(t=>t.id==='camper')?.count||0;
+  const extraTypeUnits=editUnits.filter(t=>!t.isStandaard&&t.count>0);
   const honden=parseInt(document.getElementById('eHonden').value)||0;
   const volwassenen=parseInt(document.getElementById('eVolwassenen').value)||0;
   const kinderen=parseInt(document.getElementById('eKinderen').value)||0;
@@ -1105,7 +1112,8 @@ async function saveEdit(){
   const {error:bErr}=await sb.from('bookings').update({
     aankomst,vertrek,tenten,campers,
     volwassenen,kinderen,baby,honden,autos,
-    elektriciteit,bron,bedrag_totaal:bedrag,nota
+    elektriciteit,bron,bedrag_totaal:bedrag,nota,
+    extra_type_units:extraTypeUnits.length?JSON.stringify(extraTypeUnits):null
   }).eq('id',b.id);
   if(bErr){toast('⚠️ Opslaan mislukt: '+bErr.message);return}
   if(b.clientId){
@@ -1144,50 +1152,64 @@ function stepField(id,delta){
   if(['fVolwassenen','fKinderen','fBaby'].includes(id))renderNBGasten();
 }
 /* Rendert verblijfstype-kaarten in Nieuwe boeking met qty-steppers */
-function renderVerblijfTypesNB(){
-  const el=document.getElementById('verblijfTypesNB');if(!el)return;
-  const allTypes=[
-    {id:'tent',naam:'Tent',emoji:'⛺',prijs:PRICES.tent,isStandaard:true},
-    {id:'camper',naam:'Camper / Caravan',emoji:'🚐',prijs:PRICES.camper,isStandaard:true},
+/* ═══════════ VERBLIJFSTYPE KAARTEN (gedeeld NB + Edit) ═══════════ */
+function _allAccTypes(){
+  return[
+    {id:'tent',naam:'Tent',emoji:'⛺',prijs:PRICES.tent,maxPersonen:0,isStandaard:true},
+    {id:'camper',naam:'Camper / Caravan',emoji:'🚐',prijs:PRICES.camper,maxPersonen:0,isStandaard:true},
     ...(accTypes||[]).map(t=>({...t,isStandaard:false}))
   ];
-  el.innerHTML=allTypes.map(t=>`
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--sep);background:var(--bg);margin-bottom:8px;" id="nbTypeCard_${t.id}">
-      <div style="font-size:26px;flex-shrink:0;">${t.emoji||'🏕️'}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;font-weight:700;color:var(--lbl1);">${t.naam}</div>
-        <div style="font-size:11.5px;color:var(--lbl3);margin-top:1px;">€${t.prijs} / nacht${t.maxPersonen>0?' · max '+t.maxPersonen+'p':''}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-        <button onclick="nbStep('${t.id}',-1)" style="width:30px;height:30px;border-radius:50%;background:var(--sep);border:none;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
-        <span id="nbQty_${t.id}" style="min-width:20px;text-align:center;font-size:16px;font-weight:800;color:var(--lbl1);">0</span>
-        <button onclick="nbStep('${t.id}',1)" style="width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
-      </div>
-    </div>`).join('');
-  // Standaard: 1 tent vooringesteld
-  const tentQty=document.getElementById('nbQty_tent');
-  if(tentQty&&tentQty.textContent==='0'){tentQty.textContent='1';updateNBCard('tent',1);}
 }
-function nbStep(typeId,delta){
-  const el=document.getElementById('nbQty_'+typeId);if(!el)return;
-  const newVal=Math.max(0,(parseInt(el.textContent)||0)+delta);
-  el.textContent=newVal;
-  updateNBCard(typeId,newVal);
-  updatePriceLive();
+function _typeCardHtml(t,prefix,qty){
+  const active=qty>0;
+  return`<div style="display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:12px;border:1.5px solid ${active?'var(--green)':'var(--sep)'};background:${active?'rgba(27,138,91,.06)':'var(--bg)'};margin-bottom:8px;transition:border .15s,background .15s;" id="${prefix}TypeCard_${t.id}">
+    <div style="font-size:24px;flex-shrink:0;">${t.emoji||'🏕️'}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13.5px;font-weight:700;color:var(--lbl1);">${t.naam}</div>
+      <div style="font-size:11px;color:var(--lbl3);">€${t.prijs}/nacht${t.maxPersonen>0?' · max '+t.maxPersonen+'p':''}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <button type="button" onclick="${prefix}TypeStep('${t.id}',-1)" style="width:28px;height:28px;border-radius:50%;background:var(--sep);border:none;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+      <span id="${prefix}Qty_${t.id}" style="min-width:18px;text-align:center;font-size:15px;font-weight:800;color:var(--lbl1);">${qty}</span>
+      <button type="button" onclick="${prefix}TypeStep('${t.id}',1)" style="width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+    </div>
+  </div>`;
 }
-function updateNBCard(typeId,qty){
-  const card=document.getElementById('nbTypeCard_'+typeId);if(!card)return;
+function _updateTypeCard(prefix,typeId,qty){
+  const card=document.getElementById(prefix+'TypeCard_'+typeId);if(!card)return;
   card.style.borderColor=qty>0?'var(--green)':'var(--sep)';
   card.style.background=qty>0?'rgba(27,138,91,.06)':'var(--bg)';
 }
-function getNBTypeUnits(){
-  const allTypes=[
-    {id:'tent',naam:'Tent',emoji:'⛺',prijs:PRICES.tent,isStandaard:true},
-    {id:'camper',naam:'Camper / Caravan',emoji:'🚐',prijs:PRICES.camper,isStandaard:true},
-    ...(accTypes||[]).map(t=>({...t,isStandaard:false}))
-  ];
-  return allTypes.map(t=>({...t,count:parseInt(document.getElementById('nbQty_'+t.id)?.textContent)||0}));
+function _getTypeUnits(prefix){
+  return _allAccTypes().map(t=>({...t,count:parseInt(document.getElementById(prefix+'Qty_'+t.id)?.textContent)||0}));
 }
+
+function renderVerblijfTypesNB(){
+  const el=document.getElementById('verblijfTypesNB');if(!el)return;
+  el.innerHTML=_allAccTypes().map(t=>_typeCardHtml(t,'nb',parseInt(document.getElementById('nbQty_'+t.id)?.textContent)||0)).join('');
+  const tentQty=document.getElementById('nbQty_tent');
+  if(tentQty&&tentQty.textContent==='0'){tentQty.textContent='1';_updateTypeCard('nb','tent',1);}
+}
+function nbTypeStep(typeId,delta){
+  const el=document.getElementById('nbQty_'+typeId);if(!el)return;
+  const newVal=Math.max(0,(parseInt(el.textContent)||0)+delta);
+  el.textContent=newVal;_updateTypeCard('nb',typeId,newVal);updatePriceLive();
+}
+function getNBTypeUnits(){return _getTypeUnits('nb');}
+
+/* Verblijfstype Edit */
+function renderVerblijfTypesEdit(tenten,campers,extraUnits){
+  const el=document.getElementById('verblijfTypesEdit');if(!el)return;
+  const startQty={tent:tenten||0,camper:campers||0};
+  (extraUnits||[]).forEach(u=>{startQty[u.id]=(u.count||0);});
+  el.innerHTML=_allAccTypes().map(t=>_typeCardHtml(t,'ed',startQty[t.id]||0)).join('');
+}
+function edTypeStep(typeId,delta){
+  const el=document.getElementById('edQty_'+typeId);if(!el)return;
+  const newVal=Math.max(0,(parseInt(el.textContent)||0)+delta);
+  el.textContent=newVal;_updateTypeCard('ed',typeId,newVal);updatePriceLiveEdit();
+}
+function getEditTypeUnits(){return _getTypeUnits('ed');}
 
 function readPriceInputs(prefix){
   const g=id=>document.getElementById(prefix+id);
@@ -1195,12 +1217,19 @@ function readPriceInputs(prefix){
   if(!aankomst||!vertrek||aankomst>=vertrek)return null;
   let tenten=0,campers=0,extraTypeUnits=[];
   if(prefix==='f'){
-    // Nieuwe boeking: haal uit type-kaarten
     const units=getNBTypeUnits();
     tenten=units.find(t=>t.id==='tent')?.count||0;
     campers=units.find(t=>t.id==='camper')?.count||0;
     extraTypeUnits=units.filter(t=>!t.isStandaard&&t.count>0);
     if(tenten+campers+extraTypeUnits.reduce((s,t)=>s+t.count,0)<1)return null;
+  }else if(prefix==='e'){
+    const units=getEditTypeUnits();
+    tenten=units.find(t=>t.id==='tent')?.count||0;
+    campers=units.find(t=>t.id==='camper')?.count||0;
+    extraTypeUnits=units.filter(t=>!t.isStandaard&&t.count>0);
+    // Sync hidden inputs for compat
+    const th=document.getElementById('eTenten');if(th)th.value=tenten;
+    const ch=document.getElementById('eCampers');if(ch)ch.value=campers;
   }else{
     tenten=parseInt(g('Tenten')?.value)||0;
     campers=parseInt(g('Campers')?.value)||0;
@@ -2477,6 +2506,69 @@ async function saveGuest(){
   }catch(err){
     document.getElementById('addGuestMsg').textContent='⚠️ '+err.message;
   }finally{btn.textContent='Opslaan';btn.disabled=false;}
+}
+
+/* ═══════════ BULK GASTEN ═══════════ */
+let _bulkBookingId=null,_bulkGastenRows=[];
+
+async function openBulkGastenSheet(bookingId,volw,kind,baby){
+  _bulkBookingId=bookingId;
+  // Laad bestaande gasten als basis
+  const {data:existing}=await sb.from('gasten').select('*').eq('booking_id',bookingId).order('is_hoofdgast',{ascending:false}).order('created_at');
+  const cats=[...Array(volw).fill({cat:'volwassene',emoji:'🧑',lbl:'Volwassene'}),...Array(kind).fill({cat:'kind',emoji:'🧒',lbl:'Kind 3–11'}),...Array(baby).fill({cat:'baby',emoji:'👶',lbl:'Baby <3j'})];
+  // Map bestaande gasten op positie, rest leeg
+  _bulkGastenRows=cats.map((c,i)=>{
+    const ex=existing?.[i];
+    return{id:ex?.id||null,naam:ex?.naam||'',geboortedatum:ex?.geboortedatum||'',categorie:c.cat,emoji:c.emoji,lbl:c.lbl,is_hoofdgast:i===0};
+  });
+  renderBulkGastenFields();
+  document.getElementById('bulkGastenMsg').textContent='';
+  openSheet('shBulkGasten');
+}
+
+function renderBulkGastenFields(){
+  const el=document.getElementById('bulkGastenFields');if(!el)return;
+  const cnt={volwassene:0,kind:0,baby:0};
+  el.innerHTML=_bulkGastenRows.map((g,i)=>{
+    cnt[g.categorie]=(cnt[g.categorie]||0)+1;
+    const isBaby=g.categorie==='baby';
+    return`<div style="background:var(--bg2);border:1.5px solid var(--sep);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:16px;">${g.emoji}</span>
+        <div style="font-size:12px;font-weight:700;color:var(--lbl2);">${g.lbl} ${cnt[g.categorie]}${g.is_hoofdgast?' <span style="font-size:10px;background:var(--green);color:#fff;padding:1px 6px;border-radius:6px;margin-left:4px;">Hoofdgast</span>':''}</div>
+      </div>
+      <input type="text" placeholder="Volledige naam *" value="${escHtml(g.naam)}"
+        oninput="_bulkGastenRows[${i}].naam=this.value"
+        style="width:100%;padding:9px 11px;border-radius:8px;border:1.5px solid var(--sep);background:var(--bg);font-size:13px;color:var(--lbl1);box-sizing:border-box;margin-bottom:6px;">
+      ${isBaby?'':`<input type="date" placeholder="Geboortedatum *" value="${escHtml(g.geboortedatum)}"
+        oninput="_bulkGastenRows[${i}].geboortedatum=this.value"
+        style="width:100%;padding:9px 11px;border-radius:8px;border:1.5px solid var(--sep);background:var(--bg);font-size:13px;color:var(--lbl1);box-sizing:border-box;">`}
+    </div>`;
+  }).join('');
+}
+
+async function saveBulkGasten(){
+  const msg=document.getElementById('bulkGastenMsg');
+  // Validatie: naam + geboortedatum verplicht (behalve baby)
+  const ongeldig=_bulkGastenRows.find(g=>!g.naam.trim()||(g.categorie!=='baby'&&!g.geboortedatum));
+  if(ongeldig){msg.textContent='⚠️ Vul naam en geboortedatum in voor alle gasten (behalve baby\'s).';return;}
+  msg.textContent='';
+  const btn=document.getElementById('saveBulkBtn');btn.textContent='Opslaan…';btn.disabled=true;
+  try{
+    for(const g of _bulkGastenRows){
+      const row={booking_id:_bulkBookingId,naam:g.naam.trim(),geboortedatum:g.geboortedatum||null,is_hoofdgast:g.is_hoofdgast,nationaliteit:null,id_nummer:null};
+      if(g.id){
+        await sb.from('gasten').update(row).eq('id',g.id);
+      }else{
+        const {data:ins}=await sb.from('gasten').insert(row).select('id').single();
+        if(ins)_gastenCache[ins.id]={...row,id:ins.id};
+      }
+    }
+    toast('✅ Alle gasten opgeslagen!');
+    closeSheet('shBulkGasten');
+    loadGasten(_bulkBookingId);
+  }catch(err){msg.textContent='⚠️ '+err.message;}
+  finally{btn.textContent='✓ Alle gasten opslaan';btn.disabled=false;}
 }
 
 /* ═══════════ NIEUWE BOEKING — GASTEN ═══════════ */
