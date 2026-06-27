@@ -632,11 +632,16 @@ async function submitForm(){
   btn.classList.add('loading'); btn.textContent='Bezig met versturen…';
 
   try{
-    // 1. Klant aanmaken
-    const {data:client,error:clientErr}=await sb.from('clients').insert({
+    // Pre-genereer UUIDs zodat geen SELECT nodig is na insert (anon heeft geen SELECT-recht)
+    const clientId=crypto.randomUUID();
+    const bookingId=crypto.randomUUID();
+
+    // 1. Klant aanmaken (geen .select() → geen SELECT-policy nodig)
+    const {error:clientErr}=await sb.from('clients').insert({
+      id:clientId,
       naam, email, telefoon:tel||null, id_nummer:idnr||null, nummerplaten:plaat||null,
       geboortedatum:geboorte, nationaliteit:nationaliteit||null, woonplaats:woonplaats||null
-    }).select().single();
+    });
     if(clientErr) throw clientErr;
 
     // 2. Boeking aanmaken
@@ -659,17 +664,17 @@ async function submitForm(){
     });
     const dienstenTotaal=(dienstenPerNacht+extraPerNachtSom)*nights+elekNow+extraEenmaligSom;
     const taksNow=state.volwassenen*PRICES.toeristentaks*nights;
-    // Prijzen INCL. BTW → BTW niet bovenop optellen
     const totaalNow=Math.round((dienstenTotaal+taksNow)*100)/100;
-    // Verblijfstype label
     const typeParts=[];
     accommodatieTypes.forEach(t=>{const qty=t.id==='tent'?state.tenten:t.id==='camper'?state.campers:(state.extraTypeQties[t.id]||0);if(qty>0)typeParts.push(`${qty}× ${t.naam}`);});
     const verblijfstypeLabel=typeParts.join(' + ')||'Tent';
-    // Extra eenheden tellen mee als tenten voor capaciteit
     const extraEenheden=Object.values(state.extraTypeQties).reduce((s,v)=>s+v,0);
 
-    const {data:booking,error:bookErr}=await sb.from('bookings').insert({
-      client_id:client.id,
+    // OGM berekenen zonder volgnummer (volgnummer kennen we pas na insert via trigger)
+    // Boeking zonder select → geen volgnummer beschikbaar aan client-kant
+    const {error:bookErr}=await sb.from('bookings').insert({
+      id:bookingId,
+      client_id:clientId,
       aankomst:document.getElementById('fAankomst').value,
       vertrek:document.getElementById('fVertrek').value,
       tenten:(state.tenten||0)+extraEenheden,
@@ -679,33 +684,28 @@ async function submitForm(){
       kinderen:state.kinderen, baby:state.baby, honden:state.honden, autos:state.autos,
       elektriciteit:state.elek, bedrag_per_nacht:dienstenPerNacht, bedrag_totaal:totaalNow,
       nota:nota||null, bron:'website', status:'aanvraag'
-    }).select().single();
+    });
     if(bookErr) throw bookErr;
 
-    // 3b. Gasten opslaan
+    // 3. Gasten opslaan
     if(state.gasten&&state.gasten.length){
       const gastenRows=state.gasten.filter(g=>g.naam.trim()).map((g,i)=>({
-        booking_id:booking.id,
+        booking_id:bookingId,
         naam:g.naam.trim(),
         geboortedatum:g.geboortedatum||null,
-        nationaliteit:null,
-        id_nummer:null,
-        is_hoofdgast:i===0
+        nationaliteit:null, id_nummer:null, is_hoofdgast:i===0
       }));
       if(gastenRows.length)await sb.from('gasten').insert(gastenRows);
     }
 
-    // 4. OGM-referentie genereren en opslaan
-    const ogm=ogmReference(booking.volgnummer);
-    await sb.from('bookings').update({ogm_referentie:ogm}).eq('id',booking.id);
-
-    // 5. Conceptmail klaarzetten voor Karen (semi-automatisch, zij verstuurt na nazicht)
+    // 4. Conceptmail klaarzetten (OGM wordt door dashboard gegenereerd na aanmaak)
     await sb.from('communicatie').insert({
-      booking_id:booking.id, richting:'uitgaand', status:'concept',
+      booking_id:bookingId, richting:'uitgaand', status:'concept',
       template_key:'bevestiging_aanvraag',
       onderwerp:`Bevestiging aanvraag — ${naam}`,
-      inhoud:`Beste ${naam},\n\nBedankt voor je aanvraag bij Camping Cosmopolite van ${document.getElementById('fAankomst').value} tot ${document.getElementById('fVertrek').value}.\n\nRichtprijs: ${fmt(totaalNow)}\nBetaalreferentie: ${ogm}\n\nTot binnenkort!\nCamping Cosmopolite`
+      inhoud:`Beste ${naam},\n\nBedankt voor je aanvraag bij Camping Cosmopolite van ${document.getElementById('fAankomst').value} tot ${document.getElementById('fVertrek').value}.\n\nRichtprijs: ${fmt(totaalNow)}\n\nTot binnenkort!\nCamping Cosmopolite`
     });
+    const ogm='—'; // Dashboard genereert OGM na bevestiging
 
     _abandoned=false;_track('submit',{totaal:totaalNow});
     showConfirm(ogm, fmt(totaalNow));
