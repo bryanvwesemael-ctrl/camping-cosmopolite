@@ -16,6 +16,17 @@ async function doLogin(){
   const {error}=await sb.auth.signInWithPassword({email,password:pw});
   if(error){msg.textContent=`⚠️ ${error.message==='Invalid login credentials'?'Ongeldig e-mailadres of wachtwoord':error.message}`;msg.style.color='var(--red)';}
 }
+async function forgotPassword(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const msg=document.getElementById('loginMsg');
+  if(!email||!email.includes('@')){msg.textContent='⚠️ Vul eerst je e-mailadres in';msg.style.color='var(--red)';return}
+  msg.style.color='var(--lbl3)';msg.textContent='Herstelmail versturen…';
+  const {error}=await sb.auth.resetPasswordForEmail(email,{
+    redirectTo:'https://camping-cosmopolite.netlify.app/dashboard/'
+  });
+  if(error){msg.textContent='⚠️ '+error.message;msg.style.color='var(--red)';}
+  else{msg.textContent='✅ Herstelmail verzonden. Check je inbox (en spam).';msg.style.color='var(--green)';}
+}
 async function doLogout(){await sb.auth.signOut();location.reload()}
 
 async function checkSession(){
