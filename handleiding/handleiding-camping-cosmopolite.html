@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Handleiding — Camping Cosmopolite</title>
+<style>
+  :root{
+    --green:#1B8A5B; --green-dark:#0D4D33; --ink:#1c1c1e; --muted:#6c6c70;
+    --line:#e5e5ea; --bg-soft:#f2f7f4; --amber:#FF9500; --red:#FF3B30; --blue:#007AFF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink);line-height:1.6;font-size:13px}
+  .page{padding:26mm 20mm;page-break-after:always;position:relative;min-height:100vh}
+  h1,h2,h3{line-height:1.25;color:var(--green-dark)}
+  h2{font-size:24px;margin-bottom:14px;padding-top:6px}
+  h3{font-size:16px;margin:22px 0 8px}
+  p{margin-bottom:10px}
+  ul,ol{margin:0 0 12px 22px}
+  li{margin-bottom:6px}
+  strong{color:var(--ink)}
+  .chapter{page-break-before:always}
+  /* Cover */
+  .cover{background:linear-gradient(160deg,#0D4D33,#1B8A5B);color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:100vh;padding:40mm}
+  .cover .logo{font-size:64px;margin-bottom:20px}
+  .cover h1{color:#fff;font-size:42px;letter-spacing:-1px;margin-bottom:10px}
+  .cover .sub{font-size:18px;opacity:.9;margin-bottom:40px}
+  .cover .meta{font-size:13px;opacity:.7;margin-top:auto}
+  .cover .badge{background:rgba(255,255,255,.15);padding:8px 18px;border-radius:40px;font-size:14px;font-weight:600}
+  /* TOC */
+  .toc-item{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .toc-item .num{color:var(--green);font-weight:700;width:30px}
+  .toc-item .ttl{flex:1}
+  /* Boxes */
+  .tip,.warning,.testfase,.law{border-radius:12px;padding:13px 16px;margin:14px 0;font-size:12.5px}
+  .tip{background:#eaf6f0;border-left:4px solid var(--green)}
+  .warning{background:#fff4e5;border-left:4px solid var(--amber)}
+  .testfase{background:#eef3ff;border-left:4px solid var(--blue)}
+  .law{background:#fdeeed;border-left:4px solid var(--red)}
+  .tip b,.warning b,.testfase b,.law b{display:block;margin-bottom:3px}
+  /* Steps */
+  ol.steps{counter-reset:s;list-style:none;margin-left:0}
+  ol.steps>li{counter-increment:s;position:relative;padding:8px 0 8px 40px;border-bottom:1px solid #f0f0f2}
+  ol.steps>li::before{content:counter(s);position:absolute;left:0;top:7px;width:26px;height:26px;background:var(--green);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .kbd{background:#f2f2f7;border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-family:monospace;font-size:12px}
+  /* Mockup screens */
+  .screen{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:16px 0;box-shadow:0 6px 22px rgba(0,0,0,.07)}
+  .screen-cap{font-size:11.5px;color:var(--muted);text-align:center;margin:-8px 0 18px;font-style:italic}
+  .section-tag{display:inline-block;background:var(--green);color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:30px;margin-bottom:10px;letter-spacing:.3px}
+  table.ref{width:100%;border-collapse:collapse;font-size:12.5px;margin:12px 0}
+  table.ref th{background:var(--bg-soft);text-align:left;padding:9px 11px;border-bottom:2px solid var(--line);color:var(--green-dark)}
+  table.ref td{padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  .footer{position:absolute;bottom:12mm;left:20mm;right:20mm;display:flex;justify-content:space-between;font-size:10px;color:var(--muted);border-top:1px solid var(--line);padding-top:6px}
+  @page{size:A4;margin:0}
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <div class="logo">🏕️</div>
+  <h1>Camping Cosmopolite</h1>
+  <div class="sub">Reservatiebeheer — Handleiding voor de receptie</div>
+  <div class="badge">Eenvoudig uitgelegd, stap voor stap</div>
+  <div class="meta">Versie 1.0 · Voor Karen &amp; het camingteam<br>Camping Cosmopolite</div>
+</div>
+
+<!-- ============ INHOUD ============ -->
+<div class="page">
+  <h2>Inhoudsopgave</h2>
+  <div class="toc-item"><span class="num">1</span><span class="ttl">Welkom — wat is dit systeem?</span></div>
+  <div class="toc-item"><span class="num">2</span><span class="ttl">Inloggen &amp; je wachtwoord beheren</span></div>
+  <div class="toc-item"><span class="num">3</span><span class="ttl">Het dashboard leren kennen</span></div>
+  <div class="toc-item"><span class="num">4</span><span class="ttl">Boekingen beheren</span></div>
+  <div class="toc-item"><span class="num">5</span><span class="ttl">Een nieuwe boeking aanmaken</span></div>
+  <div class="toc-item"><span class="num">6</span><span class="ttl">Een boeking bewerken</span></div>
+  <div class="toc-item"><span class="num">7</span><span class="ttl">Gasten registreren (wettelijk verplicht)</span></div>
+  <div class="toc-item"><span class="num">8</span><span class="ttl">Kalender &amp; "Wie is er"</span></div>
+  <div class="toc-item"><span class="num">9</span><span class="ttl">Mails &amp; templates</span></div>
+  <div class="toc-item"><span class="num">10</span><span class="ttl">Betalingen &amp; QR check-in</span></div>
+  <div class="toc-item"><span class="num">11</span><span class="ttl">Tarieven instellen</span></div>
+  <div class="toc-item"><span class="num">12</span><span class="ttl">Gebruikers (collega's) toevoegen</span></div>
+  <div class="toc-item"><span class="num">13</span><span class="ttl">Het reservatieformulier voor gasten</span></div>
+  <div class="toc-item"><span class="num">14</span><span class="ttl">Tips &amp; tricks</span></div>
+  <div class="toc-item"><span class="num">15</span><span class="ttl">Veelgestelde vragen (FAQ)</span></div>
+  <div class="toc-item"><span class="num">16</span><span class="ttl">Problemen oplossen</span></div>
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>Inhoud</span></div>
+</div>
+
+<!-- ============ 1. WELKOM ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 1</span>
+  <h2>Welkom — wat is dit systeem?</h2>
+  <p>Dit is jouw <strong>digitale reservatieboek</strong> voor de camping. Alles wat vroeger op papier of in losse mappen stond, zit nu op één veilige plek die je bereikt via je computer, tablet of gsm.</p>
+
+  <h3>Wat kan je ermee?</h3>
+  <ul>
+    <li>Alle <strong>boekingen</strong> bekijken, aanmaken, aanpassen</li>
+    <li>Een overzichtelijke <strong>kalender</strong> van wie wanneer komt</li>
+    <li>Het <strong>wettelijk gastenregister</strong> invullen (verplicht door de wet)</li>
+    <li>Zien <strong>wie er vandaag op de camping is</strong></li>
+    <li><strong>Bevestigingsmails</strong> versturen naar gasten</li>
+    <li><strong>Online betalingen</strong> en <strong>QR check-in</strong> beheren</li>
+  </ul>
+
+  <h3>Twee delen</h3>
+  <table class="ref">
+    <tr><th>Onderdeel</th><th>Voor wie?</th><th>Wat?</th></tr>
+    <tr><td><strong>Het formulier</strong></td><td>De gast</td><td>Op de website. De gast vult zelf zijn reservatie in.</td></tr>
+    <tr><td><strong>Het dashboard</strong></td><td>Jij (receptie)</td><td>Met login. Hier beheer je alles.</td></tr>
+  </table>
+
+  <div class="tip"><b>💡 Goed om te weten</b>Je kan niets "kapot" maken. Elke wijziging is aanpasbaar. Durf gerust te klikken en te ontdekken — daar leer je het systeem het snelst mee kennen.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>1 · Welkom</span></div>
+</div>
+
+<!-- ============ 2. INLOGGEN ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 2</span>
+  <h2>Inloggen &amp; je wachtwoord beheren</h2>
+
+  <h3>Inloggen</h3>
+  <ol class="steps">
+    <li>Open in je browser: <span class="kbd">camping-cosmopolite.netlify.app/dashboard</span></li>
+    <li>Vul je <strong>e-mailadres</strong> in</li>
+    <li>Vul je <strong>wachtwoord</strong> in</li>
+    <li>Klik op <strong>Inloggen →</strong></li>
+  </ol>
+
+  <div class="screen">
+    <svg viewBox="0 0 600 360" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0D4D33"/><stop offset="1" stop-color="#1B8A5B"/></linearGradient></defs>
+      <rect width="600" height="360" fill="url(#g1)"/>
+      <rect x="170" y="55" width="260" height="250" rx="20" fill="#fff"/>
+      <text x="300" y="100" font-size="30" text-anchor="middle">🏕️</text>
+      <text x="300" y="128" font-size="15" font-weight="700" text-anchor="middle" fill="#0D4D33">Camping Cosmopolite</text>
+      <text x="195" y="158" font-size="10" fill="#6c6c70">E-mailadres</text>
+      <rect x="195" y="164" width="210" height="30" rx="8" fill="#F9F9FB" stroke="#e5e5ea"/>
+      <text x="205" y="184" font-size="11" fill="#9a9a9e">karen.campingcosmopolite@gmail.com</text>
+      <text x="195" y="212" font-size="10" fill="#6c6c70">Wachtwoord</text>
+      <rect x="195" y="218" width="210" height="30" rx="8" fill="#F9F9FB" stroke="#e5e5ea"/>
+      <text x="205" y="238" font-size="13" fill="#9a9a9e">••••••••</text>
+      <rect x="195" y="258" width="210" height="32" rx="9" fill="#1B8A5B"/>
+      <text x="300" y="279" font-size="12" font-weight="700" text-anchor="middle" fill="#fff">Inloggen →</text>
+      <text x="300" y="300" font-size="9" text-anchor="middle" fill="#1B8A5B">Wachtwoord vergeten?</text>
+    </svg>
+  </div>
+  <div class="screen-cap">Het inlogscherm</div>
+
+  <h3>Je wachtwoord wijzigen</h3>
+  <ol class="steps">
+    <li>Log in en ga naar <strong>Instellingen</strong> (tandwiel) → <strong>Account</strong></li>
+    <li>Vul je nieuwe wachtwoord twee keer in</li>
+    <li>Klik op <strong>opslaan</strong> — klaar!</li>
+  </ol>
+  <div class="tip"><b>💡 Tip</b>Wijzig na je allereerste login meteen het standaardwachtwoord naar iets dat enkel jij kent. Gebruik minstens 10 tekens met cijfers en een symbool.</div>
+
+  <h3>Wachtwoord vergeten?</h3>
+  <ol class="steps">
+    <li>Klik op het inlogscherm op <strong>"Wachtwoord vergeten?"</strong></li>
+    <li>Vul je e-mailadres in</li>
+    <li>Je krijgt een <strong>herstelmail</strong> — klik op de link erin</li>
+    <li>Stel een nieuw wachtwoord in</li>
+  </ol>
+  <div class="warning"><b>⚠️ Geen mail ontvangen?</b>Kijk altijd even in je <strong>spam/ongewenste post</strong>. De mail kan een paar minuten duren. Lukt het na 10 minuten niet, vraag dan aan de beheerder om je wachtwoord te resetten.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>2 · Inloggen</span></div>
+</div>
+
+<!-- ============ 3. DASHBOARD ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 3</span>
+  <h2>Het dashboard leren kennen</h2>
+  <p>Na het inloggen kom je op het hoofdscherm. Bovenaan staat de <strong>navigatiebalk</strong> met alle onderdelen. Daaronder zie je de lijst met boekingen.</p>
+
+  <div class="screen">
+    <svg viewBox="0 0 600 360" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <rect width="600" height="360" fill="#f7f7f9"/>
+      <!-- topnav -->
+      <rect x="0" y="0" width="600" height="40" fill="#fff" stroke="#e5e5ea"/>
+      <text x="20" y="25" font-size="12" font-weight="700" fill="#1B8A5B">🏕️ Cosmopolite</text>
+      <text x="170" y="25" font-size="10" fill="#6c6c70">👁 Wie is er</text>
+      <text x="255" y="25" font-size="10" fill="#6c6c70">📋 Register</text>
+      <text x="335" y="25" font-size="10" font-weight="700" fill="#1B8A5B">＋ Nieuwe boeking</text>
+      <text x="455" y="25" font-size="10" fill="#6c6c70">📅 Kalender</text>
+      <text x="535" y="25" font-size="10" fill="#6c6c70">⚙️</text>
+      <!-- filters -->
+      <rect x="20" y="54" width="60" height="22" rx="11" fill="#1B8A5B"/><text x="50" y="69" font-size="9" text-anchor="middle" fill="#fff">Alle</text>
+      <rect x="86" y="54" width="70" height="22" rx="11" fill="#fff" stroke="#e5e5ea"/><text x="121" y="69" font-size="9" text-anchor="middle" fill="#6c6c70">Aanvraag</text>
+      <rect x="162" y="54" width="70" height="22" rx="11" fill="#fff" stroke="#e5e5ea"/><text x="197" y="69" font-size="9" text-anchor="middle" fill="#6c6c70">Bevestigd</text>
+      <!-- booking cards -->
+      <g>
+        <rect x="20" y="88" width="560" height="58" rx="12" fill="#fff" stroke="#e5e5ea"/>
+        <circle cx="48" cy="117" r="16" fill="#1B8A5B"/><text x="48" y="121" font-size="11" text-anchor="middle" fill="#fff">BV</text>
+        <text x="76" y="110" font-size="12" font-weight="700">Bryan Van Wesemael</text>
+        <rect x="240" y="101" width="64" height="16" rx="8" fill="#dff0e6"/><text x="272" y="113" font-size="9" text-anchor="middle" fill="#0D4D33">Ingecheckt</text>
+        <text x="76" y="128" font-size="10" fill="#6c6c70">26/06 → 28/06 · 6 pers · ⛺ Tent</text>
+        <text x="540" y="122" font-size="13" font-weight="700" fill="#0D4D33">€200</text>
+      </g>
+      <g>
+        <rect x="20" y="152" width="560" height="58" rx="12" fill="#fff" stroke="#e5e5ea"/>
+        <circle cx="48" cy="181" r="16" fill="#FF9500"/><text x="48" y="185" font-size="11" text-anchor="middle" fill="#fff">JD</text>
+        <text x="76" y="174" font-size="12" font-weight="700">Jan De Vries</text>
+        <rect x="240" y="165" width="60" height="16" rx="8" fill="#fff0db"/><text x="270" y="177" font-size="9" text-anchor="middle" fill="#a86700">Aanvraag</text>
+        <text x="76" y="192" font-size="10" fill="#6c6c70">02/07 → 05/07 · 4 pers · 🚐 Camper</text>
+        <text x="540" y="186" font-size="13" font-weight="700" fill="#0D4D33">€178</text>
+      </g>
+      <g>
+        <rect x="20" y="216" width="560" height="58" rx="12" fill="#fff" stroke="#e5e5ea"/>
+        <circle cx="48" cy="245" r="16" fill="#007AFF"/><text x="48" y="249" font-size="11" text-anchor="middle" fill="#fff">SP</text>
+        <text x="76" y="238" font-size="12" font-weight="700">Sophie Peeters</text>
+        <rect x="240" y="229" width="60" height="16" rx="8" fill="#e6f0ff"/><text x="270" y="241" font-size="9" text-anchor="middle" fill="#0058cc">Bevestigd</text>
+        <text x="76" y="256" font-size="10" fill="#6c6c70">10/07 → 14/07 · 3 pers · ⛺ Safaritent</text>
+        <text x="540" y="250" font-size="13" font-weight="700" fill="#0D4D33">€340</text>
+      </g>
+    </svg>
+  </div>
+  <div class="screen-cap">Het hoofddashboard met de boekingenlijst</div>
+
+  <h3>De navigatiebalk uitgelegd</h3>
+  <table class="ref">
+    <tr><th>Knop</th><th>Wat doet het?</th></tr>
+    <tr><td>👁 <strong>Wie is er</strong></td><td>Toont alle gasten die op dit moment op de camping verblijven</td></tr>
+    <tr><td>📋 <strong>Register</strong></td><td>Het wettelijk gastenregister (af te drukken bij controle)</td></tr>
+    <tr><td>＋ <strong>Nieuwe boeking</strong></td><td>Een reservatie handmatig aanmaken (bv. telefonisch)</td></tr>
+    <tr><td>📅 <strong>Kalender</strong></td><td>Maandoverzicht van alle aankomsten en vertrekken</td></tr>
+    <tr><td>📊 <strong>Analytics</strong></td><td>Cijfers en grafieken over je boekingen</td></tr>
+    <tr><td>⚙️ <strong>Instellingen</strong></td><td>Tarieven, mails, gebruikers, je account</td></tr>
+  </table>
+  <div class="tip"><b>💡 Tip</b>De <strong>kleur van het bolletje</strong> en het <strong>label</strong> bij elke boeking tonen in één oogopslag de status: oranje = aanvraag, blauw = bevestigd, groen = ingecheckt.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>3 · Dashboard</span></div>
+</div>
+
+<!-- ============ 4. BOEKINGEN BEHEREN ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 4</span>
+  <h2>Boekingen beheren</h2>
+  <p>Klik op een boeking in de lijst om alle details te openen. Bovenaan zie je acht actieknoppen.</p>
+
+  <div class="screen">
+    <svg viewBox="0 0 600 330" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <rect width="600" height="330" fill="#fff"/>
+      <circle cx="48" cy="44" r="18" fill="#1B8A5B"/><text x="48" y="49" font-size="12" text-anchor="middle" fill="#fff">BV</text>
+      <text x="78" y="40" font-size="14" font-weight="700">Bryan Van Wesemael</text>
+      <rect x="78" y="50" width="60" height="15" rx="7" fill="#dff0e6"/><text x="108" y="61" font-size="8" text-anchor="middle" fill="#0D4D33">Ingecheckt</text>
+      <text x="150" y="61" font-size="9" fill="#9a9a9e">#1 · 26/06 → 28/06 · 2n</text>
+      <!-- bedrag/personen -->
+      <rect x="22" y="78" width="270" height="44" rx="10" fill="#f2f7f4"/>
+      <text x="36" y="96" font-size="9" fill="#6c6c70">BEDRAG</text><text x="36" y="114" font-size="16" font-weight="800" fill="#0D4D33">€200</text>
+      <rect x="308" y="78" width="270" height="44" rx="10" fill="#f2f7f4"/>
+      <text x="322" y="96" font-size="9" fill="#6c6c70">PERSONEN</text><text x="322" y="114" font-size="16" font-weight="800" fill="#0D4D33">6p</text>
+      <!-- 8 action buttons -->
+      <g font-size="9" text-anchor="middle">
+        <rect x="22" y="134" width="132" height="42" rx="10" fill="#eafaf0"/><text x="88" y="152">🔄</text><text x="88" y="167" fill="#0D4D33">Status</text>
+        <rect x="160" y="134" width="132" height="42" rx="10" fill="#fff3e3"/><text x="226" y="152">✏️</text><text x="226" y="167" fill="#a86700">Bewerken</text>
+        <rect x="298" y="134" width="132" height="42" rx="10" fill="#e9f2ff"/><text x="364" y="152">📧</text><text x="364" y="167" fill="#0058cc">Mail</text>
+        <rect x="436" y="134" width="142" height="42" rx="10" fill="#fdeeed"/><text x="507" y="152">🗑️</text><text x="507" y="167" fill="#c0271e">Verwijder</text>
+        <rect x="22" y="182" width="132" height="42" rx="10" fill="#eafaf0"/><text x="88" y="200">✅</text><text x="88" y="215" fill="#0D4D33">Bevestig</text>
+        <rect x="160" y="182" width="132" height="42" rx="10" fill="#fff3e3"/><text x="226" y="200">🔔</text><text x="226" y="215" fill="#a86700">Reminder</text>
+        <rect x="298" y="182" width="132" height="42" rx="10" fill="#e9f2ff"/><text x="364" y="200">💳</text><text x="364" y="215" fill="#0058cc">Betalen</text>
+        <rect x="436" y="182" width="142" height="42" rx="10" fill="#f0eefb"/><text x="507" y="200">🔳</text><text x="507" y="215" fill="#5b53c6">QR</text>
+      </g>
+      <!-- tabs -->
+      <line x1="22" y1="244" x2="578" y2="244" stroke="#e5e5ea"/>
+      <text x="110" y="262" font-size="10" font-weight="700" fill="#1B8A5B">Info</text>
+      <text x="290" y="262" font-size="10" fill="#6c6c70">👥 Gasten</text>
+      <text x="470" y="262" font-size="10" fill="#6c6c70">📧 Mail</text>
+      <line x1="80" y1="270" x2="140" y2="270" stroke="#1B8A5B" stroke-width="2"/>
+    </svg>
+  </div>
+  <div class="screen-cap">Het detailscherm van een boeking met de 8 actieknoppen</div>
+
+  <h3>De 8 knoppen uitgelegd</h3>
+  <table class="ref">
+    <tr><th>Knop</th><th>Wat doet het?</th></tr>
+    <tr><td>🔄 <strong>Status</strong></td><td>De status wijzigen (aanvraag → bevestigd → ingecheckt → betaald)</td></tr>
+    <tr><td>✏️ <strong>Bewerken</strong></td><td>Alle gegevens van de boeking aanpassen</td></tr>
+    <tr><td>📧 <strong>Mail</strong></td><td>Een mail sturen naar de gast <span style="color:#0058cc">(testfase)</span></td></tr>
+    <tr><td>🗑️ <strong>Verwijder</strong></td><td>De boeking verwijderen <em>(let op: dit kan niet ongedaan worden)</em></td></tr>
+    <tr><td>✅ <strong>Bevestig</strong></td><td>De boeking meteen op "bevestigd" zetten</td></tr>
+    <tr><td>🔔 <strong>Reminder</strong></td><td>Een herinnering sturen <span style="color:#0058cc">(testfase)</span></td></tr>
+    <tr><td>💳 <strong>Betalen</strong></td><td>Een betaallink aanmaken <span style="color:#0058cc">(testfase)</span></td></tr>
+    <tr><td>🔳 <strong>QR</strong></td><td>De QR-code voor check-in tonen <span style="color:#0058cc">(testfase)</span></td></tr>
+  </table>
+
+  <h3>De drie tabbladen onderaan</h3>
+  <ul>
+    <li><strong>Info</strong> — alle gegevens van de boeking en de gast</li>
+    <li><strong>Gasten</strong> — het wettelijk register (zie hoofdstuk 7)</li>
+    <li><strong>Mail</strong> — de mailgeschiedenis met deze gast</li>
+  </ul>
+
+  <h3>Een status wijzigen</h3>
+  <ol class="steps">
+    <li>Open de boeking → klik op <strong>🔄 Status</strong></li>
+    <li>Kies de nieuwe status uit de lijst</li>
+    <li>Klaar — de kleur in de lijst past zich automatisch aan</li>
+  </ol>
+  <div class="tip"><b>💡 Sneltruc</b>Je kan ook rechtstreeks op het gekleurde statuslabel in de lijst tikken om de status snel te wijzigen, zonder de boeking helemaal te openen.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>4 · Boekingen</span></div>
+</div>
+
+<!-- ============ 5. NIEUWE BOEKING ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 5</span>
+  <h2>Een nieuwe boeking aanmaken</h2>
+  <p>Komt er een reservatie binnen via telefoon of mail? Dan maak je ze zelf aan via <strong>＋ Nieuwe boeking</strong>.</p>
+
+  <ol class="steps">
+    <li>Klik bovenaan op <strong>＋ Nieuwe boeking</strong></li>
+    <li>Vul de <strong>gegevens van de gast</strong> in (naam, e-mail, telefoon)</li>
+    <li>Kies het <strong>aantal personen</strong> (volwassenen, kinderen, baby's) met de ＋/− knoppen</li>
+    <li>Kies <strong>aankomst</strong> en <strong>vertrek</strong></li>
+    <li>Kies het <strong>verblijfstype</strong> (tent, camper, safaritent...) en het aantal</li>
+    <li>Voeg eventueel <strong>extra's</strong> toe (honden, extra auto, elektriciteit)</li>
+    <li>De <strong>prijs wordt automatisch berekend</strong> — controleer het bedrag</li>
+    <li>Klik op <strong>Boeking opslaan</strong></li>
+  </ol>
+
+  <div class="screen">
+    <svg viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <rect width="600" height="300" fill="#fff"/>
+      <text x="24" y="30" font-size="13" font-weight="700" fill="#0D4D33">Nieuwe boeking</text>
+      <text x="24" y="56" font-size="9" fill="#6c6c70">VERBLIJFSTYPE</text>
+      <!-- type cards with steppers -->
+      <g>
+        <rect x="24" y="64" width="552" height="46" rx="11" fill="#fff" stroke="#1B8A5B"/>
+        <text x="44" y="92" font-size="20">⛺</text>
+        <text x="70" y="86" font-size="11" font-weight="700">Tent</text><text x="70" y="100" font-size="9" fill="#6c6c70">€15 / nacht</text>
+        <circle cx="500" cy="87" r="13" fill="#e5e5ea"/><text x="500" y="92" font-size="14" text-anchor="middle">−</text>
+        <text x="528" y="92" font-size="13" font-weight="800" text-anchor="middle">1</text>
+        <circle cx="556" cy="87" r="13" fill="#1B8A5B"/><text x="556" y="92" font-size="14" text-anchor="middle" fill="#fff">+</text>
+      </g>
+      <g>
+        <rect x="24" y="116" width="552" height="46" rx="11" fill="#fff" stroke="#e5e5ea"/>
+        <text x="44" y="144" font-size="20">🚐</text>
+        <text x="70" y="138" font-size="11" font-weight="700">Camper / Caravan</text><text x="70" y="152" font-size="9" fill="#6c6c70">€15 / nacht</text>
+        <circle cx="500" cy="139" r="13" fill="#e5e5ea"/><text x="500" y="144" font-size="14" text-anchor="middle">−</text>
+        <text x="528" y="144" font-size="13" font-weight="800" text-anchor="middle">0</text>
+        <circle cx="556" cy="139" r="13" fill="#1B8A5B"/><text x="556" y="144" font-size="14" text-anchor="middle" fill="#fff">+</text>
+      </g>
+      <!-- prijsvak -->
+      <rect x="24" y="176" width="552" height="100" rx="12" fill="#f2f7f4"/>
+      <text x="40" y="198" font-size="10" fill="#6c6c70">🏕️ Standplaats (2n)</text><text x="560" y="198" font-size="10" text-anchor="end">€30,00</text>
+      <text x="40" y="218" font-size="10" fill="#6c6c70">👥 Personen (6p × 2n)</text><text x="560" y="218" font-size="10" text-anchor="end">€84,00</text>
+      <text x="40" y="238" font-size="10" fill="#6c6c70">🏛️ Toeristentaks</text><text x="560" y="238" font-size="10" text-anchor="end">€12,00</text>
+      <line x1="40" y1="250" x2="560" y2="250" stroke="#d8e5dd"/>
+      <text x="40" y="268" font-size="12" font-weight="800" fill="#0D4D33">Totaal</text><text x="560" y="268" font-size="13" font-weight="800" text-anchor="end" fill="#0D4D33">€126,00</text>
+    </svg>
+  </div>
+  <div class="screen-cap">Verblijfstype kiezen met automatische prijsberekening</div>
+
+  <div class="law"><b>⚖️ Belangrijk over de prijs</b>De prijzen zijn <strong>inclusief 12% btw</strong>. De toeristentaks komt er apart bij (die is btw-vrij). Het systeem rekent dit automatisch correct — je hoeft zelf niets bij te tellen.</div>
+  <div class="tip"><b>💡 Tip</b>Je kan meerdere types combineren in één boeking, bijvoorbeeld 2 tenten + 1 safaritent. Zet gewoon bij elk type het juiste aantal.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>5 · Nieuwe boeking</span></div>
+</div>
+
+<!-- ============ 6. BEWERKEN ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 6</span>
+  <h2>Een boeking bewerken</h2>
+  <p>Veranderen er gegevens (andere datum, meer personen, extra hond)? Pas de boeking aan.</p>
+  <ol class="steps">
+    <li>Open de boeking → klik op <strong>✏️ Bewerken</strong></li>
+    <li>Pas aan wat nodig is: naam, e-mail, telefoon, personen, data, verblijfstype, extra's</li>
+    <li>De prijs herberekent automatisch mee</li>
+    <li>Klik op <strong>Wijzigingen opslaan</strong></li>
+  </ol>
+  <h3>Wat kan je allemaal aanpassen?</h3>
+  <table class="ref">
+    <tr><th>Categorie</th><th>Velden</th></tr>
+    <tr><td>Gast</td><td>Naam, e-mailadres, telefoon, nummerplaat</td></tr>
+    <tr><td>Personen</td><td>Volwassenen, kinderen (3–11), baby's (&lt;3j)</td></tr>
+    <tr><td>Verblijf</td><td>Aankomst, vertrek, verblijfstype(s) en aantallen</td></tr>
+    <tr><td>Extra's</td><td>Aantal auto's, honden, elektriciteit</td></tr>
+    <tr><td>Overig</td><td>Kanaal (mail/website/telefoon), bedrag, opmerkingen</td></tr>
+  </table>
+  <div class="tip"><b>💡 Tip</b>Het verblijfstype in "Bewerken" toont dezelfde types als in "Tarieven". Voeg je later een nieuw type toe (bv. "Glamping"), dan verschijnt dat automatisch ook hier.</div>
+  <div class="warning"><b>⚠️ Let op het bedrag</b>Als je het automatisch berekende bedrag handmatig overschrijft (bv. voor een korting), onthoud dan dat een latere wijziging de prijs opnieuw berekent. Controleer dus altijd het eindbedrag voor je opslaat.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>6 · Bewerken</span></div>
+</div>
+
+<!-- ============ 7. GASTEN ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 7</span>
+  <h2>Gasten registreren <span style="font-size:13px;color:#c0271e">(wettelijk verplicht)</span></h2>
+  <div class="law"><b>⚖️ Wettelijke verplichting (KB 27/04/2007)</b>Elke camping moet een register bijhouden van álle aanwezige gasten, inclusief de hoofdboeker. Bewaar dit zorgvuldig — het kan opgevraagd worden bij controle.</div>
+
+  <p>In het tabblad <strong>Gasten</strong> van een boeking registreer je iedereen die meekomt. Je hebt twee manieren:</p>
+
+  <h3>Manier 1 — Alle gasten tegelijk (aangeraden)</h3>
+  <ol class="steps">
+    <li>Open de boeking → tabblad <strong>👥 Gasten</strong></li>
+    <li>Klik op <strong>👥 Alle gasten</strong></li>
+    <li>Het systeem maakt automatisch een vakje per persoon (op basis van het aantal in de boeking)</li>
+    <li>Vul per persoon de <strong>naam</strong> en <strong>geboortedatum</strong> in</li>
+    <li>Klik op <strong>Alle gasten opslaan</strong></li>
+  </ol>
+
+  <div class="screen">
+    <svg viewBox="0 0 600 240" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <rect width="600" height="240" fill="#fff"/>
+      <text x="24" y="28" font-size="13" font-weight="700" fill="#0D4D33">👥 Alle gasten registreren</text>
+      <g>
+        <rect x="24" y="42" width="552" height="56" rx="11" fill="#f7f9f8" stroke="#e5e5ea"/>
+        <text x="40" y="62" font-size="10" font-weight="700" fill="#6c6c70">🧑 Volwassene 1   ·   Hoofdgast</text>
+        <rect x="40" y="68" width="260" height="22" rx="7" fill="#fff" stroke="#e5e5ea"/><text x="50" y="83" font-size="9" fill="#9a9a9e">Volledige naam</text>
+        <rect x="312" y="68" width="248" height="22" rx="7" fill="#fff" stroke="#e5e5ea"/><text x="322" y="83" font-size="9" fill="#9a9a9e">Geboortedatum</text>
+      </g>
+      <g>
+        <rect x="24" y="104" width="552" height="56" rx="11" fill="#f7f9f8" stroke="#e5e5ea"/>
+        <text x="40" y="124" font-size="10" font-weight="700" fill="#6c6c70">🧑 Volwassene 2</text>
+        <rect x="40" y="130" width="260" height="22" rx="7" fill="#fff" stroke="#e5e5ea"/><text x="50" y="145" font-size="9" fill="#9a9a9e">Volledige naam</text>
+        <rect x="312" y="130" width="248" height="22" rx="7" fill="#fff" stroke="#e5e5ea"/><text x="322" y="145" font-size="9" fill="#9a9a9e">Geboortedatum</text>
+      </g>
+      <rect x="24" y="176" width="552" height="36" rx="10" fill="#1B8A5B"/>
+      <text x="300" y="199" font-size="11" font-weight="700" text-anchor="middle" fill="#fff">✓ Alle gasten opslaan</text>
+    </svg>
+  </div>
+  <div class="screen-cap">Alle gasten in één keer registreren</div>
+
+  <h3>Manier 2 — Eén gast tegelijk</h3>
+  <p>Klik op <strong>+ Individueel</strong> om één gast toe te voegen met extra gegevens (nationaliteit, ID-nummer, nummerplaat). Handig om achteraf één gast aan te vullen of te wijzigen via het ✏️-icoon.</p>
+
+  <div class="law"><b>⚖️ Geen foto's van identiteitskaarten</b>Volgens de privacywetgeving (GDPR) mag je <strong>geen foto's</strong> van identiteitskaarten bewaren. Vul enkel de tekstvelden in: naam, geboortedatum, nationaliteit en ID-nummer.</div>
+  <div class="tip"><b>💡 Tip</b>De geregistreerde gasten verschijnen automatisch ook in "Wie is er" en in het "Register". Je hoeft niets dubbel in te vullen.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>7 · Gasten</span></div>
+</div>
+
+<!-- ============ 8. KALENDER ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 8</span>
+  <h2>Kalender &amp; "Wie is er"</h2>
+
+  <h3>De kalender</h3>
+  <p>Klik bovenaan op <strong>📅 Kalender</strong> voor een maandoverzicht. Per dag zie je wie aankomt en wie vertrekt. Handig om in één oogopslag te zien hoe vol de camping zit.</p>
+  <ul>
+    <li>Blader met de pijltjes naar de vorige of volgende maand</li>
+    <li>Klik op een dag om alle boekingen van die dag te zien</li>
+  </ul>
+
+  <h3>"Wie is er"</h3>
+  <p>Klik op <strong>👁 Wie is er</strong> voor een lijst van alle gasten die <strong>op dit moment</strong> op de camping verblijven (ingecheckt of betaald). Ideaal voor:</p>
+  <ul>
+    <li>Een snelle telling bij een veiligheidscontrole of evacuatie</li>
+    <li>Weten wie vandaag nog vertrekt</li>
+    <li>Een overzicht aan het begin van je shift</li>
+  </ul>
+
+  <h3>Het Register</h3>
+  <p>Klik op <strong>📋 Register</strong> voor het volledige wettelijke gastenregister. Dit kan je <strong>afdrukken</strong> of tonen bij een controle.</p>
+  <div class="tip"><b>💡 Tip</b>Druk het register af via de printfunctie van je browser (<span class="kbd">Ctrl</span> + <span class="kbd">P</span>). Zorg dat alle gasten netjes geregistreerd zijn voor je afdrukt.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>8 · Kalender</span></div>
+</div>
+
+<!-- ============ 9. MAILS ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 9</span>
+  <h2>Mails &amp; templates</h2>
+  <div class="testfase"><b>🔵 Testfase</b>Het effectief versturen van mails wordt nog getest. De opmaak en sjablonen kan je nu al volledig instellen.</div>
+
+  <p>Via het tabblad <strong>📧 Mail</strong> bovenaan beheer je twee dingen: verstuurde mails bekijken en je sjablonen (templates) instellen.</p>
+
+  <h3>Wat zijn templates?</h3>
+  <p>Templates zijn <strong>standaardteksten</strong> die je hergebruikt: een bevestigingsmail, een betalingsherinnering, een uitcheck-bericht. Je vult ze één keer in en gebruikt ze telkens opnieuw.</p>
+
+  <h3>Variabelen — automatisch invullen</h3>
+  <p>In een template kan je <strong>variabelen</strong> gebruiken. Die worden automatisch vervangen door de echte gegevens van de gast:</p>
+  <table class="ref">
+    <tr><th>Variabele</th><th>Wordt vervangen door</th></tr>
+    <tr><td><span class="kbd">{{voornaam}}</span></td><td>De voornaam van de gast</td></tr>
+    <tr><td><span class="kbd">{{aankomst}}</span></td><td>De aankomstdatum</td></tr>
+    <tr><td><span class="kbd">{{vertrek}}</span></td><td>De vertrekdatum</td></tr>
+    <tr><td><span class="kbd">{{nachten}}</span></td><td>Het aantal nachten</td></tr>
+    <tr><td><span class="kbd">{{personen}}</span></td><td>Het aantal personen</td></tr>
+    <tr><td><span class="kbd">{{bedrag}}</span></td><td>Het totaalbedrag</td></tr>
+    <tr><td><span class="kbd">{{ogm}}</span></td><td>De betaalreferentie</td></tr>
+  </table>
+
+  <h3>Meerdere varianten = natuurlijker</h3>
+  <p>Je kan per type <strong>meerdere varianten</strong> toevoegen. Bij het versturen kiest het systeem er willekeurig één. Zo klinken je mails nooit twee keer hetzelfde — dat oogt persoonlijker en belandt minder snel in spam.</p>
+
+  <h3>Een template bewerken</h3>
+  <ol class="steps">
+    <li>Ga naar <strong>📧 Mail</strong> → tabblad <strong>Templates</strong></li>
+    <li>Klik op een variant om die open te klappen</li>
+    <li>Pas het onderwerp en de inhoud aan</li>
+    <li>Klik op <strong>👁 Preview</strong> om te zien hoe de mail eruitziet met voorbeeldgegevens</li>
+    <li>Klik op <strong>Opslaan</strong></li>
+  </ol>
+  <div class="tip"><b>💡 Tip</b>Gebruik de Preview-knop voor je opslaat. Zo zie je meteen of de variabelen goed staan en de mail er netjes uitziet.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>9 · Mails</span></div>
+</div>
+
+<!-- ============ 10. BETALINGEN & QR ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 10</span>
+  <h2>Betalingen &amp; QR check-in</h2>
+
+  <h3>Online betalingen <span style="font-size:12px;color:#0058cc">(testfase)</span></h3>
+  <div class="testfase"><b>🔵 Testfase</b>De koppeling met Mollie (online betalen) wordt nog getest voor ze met echt geld gebruikt wordt.</div>
+  <p>Met de knop <strong>💳 Betalen</strong> op een boeking maak je een <strong>betaallink</strong> aan. Die stuur je naar de gast; hij betaalt online via Mollie (Bancontact, kaart...). Zodra betaald, springt de status automatisch op "betaald".</p>
+  <ol class="steps">
+    <li>Open de boeking → klik op <strong>💳 Betalen</strong></li>
+    <li>Bevestig dat je een betaallink wil aanmaken</li>
+    <li>De link wordt gekopieerd — plak die in een mail of bericht naar de gast</li>
+  </ol>
+
+  <h3>QR check-in <span style="font-size:12px;color:#0058cc">(testfase)</span></h3>
+  <p>Met de knop <strong>🔳 QR</strong> toon je een QR-code. De gast scant die bij aankomst en checkt zo zelf in. Dat bespaart tijd aan de receptie.</p>
+  <div class="tip"><b>💡 Tip</b>Je kan de QR-code afdrukken en bij de inkom hangen, of meesturen in de bevestigingsmail van de gast.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>10 · Betalingen</span></div>
+</div>
+
+<!-- ============ 11. TARIEVEN ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 11</span>
+  <h2>Tarieven instellen</h2>
+  <p>Onder <strong>⚙️ Instellingen → Tarieven</strong> beheer je alle prijzen. Wat je hier instelt, geldt automatisch voor het klantformulier, voor nieuwe boekingen én voor het bewerken — alles is gekoppeld.</p>
+
+  <h3>Wat kan je instellen?</h3>
+  <table class="ref">
+    <tr><th>Tarief</th><th>Uitleg</th></tr>
+    <tr><td>Prijs per verblijfstype</td><td>Tent, camper, en je eigen types (safaritent, glamping...)</td></tr>
+    <tr><td>Prijs per persoon</td><td>Volwassene, kind (3–11), baby (gratis)</td></tr>
+    <tr><td>Toeristentaks</td><td>Per volwassene per nacht (btw-vrij)</td></tr>
+    <tr><td>Extra's</td><td>Hond, extra auto, elektriciteit, afvalbijdrage</td></tr>
+    <tr><td>Eigen tarieven</td><td>Voeg je eigen extra kostenposten toe</td></tr>
+  </table>
+
+  <h3>Een eigen verblijfstype toevoegen</h3>
+  <ol class="steps">
+    <li>Ga naar <strong>Instellingen → Tarieven</strong></li>
+    <li>Voeg een nieuw type toe met naam, emoji en prijs</li>
+    <li>Sla op — het verschijnt meteen overal (formulier, nieuwe boeking, bewerken)</li>
+  </ol>
+  <div class="law"><b>⚖️ Toeristentaks</b>De toeristentaks verschilt per gemeente. Controleer bij je gemeente het juiste tarief en vul dat hier in.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>11 · Tarieven</span></div>
+</div>
+
+<!-- ============ 12. GEBRUIKERS ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 12</span>
+  <h2>Gebruikers (collega's) toevoegen</h2>
+  <p>Werkt er nog iemand op de receptie? Geef die persoon een eigen login. <strong>Deel nooit één account</strong> — elke medewerker hoort een eigen e-mail en wachtwoord te hebben.</p>
+
+  <h3>Iemand uitnodigen <span style="font-size:12px;color:#0058cc">(testfase)</span></h3>
+  <ol class="steps">
+    <li>Ga naar <strong>⚙️ Instellingen → Gebruikers</strong></li>
+    <li>Vul het e-mailadres van je collega in</li>
+    <li>Kies een rol (staff of admin)</li>
+    <li>Klik op <strong>Uitnodiging sturen</strong></li>
+  </ol>
+  <div class="warning"><b>⚠️ Werkt het uitnodigen nog niet?</b>Tijdens de testfase kan je collega's ook rechtstreeks laten toevoegen door de beheerder via het Supabase-beheerscherm. Vraag dit aan Bryan.</div>
+  <div class="tip"><b>💡 Verschil tussen de rollen</b><strong>Admin</strong> = mag alles, ook gebruikers beheren. <strong>Staff</strong> = mag boekingen beheren maar geen nieuwe gebruikers toevoegen.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>12 · Gebruikers</span></div>
+</div>
+
+<!-- ============ 13. KLANTFORMULIER ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 13</span>
+  <h2>Het reservatieformulier voor gasten</h2>
+  <p>Dit is wat de <strong>gast zelf ziet</strong> op de website. Goed om te kennen, zodat je vragen van gasten kan beantwoorden.</p>
+
+  <div class="screen">
+    <svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <rect width="600" height="280" fill="#f7f7f9"/>
+      <rect x="60" y="20" width="480" height="44" rx="12" fill="#fff" stroke="#e5e5ea"/>
+      <text x="80" y="40" font-size="11" font-weight="700" fill="#0D4D33">🏕️ Reserveer je plek</text>
+      <text x="80" y="55" font-size="9" fill="#6c6c70">Camping Cosmopolite</text>
+      <rect x="60" y="74" width="480" height="50" rx="12" fill="#fff" stroke="#e5e5ea"/>
+      <text x="80" y="94" font-size="9" fill="#6c6c70">Naam</text>
+      <rect x="80" y="100" width="440" height="18" rx="6" fill="#F9F9FB" stroke="#e5e5ea"/>
+      <rect x="60" y="134" width="235" height="50" rx="12" fill="#fff" stroke="#e5e5ea"/>
+      <text x="80" y="154" font-size="9" fill="#6c6c70">Aankomst</text>
+      <rect x="80" y="160" width="195" height="18" rx="6" fill="#F9F9FB" stroke="#e5e5ea"/>
+      <rect x="305" y="134" width="235" height="50" rx="12" fill="#fff" stroke="#e5e5ea"/>
+      <text x="325" y="154" font-size="9" fill="#6c6c70">Vertrek</text>
+      <rect x="325" y="160" width="195" height="18" rx="6" fill="#F9F9FB" stroke="#e5e5ea"/>
+      <!-- submit bar -->
+      <rect x="60" y="200" width="480" height="50" rx="12" fill="#0D4D33"/>
+      <text x="80" y="220" font-size="9" fill="#a9d6c0">Totaal</text>
+      <text x="80" y="240" font-size="16" font-weight="800" fill="#fff">€126</text>
+      <rect x="360" y="212" width="160" height="28" rx="9" fill="#1B8A5B"/>
+      <text x="440" y="230" font-size="10" font-weight="700" text-anchor="middle" fill="#fff">Verstuur aanvraag →</text>
+    </svg>
+  </div>
+  <div class="screen-cap">Het publieke reservatieformulier dat de gast invult</div>
+
+  <h3>Wat gebeurt er als een gast verstuurt?</h3>
+  <ol class="steps">
+    <li>De gast vult alles in en ziet meteen de <strong>prijs</strong></li>
+    <li>Hij klikt op <strong>Verstuur aanvraag</strong></li>
+    <li>De boeking verschijnt automatisch in <strong>jouw dashboard</strong> met status "Aanvraag"</li>
+    <li>Jij bevestigt de boeking en (later) stuurt een bevestigingsmail</li>
+  </ol>
+  <div class="tip"><b>💡 De link naar het formulier</b><span class="kbd">camping-cosmopolite.netlify.app</span> — deel deze op je website, social media of in je e-mailhandtekening.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>13 · Klantformulier</span></div>
+</div>
+
+<!-- ============ 14. TIPS ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 14</span>
+  <h2>Tips &amp; tricks</h2>
+
+  <h3>Sneller werken</h3>
+  <ul>
+    <li><strong>Snelle status:</strong> tik rechtstreeks op het gekleurde statuslabel in de lijst</li>
+    <li><strong>Zoeken:</strong> gebruik de zoekbalk om snel een gast op naam te vinden</li>
+    <li><strong>Filteren:</strong> klik op een statusfilter (Aanvraag, Bevestigd...) om enkel die boekingen te zien</li>
+    <li><strong>Afdrukken:</strong> <span class="kbd">Ctrl</span> + <span class="kbd">P</span> in elke lijst of register</li>
+  </ul>
+
+  <h3>Goede gewoontes</h3>
+  <ul>
+    <li>Registreer gasten <strong>meteen bij check-in</strong> — dan loopt het register nooit achter</li>
+    <li>Zet een boeking pas op <strong>"Ingecheckt"</strong> als de gast effectief aangekomen is</li>
+    <li>Controleer 's morgens <strong>"Wie is er"</strong> voor een overzicht van je dag</li>
+    <li>Werk met je <strong>eigen login</strong>, deel je wachtwoord met niemand</li>
+  </ul>
+
+  <h3>Op tablet of gsm</h3>
+  <p>Het dashboard werkt ook op tablet en smartphone. Handig om aan de balie of onderweg op het terrein snel iets op te zoeken of een check-in te doen.</p>
+
+  <div class="tip"><b>💡 Bewaar de link</b>Zet <span class="kbd">camping-cosmopolite.netlify.app/dashboard</span> als favoriet (bladwijzer) in je browser, of als snelkoppeling op je startscherm. Zo ben je met één tik binnen.</div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>14 · Tips</span></div>
+</div>
+
+<!-- ============ 15. FAQ ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 15</span>
+  <h2>Veelgestelde vragen (FAQ)</h2>
+
+  <h3>Kan ik iets per ongeluk kapot maken?</h3>
+  <p>Nee. Bijna alles is aanpasbaar. Enkel <strong>Verwijderen</strong> is definitief — wees daar voorzichtig mee.</p>
+
+  <h3>Een gast belt om te annuleren. Wat doe ik?</h3>
+  <p>Open de boeking → <strong>🔄 Status</strong> → kies <strong>Geannuleerd</strong>. De boeking blijft bewaard maar telt niet meer mee als actief.</p>
+
+  <h3>De camping zit vol maar er komt nog een aanvraag.</h3>
+  <p>Zet die boeking op status <strong>Wachtlijst</strong>. Komt er een plek vrij, dan zet je ze op Bevestigd.</p>
+
+  <h3>Ik zie een boeking niet meer in de lijst.</h3>
+  <p>Controleer je <strong>statusfilter</strong> bovenaan. Staat die op "Bevestigd", dan zie je geen aanvragen. Klik op <strong>Alle</strong> om alles te tonen.</p>
+
+  <h3>Klopt de prijs niet?</h3>
+  <p>Controleer in <strong>Instellingen → Tarieven</strong> of alle prijzen juist staan. Het systeem rekent automatisch; een verkeerde prijs komt meestal door een fout tarief.</p>
+
+  <h3>Moet ik btw bijtellen?</h3>
+  <p>Nee. De prijzen zijn <strong>inclusief 12% btw</strong>. De toeristentaks komt er automatisch apart bij. Je hoeft zelf niets bij te tellen.</p>
+
+  <h3>Een gast wil zijn gegevens laten verwijderen (GDPR).</h3>
+  <p>Dat is een recht van de gast. Let op: sommige gegevens moet je wettelijk bewaren (boekhouding 7 jaar). Het systeem verwijdert oude gegevens automatisch na de wettelijke termijn. Vraag bij twijfel aan de beheerder.</p>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>15 · FAQ</span></div>
+</div>
+
+<!-- ============ 16. PROBLEMEN ============ -->
+<div class="page chapter">
+  <span class="section-tag">Hoofdstuk 16</span>
+  <h2>Problemen oplossen</h2>
+
+  <table class="ref">
+    <tr><th>Probleem</th><th>Oplossing</th></tr>
+    <tr><td>Ik kan niet inloggen</td><td>Controleer e-mail en wachtwoord. Lukt het niet? Gebruik "Wachtwoord vergeten?".</td></tr>
+    <tr><td>De herstelmail komt niet aan</td><td>Kijk in je spam. Wacht 10 minuten. Vraag anders de beheerder om je wachtwoord te resetten.</td></tr>
+    <tr><td>Een knop reageert niet</td><td>Vernieuw de pagina (<span class="kbd">F5</span>). Helpt dat niet, sluit en heropen de browser.</td></tr>
+    <tr><td>Ik zie verouderde gegevens</td><td>Vernieuw de pagina. De gegevens worden dan opnieuw opgehaald.</td></tr>
+    <tr><td>Mail / betaling / check-in werkt niet</td><td>Deze zitten nog in de testfase. Meld het aan de beheerder.</td></tr>
+    <tr><td>Het scherm ziet er raar uit</td><td>Probeer een andere browser (Chrome of Edge werken het best).</td></tr>
+  </table>
+
+  <h3>Hulp nodig?</h3>
+  <p>Kom je er niet uit? Noteer <strong>wat je deed</strong> en <strong>wat er gebeurde</strong> (eventueel met een screenshot) en contacteer de beheerder. Hoe concreter je het probleem omschrijft, hoe sneller het opgelost is.</p>
+
+  <div class="tip"><b>💡 Onthoud</b>De meeste problemen zijn opgelost met één simpele truc: <strong>de pagina vernieuwen</strong> (<span class="kbd">F5</span>). Probeer dat altijd eerst.</div>
+
+  <div style="margin-top:40px;text-align:center;color:#6c6c70;font-size:12px;border-top:1px solid var(--line);padding-top:20px;">
+    <p style="font-size:15px;color:#1B8A5B;font-weight:700;">Veel succes, Karen! 🏕️</p>
+    <p>Je leert dit systeem het snelst kennen door gewoon te doen.<br>Durf klikken — je kan niets stuk maken.</p>
+  </div>
+
+  <div class="footer"><span>Camping Cosmopolite — Handleiding</span><span>16 · Problemen oplossen</span></div>
+</div>
+
+</body>
+</html>
