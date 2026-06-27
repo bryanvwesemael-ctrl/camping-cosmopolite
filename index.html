@@ -294,6 +294,10 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- Honeypot: onzichtbaar voor mensen, bots vullen dit in -->
+<input type="text" id="hp_website" name="website" tabindex="-1" autocomplete="off"
+  style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" aria-hidden="true">
+
 <div class="submit-bar">
   <div class="submit-inner">
     <div class="submit-total">
@@ -314,6 +318,8 @@ button{cursor:pointer;border:none;background:none}
 const SUPABASE_URL='https://whubbowuqhjdkdequbmb.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWJib3d1cWhqZGtkZXF1Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjM3NTYsImV4cCI6MjA5Nzc5OTc1Nn0.1S-eme0sMmC_25H-XnZ9r3AMKFSSxnpRx3-GRefSyzs';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const _formLoadedAt=Date.now();  // anti-bot tijdscontrole
+let _lastSubmitAt=0;             // anti-dubbele inzending
 
 /* ═══════════ ANALYTICS TRACKING (alleen na cookie-akkoord) ═══════════ */
 const _sid=(()=>{let s=sessionStorage.getItem('_cc_sid');if(!s){s=crypto.randomUUID();sessionStorage.setItem('_cc_sid',s)}return s})();
@@ -627,6 +633,15 @@ async function submitForm(){
   if(!naam){ toast('⚠️ Vul je naam in'); document.getElementById('fNaam').focus(); return; }
   if(!email || !email.includes('@')){ toast('⚠️ Vul een geldig e-mailadres in'); document.getElementById('fEmail').focus(); return; }
   if(!state.akkoord){ toast('⚠️ Bevestig akkoord met verwerking van je gegevens'); return; }
+
+  // --- Bot-bescherming (rate limiting / anti-spam) ---
+  // 1. Honeypot: enkel bots vullen dit verborgen veld in
+  if(document.getElementById('hp_website')?.value){ showConfirm('—', fmt(0)); return; }
+  // 2. Tijdscontrole: een mens doet er langer dan 3s over om in te vullen
+  if(Date.now() - _formLoadedAt < 3000){ toast('⚠️ Even geduld, controleer je gegevens nog eens'); return; }
+  // 3. Dubbele inzending binnen 30s blokkeren
+  if(_lastSubmitAt && Date.now() - _lastSubmitAt < 30000){ toast('⚠️ Je aanvraag werd al verstuurd'); return; }
+  _lastSubmitAt = Date.now();
 
   const btn=document.querySelector('.submit-btn');
   btn.classList.add('loading'); btn.textContent='Bezig met versturen…';
