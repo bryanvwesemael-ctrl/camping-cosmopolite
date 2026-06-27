@@ -3,3 +3,7 @@ Thumbs.db
 *.log
 .env
 .env.local
+
+# Bevat inloggegevens (wachtwoord) — nooit naar versiebeheer
+handleiding/Snelstart-Karen.html
+handleiding/Snelstart-Karen.pdf
