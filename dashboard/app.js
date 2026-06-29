@@ -2582,7 +2582,28 @@ function resetGuestFotoUI(){
 }
 function previewGuestFoto(input){
   const f=input.files?.[0];const img=document.getElementById('guestFotoPreview');
-  if(f&&img){img.src=URL.createObjectURL(f);img.style.display='block';}
+  if(f&&img){img.src=URL.createObjectURL(f);img.style.display='block';scanGuestId(f);}
+}
+function _fileToBase64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
+async function scanGuestId(file){
+  const hint=document.getElementById('gIdAiHint');
+  if(hint)hint.textContent='🔎 AI leest de kaart…';
+  try{
+    const b64=await _fileToBase64(file);
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/scan-id`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({image_base64:b64,media_type:file.type||'image/jpeg'}),
+    });
+    const d=await res.json();
+    if(d.error){if(hint)hint.textContent='⚠️ '+d.error;return;}
+    const nEl=document.getElementById('gNaam'),gEl=document.getElementById('gGeboortedatum'),natEl=document.getElementById('gNationaliteit');
+    if(d.naam&&nEl&&!nEl.value)nEl.value=d.naam;
+    if(d.geboortedatum&&gEl)gEl.value=d.geboortedatum;
+    if(d.nationaliteit&&natEl&&!natEl.value)natEl.value=d.nationaliteit;
+    if(hint)hint.textContent='✅ Automatisch ingevuld — controleer de gegevens.';
+  }catch(e){if(hint)hint.textContent='⚠️ AI-herkenning mislukt — vul handmatig in.';}
 }
 
 async function openEditGuestSheet(gastId){
