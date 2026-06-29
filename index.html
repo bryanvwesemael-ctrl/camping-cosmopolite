@@ -230,6 +230,22 @@ button{cursor:pointer;border:none;background:none}
     </div>
   </div>
 
+  <!-- ID-foto's (optioneel) -->
+  <div class="card" id="idFotoCard">
+    <h2>📷 ID-foto's uploaden <span style="font-weight:400;font-size:12px;color:var(--lbl3);">(optioneel — versnelt check-in)</span></h2>
+    <p style="font-size:12.5px;color:var(--lbl3);margin:0 0 14px;line-height:1.5;">
+      Upload nu al de voorkant van uw identiteitskaart. Dit versnelt de check-in en is wettelijk verplicht voor het gastenregister. De foto's worden enkel intern gebruikt.
+    </p>
+    <div class="toggle-row" style="margin-bottom:0;">
+      <div class="sr-info">
+        <div class="sr-title">Ik geef toestemming voor bewaring van mijn ID-foto</div>
+        <div class="sr-sub">GDPR-conform · enkel voor brandveiligheid · automatisch verwijderd na verblijf</div>
+      </div>
+      <div class="switch" id="swIdFotoConsent" onclick="toggleIdFotoConsent()"></div>
+    </div>
+    <div id="idFotoSlots" style="display:none;margin-top:14px;"></div>
+  </div>
+
   <!-- Prijsoverzicht -->
   <div class="price-card">
     <h2>Prijsoverzicht</h2>
@@ -361,7 +377,8 @@ function ogmReference(volgnummer){
 }
 
 const PRICES={tent:15,camper:15,volwassene:7,kind:5,baby:0,hond:3,extraAuto:2,elektriciteit:6,afvalPer6:2,toeristentaks:1,waarborg:0};
-let state={tenten:1,campers:0,extraTypeQties:{},volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,elek:false,akkoord:false};
+let state={tenten:1,campers:0,extraTypeQties:{},volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,elek:false,akkoord:false,idFotoConsent:false};
+let idFotos=[]; // Array van File|null, één per niet-baby persoon
 let extraTarievenPublic=[];
 let accommodatieTypes=[
   {id:'tent',naam:'Tent',emoji:'⛺',prijs:15,maxPersonen:0,waarborg:0,waarborgBedrag:0,isStandaard:true},
@@ -498,7 +515,44 @@ function step(key,delta){
   state[key]=newVal;
   document.getElementById('v-'+key).textContent=state[key];
   calc();
-  if(['volwassenen','kinderen','baby'].includes(key))renderGastnamen();
+  if(['volwassenen','kinderen','baby'].includes(key)){renderGastnamen();renderIdFotos();}
+}
+function toggleIdFotoConsent(){
+  state.idFotoConsent=!state.idFotoConsent;
+  document.getElementById('swIdFotoConsent').classList.toggle('on',state.idFotoConsent);
+  const slots=document.getElementById('idFotoSlots');
+  slots.style.display=state.idFotoConsent?'block':'none';
+  if(state.idFotoConsent)renderIdFotos();
+}
+function renderIdFotos(){
+  if(!state.idFotoConsent)return;
+  const total=state.volwassenen+state.kinderen; // baby's geen ID nodig
+  while(idFotos.length<total)idFotos.push(null);
+  idFotos=idFotos.slice(0,total);
+  const el=document.getElementById('idFotoSlots');if(!el)return;
+  el.innerHTML=Array.from({length:total},(_,i)=>{
+    const f=idFotos[i];
+    const label=i===0?'Hoofdboeker':i<state.volwassenen?`Volwassene ${i+1}`:`Kind ${i-state.volwassenen+1}`;
+    const thumbUrl=f?URL.createObjectURL(f):null;
+    return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--sep);">
+      <div style="width:48px;height:48px;border-radius:10px;flex-shrink:0;overflow:hidden;${f?'border:2px solid var(--green);':'border:2px dashed #ccc;background:#f5f5f7;display:flex;align-items:center;justify-content:center;font-size:22px;'}">
+        ${f?`<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover;">`:'📷'}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:var(--lbl1);">${label}</div>
+        <div style="font-size:11px;color:${f?'var(--green)':'var(--lbl3)'};">${f?'✅ Foto geselecteerd':'Nog geen foto'}</div>
+      </div>
+      <button onclick="document.getElementById('idFotoInp${i}').click()" style="padding:8px 12px;border:1.5px solid var(--green);border-radius:10px;color:var(--green);font-size:12px;font-weight:700;background:#fff;flex-shrink:0;cursor:pointer;">
+        ${f?'📷 Wijzig':'📷 Neem foto'}
+      </button>
+      <input type="file" id="idFotoInp${i}" accept="image/*" capture="environment" style="display:none;" onchange="onIdFotoSelected(${i},this)">
+    </div>`;
+  }).join('')+`<div style="font-size:11px;color:var(--lbl4);margin-top:8px;padding-top:2px;">📌 Foto enkel de <b>voorkant</b> van de identiteitskaart of het paspoort — geen rijbewijs.</div>`;
+}
+function onIdFotoSelected(idx,inp){
+  const f=inp.files[0];if(!f)return;
+  idFotos[idx]=f;
+  renderIdFotos();
 }
 function toggleElek(){
   state.elek=!state.elek;
@@ -653,9 +707,9 @@ async function submitForm(){
   btn.classList.add('loading'); btn.textContent='Bezig met versturen…';
 
   try{
-    // Pre-genereer UUIDs zodat geen SELECT nodig is na insert (anon heeft geen SELECT-recht)
     const clientId=crypto.randomUUID();
     const bookingId=crypto.randomUUID();
+    const checkinToken=crypto.randomUUID();
 
     // 1. Klant aanmaken (geen .select() → geen SELECT-policy nodig)
     const {error:clientErr}=await sb.from('clients').insert({
@@ -710,7 +764,7 @@ async function submitForm(){
       volwassenen:state.volwassenen,
       kinderen:state.kinderen, baby:state.baby, honden:state.honden, autos:state.autos,
       elektriciteit:state.elek, bedrag_per_nacht:dienstenPerNacht, bedrag_totaal:totaalNow,
-      nota:nota||null, bron:'website', status:'aanvraag'
+      nota:nota||null, bron:'website', status:'aanvraag', checkin_token:checkinToken
     });
     if(bookErr) throw bookErr;
 
@@ -725,7 +779,25 @@ async function submitForm(){
       if(gastenRows.length)await sb.from('gasten').insert(gastenRows);
     }
 
-    // 4. Conceptmail klaarzetten (OGM wordt door dashboard gegenereerd na aanmaak)
+    // 4. ID-foto's uploaden (optioneel, enkel als toestemming gegeven)
+    if(state.idFotoConsent){
+      const photosToUpload=idFotos.filter(Boolean);
+      if(photosToUpload.length){
+        btn.textContent=`📷 ${photosToUpload.length} foto${photosToUpload.length>1?"'s":""} uploaden…`;
+        const images=[];
+        for(const f of photosToUpload){
+          const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
+          images.push({image_base64:b64,media_type:f.type||'image/jpeg'});
+        }
+        await fetch(`${SUPABASE_URL}/functions/v1/guest-upload`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+          body:JSON.stringify({token:checkinToken,images})
+        });
+      }
+    }
+
+    // 5. Conceptmail klaarzetten (OGM wordt door dashboard gegenereerd na aanmaak)
     await sb.from('communicatie').insert({
       booking_id:bookingId, richting:'uitgaand', status:'concept',
       template_key:'bevestiging_aanvraag',
