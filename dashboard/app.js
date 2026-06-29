@@ -571,6 +571,8 @@ function openBookingDetail(id){
         <div class="detail-r"><span class="dr-k">Betaalref.</span><span class="dr-v" style="font-size:11px;font-family:monospace;">${genRef(b)}</span></div>
         ${b.nota?`<div class="detail-r"><span class="dr-k">Nota</span><span class="dr-v">${b.nota}</span></div>`:''}
       </div>
+      <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">💶 Betaling</div>
+      <div id="paymentInfo" style="margin-bottom:16px;">Laden…</div>
       <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">✅ Controle bij aankomst</div>
       <div class="ctrl-list">
         <div class="ctrl-item"><input type="checkbox" id="ctrlId" ${ctrl.id?'checked':''} onchange="toggleControle('${b.id}','id',this.checked)"><label for="ctrlId">ID-kaart gecontroleerd</label></div>
@@ -611,6 +613,24 @@ function openBookingDetail(id){
   openSheet('shDetail');
   loadCommHistory(b.id);
   loadGasten(b.id);
+  loadPaymentInfo(b.id);
+}
+
+async function loadPaymentInfo(bookingId){
+  const el=document.getElementById('paymentInfo');if(!el)return;
+  const b=bookings.find(x=>x.id===bookingId);
+  const totaal=Number(b?.bedrag||0);
+  const {data}=await sb.from('payments').select('bedrag,status').eq('booking_id',bookingId);
+  const betaald=(data||[]).filter(p=>p.status==='paid').reduce((s,p)=>s+Number(p.bedrag||0),0);
+  const open=Math.round((totaal-betaald)*100)/100;
+  el.innerHTML=`<div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:12px;padding:12px 14px;">
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span style="color:var(--lbl3);">Totaal</span><b>€${totaal.toFixed(2)}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span style="color:var(--lbl3);">Reeds betaald</span><b style="color:var(--green);">€${betaald.toFixed(2)}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--lbl3);">Nog te betalen</span><b style="color:${open>0.005?'#FF3B30':'var(--green)'};">€${Math.max(0,open).toFixed(2)}</b></div>
+    ${open>0.005
+      ?`<button onclick="stuurBetaallink('${bookingId}')" style="width:100%;margin-top:10px;padding:10px;background:#5856D6;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;">💳 ${betaald>0?'Bijbetaling':'Betaallink'} sturen (€${Math.max(0,open).toFixed(2)})</button>`
+      :`<div style="margin-top:8px;text-align:center;font-size:12px;color:var(--green);font-weight:700;">✅ Volledig betaald</div>`}
+  </div>`;
 }
 function switchDetailTab(tab){
   ['info','gasten','mail'].forEach(t=>{
@@ -2084,7 +2104,7 @@ async function sendAutoMail(bookingId, templateKey){
 async function stuurBetaallink(bookingId){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){toast('⚠️ Niet ingelogd');return}
-  if(!confirm('Betaallink aanmaken via Mollie en sturen naar klant?')) return;
+  if(!confirm('Betaallink aanmaken via Mollie voor het openstaande saldo en sturen naar de klant?')) return;
   toast('⏳ Betaallink aanmaken…');
   const res=await fetch(`${SUPABASE_URL}/functions/v1/create-payment`,{
     method:'POST',
@@ -2093,10 +2113,11 @@ async function stuurBetaallink(bookingId){
   });
   const data=await res.json();
   if(data.error){toast('⚠️ '+data.error);return}
-  // Stuur ook mail met betaallink
-  await sendAutoMail(bookingId,'betaallink');
+  // Stuur ook mail met betaallink (faalt stil als mail nog niet gekoppeld is)
+  try{await sendAutoMail(bookingId,'betaling');}catch(e){}
   navigator.clipboard?.writeText(data.checkout_url);
-  toast('✅ Betaallink aangemaakt & gekopieerd!');
+  toast(`✅ ${data.bijbetaling?'Bijbetaling':'Betaallink'} €${Number(data.bedrag||0).toFixed(2)} aangemaakt & gekopieerd!`);
+  loadPaymentInfo(bookingId);
 }
 
 let currentQrUrl='';

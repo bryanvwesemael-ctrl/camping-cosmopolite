@@ -9,9 +9,7 @@ const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-// Plug-and-play: lees de Mollie-sleutel uit de env-secret OF uit de settings-tabel
-// (die de gebruiker invult bij Instellingen -> Mollie). Service-role mag alle settings lezen.
+// Plug-and-play: Mollie-sleutel uit env-secret OF settings-tabel (UI slaat hem daar op).
 async function getMollieKey(sb: any): Promise<string|null> {
   const env = Deno.env.get('MOLLIE_API_KEY')
   if (env) return env
@@ -30,13 +28,20 @@ Deno.serve(async (req) => {
     const MOLLIE_API_KEY = await getMollieKey(sb)
     if (!MOLLIE_API_KEY) throw new Error('Mollie is nog niet gekoppeld. Vul je Mollie-sleutel in bij Instellingen → Mollie.')
 
-    const { booking_id } = await req.json()
+    // amount optioneel: anders automatisch het openstaande saldo (totaal - reeds betaald).
+    const { booking_id, amount } = await req.json()
     const { data: b } = await sb.from('bookings').select('*,clients(naam,email)').eq('id', booking_id).single()
     if (!b) throw new Error('Boeking niet gevonden')
 
-    const bedrag = b.bedrag_totaal || 0
-    if (!(bedrag > 0)) throw new Error('Bedrag van de boeking is 0 — niets te betalen.')
-    const description = `Camping Cosmopolite #${b.volgnummer} — ${b.clients?.naam}`
+    const { data: paidRows } = await sb.from('payments').select('bedrag').eq('booking_id', booking_id).eq('status','paid')
+    const reedsBetaald = (paidRows||[]).reduce((s:number,p:any)=>s+Number(p.bedrag||0),0)
+    const totaal = Number(b.bedrag_totaal||0)
+    const openstaand = Math.round((totaal - reedsBetaald)*100)/100
+    const bedrag = (amount && Number(amount)>0) ? Math.round(Number(amount)*100)/100 : openstaand
+    if (!(bedrag > 0)) throw new Error('Niets te betalen — deze boeking is al volledig betaald.')
+
+    const isBij = reedsBetaald > 0
+    const description = `Camping Cosmopolite #${b.volgnummer} — ${b.clients?.naam}${isBij?' (bijbetaling)':''}`
 
     const res = await fetch('https://api.mollie.com/v2/payments', {
       method: 'POST',
@@ -54,7 +59,7 @@ Deno.serve(async (req) => {
       const checkoutUrl = payment._links?.checkout?.href
       await sb.from('payments').insert({ booking_id, mollie_id: payment.id, bedrag, checkout_url: checkoutUrl })
       await sb.from('settings').upsert({ user_id: user.id, key:'last_betaallink', value: checkoutUrl, updated_at: new Date().toISOString() }, { onConflict:'user_id,key' })
-      return new Response(JSON.stringify({ ok:true, checkout_url: checkoutUrl }), { headers:{...cors,'Content-Type':'application/json'} })
+      return new Response(JSON.stringify({ ok:true, checkout_url: checkoutUrl, bedrag, bijbetaling:isBij }), { headers:{...cors,'Content-Type':'application/json'} })
     }
     throw new Error(payment.detail || 'Mollie fout')
   } catch(err) {
