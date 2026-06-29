@@ -29,6 +29,20 @@ async function forgotPassword(){
 }
 async function doLogout(){await sb.auth.signOut();location.reload()}
 
+// Analytics enkel zichtbaar voor admins (intern gebruik)
+let currentUserRole='staff';
+async function applyRoleVisibility(session){
+  try{
+    const {data:roleRow}=await sb.from('user_roles').select('role').eq('user_id',session.user.id).maybeSingle();
+    currentUserRole=roleRow?.role||'staff';
+  }catch(e){currentUserRole='staff';}
+  const isAdmin=currentUserRole==='admin';
+  ['nav-analytics','tab-analytics'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=isAdmin?'':'none';
+  });
+}
+
 async function checkSession(){
   const {data:{session}}=await sb.auth.getSession();
   if(session){
@@ -37,6 +51,7 @@ async function checkSession(){
     const naam=(session.user.user_metadata?.full_name||session.user.email||'').split(/[\s@]/)[0];
     const greet=document.getElementById('heroGreet');
     if(greet&&naam)greet.textContent=`Goeiedag, ${naam} 👋`;
+    await applyRoleVisibility(session);
     await loadData();
   }else{
     document.getElementById('loginScreen').style.display='flex';
