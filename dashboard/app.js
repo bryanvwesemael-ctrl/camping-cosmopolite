@@ -2547,7 +2547,7 @@ async function loadGasten(bookingId){
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:.5px solid var(--sep);">
       <div style="width:38px;height:38px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">👤</div>
       <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditGuestSheet('${g.id}')">
-        <div style="font-size:14px;font-weight:700;color:var(--lbl1);">${escHtml(g.naam)}${g.is_hoofdgast?' <span style="font-size:10px;background:var(--green);color:#fff;padding:2px 6px;border-radius:8px;margin-left:4px;">Hoofd</span>':''}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--lbl1);">${escHtml(g.naam)}${g.is_hoofdgast?' <span style="font-size:10px;background:var(--green);color:#fff;padding:2px 6px;border-radius:8px;margin-left:4px;">Hoofd</span>':''}${g.foto_url?' <span title="ID-foto bewaard" style="font-size:11px;margin-left:2px;">📷</span>':''}</div>
         <div style="font-size:11.5px;color:var(--lbl3);margin-top:1px;">${[g.geboortedatum?fmtDateLong(g.geboortedatum):'',g.nationaliteit||'',g.id_nummer||''].filter(Boolean).join(' · ')||'Tik om te bewerken…'}</div>
         ${g.nummerplaat?`<div style="font-size:11px;color:var(--lbl4);font-family:monospace;">${escHtml(g.nummerplaat)}</div>`:''}
       </div>
@@ -2568,15 +2568,28 @@ function openAddGuestSheet(bookingId){
   document.getElementById('editGastId').value='';
   const title=document.getElementById('addGuestSheetTitle');
   if(title)title.textContent='👤 Gast toevoegen';
-  const _gfp=document.getElementById('guestFotoPreview');if(_gfp)_gfp.style.display='none';
+  resetGuestFotoUI();
   document.getElementById('addGuestMsg').textContent='';
   openSheet('shAddGuest');
 }
 
-function openEditGuestSheet(gastId){
+function resetGuestFotoUI(){
+  const c=document.getElementById('gIdConsent');if(c)c.checked=false;
+  const w=document.getElementById('gIdFotoWrap');if(w)w.style.display='none';
+  const f=document.getElementById('gIdFoto');if(f)f.value='';
+  const p=document.getElementById('guestFotoPreview');if(p){p.style.display='none';p.src='';}
+  const h=document.getElementById('gIdAiHint');if(h)h.textContent='';
+}
+function previewGuestFoto(input){
+  const f=input.files?.[0];const img=document.getElementById('guestFotoPreview');
+  if(f&&img){img.src=URL.createObjectURL(f);img.style.display='block';}
+}
+
+async function openEditGuestSheet(gastId){
   const g=_gastenCache[gastId];if(!g){toast('⚠️ Gast niet gevonden');return;}
   // Reset eerst, dan waarden invullen (anders wist reset() de hidden velden)
   document.getElementById('addGuestForm').reset();
+  resetGuestFotoUI();
   document.getElementById('addGuestBookingId').value=g.booking_id;
   document.getElementById('editGastId').value=g.id;
   const title=document.getElementById('addGuestSheetTitle');
@@ -2587,7 +2600,16 @@ function openEditGuestSheet(gastId){
   document.getElementById('gIdNummer').value=g.id_nummer||'';
   document.getElementById('gNummerplaat').value=g.nummerplaat||'';
   document.getElementById('gHoofdgast').checked=!!g.is_hoofdgast;
-  const _gfp=document.getElementById('guestFotoPreview');if(_gfp)_gfp.style.display='none';
+  // Bestaande toestemming + foto tonen
+  if(g.id_consent){
+    const c=document.getElementById('gIdConsent');if(c)c.checked=true;
+    const w=document.getElementById('gIdFotoWrap');if(w)w.style.display='block';
+  }
+  if(g.foto_url){
+    const {data:s}=await sb.storage.from('id-fotos').createSignedUrl(g.foto_url,3600);
+    const p=document.getElementById('guestFotoPreview');
+    if(s?.signedUrl&&p){p.src=s.signedUrl;p.style.display='block';}
+  }
   document.getElementById('addGuestMsg').textContent='';
   openSheet('shAddGuest');
 }
@@ -2605,12 +2627,24 @@ async function saveGuest(){
     const id_nummer=document.getElementById('gIdNummer').value.trim()||null;
     const nummerplaat=document.getElementById('gNummerplaat').value.trim()||null;
     const is_hoofdgast=document.getElementById('gHoofdgast').checked;
+    const consent=document.getElementById('gIdConsent')?.checked||false;
+    const file=document.getElementById('gIdFoto')?.files?.[0];
+    let savedId=gastId;
     if(gastId){
-      await sb.from('gasten').update({naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast}).eq('id',gastId);
+      await sb.from('gasten').update({naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast,id_consent:consent}).eq('id',gastId);
       toast('✅ Gast bijgewerkt');
     }else{
-      await sb.from('gasten').insert({booking_id:bookingId,naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast});
+      const {data:ins}=await sb.from('gasten').insert({booking_id:bookingId,naam,geboortedatum,nationaliteit,id_nummer,nummerplaat,is_hoofdgast,id_consent:consent}).select('id').single();
+      savedId=ins?.id;
       toast('✅ Gast toegevoegd');
+    }
+    // ID-foto uploaden — enkel met expliciete toestemming
+    if(consent&&file&&savedId){
+      const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+      const path=`${bookingId}/${savedId}.${ext}`;
+      const {error:upErr}=await sb.storage.from('id-fotos').upload(path,file,{upsert:true,contentType:file.type});
+      if(upErr)toast('⚠️ Foto upload mislukt: '+upErr.message);
+      else await sb.from('gasten').update({foto_url:path}).eq('id',savedId);
     }
     closeSheet('shAddGuest');
     loadGasten(bookingId);
