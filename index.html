@@ -174,7 +174,7 @@ button{cursor:pointer;border:none;background:none}
       <div class="stepper"><button class="stp-btn" onclick="step('autos',-1)">−</button><span class="stp-val" id="v-autos">1</span><button class="stp-btn" onclick="step('autos',1)">+</button></div>
     </div>
     <div class="toggle-row">
-      <div class="sr-info"><div class="sr-title">Elektriciteit</div><div class="sr-sub">€6 eenmalig per aanvraag</div></div>
+      <div class="sr-info"><div class="sr-title">Elektriciteit</div><div class="sr-sub">€6 per nacht</div></div>
       <div class="switch" id="swElek" onclick="toggleElek()"></div>
     </div>
   </div>
@@ -399,7 +399,7 @@ let accommodatieTypes=[
     const babyEl=document.getElementById('srBaby');
     if(babyEl)babyEl.textContent=PRICES.baby>0?`€${PRICES.baby} / nacht`:'Gratis';
     const elekEl=document.querySelector('.toggle-row .sr-sub');
-    if(elekEl)elekEl.textContent=`€${PRICES.elektriciteit} eenmalig per aanvraag`;
+    if(elekEl)elekEl.textContent=`€${PRICES.elektriciteit} per nacht`;
     // Personen-labels
     const srSubs=document.querySelectorAll('.stepper-row .sr-sub');
     srSubs.forEach(el=>{
@@ -545,11 +545,12 @@ function calc(){
   const babyKost = state.baby*(PRICES.baby||0);
   const hondKost = state.honden*PRICES.hond;
   const extraAutoKost = Math.max(0,state.autos-1)*PRICES.extraAuto;
-  const afvalKost = Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6;
+  const _p6 = Math.max(totaalPersonen,1);
+  const afvalKost = _p6<=6 ? PRICES.afvalPer6 : PRICES.afvalPer6*(1+Math.ceil((_p6-6)/2)); // afval per nacht
   const taksKost = state.volwassenen*PRICES.toeristentaks;
 
-  const diensten_per_nacht = standplaatsTotaalPerNacht+volwKost+kindKost+babyKost+hondKost+extraAutoKost+afvalKost;
-  const elekKost = state.elek ? PRICES.elektriciteit : 0;
+  const elekKost = state.elek ? PRICES.elektriciteit : 0; // elektriciteit per nacht
+  const diensten_per_nacht = standplaatsTotaalPerNacht+volwKost+kindKost+babyKost+hondKost+extraAutoKost+afvalKost+elekKost;
   let extraPerNachtBasis=0, extraEenmaligBasis=0;
   const extraLines=[];
   extraTarievenPublic.forEach(t=>{
@@ -565,7 +566,7 @@ function calc(){
 
   // Prijzen zijn INCL. 12% BTW → BTW extraheren, niet bovenop
   const dienstenBasisPerNacht = diensten_per_nacht + extraPerNachtBasis;
-  const dienstenBasisEenmalig = elekKost + extraEenmaligBasis;
+  const dienstenBasisEenmalig = extraEenmaligBasis;
   const dienstenTotaalBTW = dienstenBasisPerNacht*nights + dienstenBasisEenmalig;
   const btw = Math.round(dienstenTotaalBTW*12/112*100)/100;  // geëxtraheerd, niet toegevoegd
   const taks_totaal = taksKost*nights;
@@ -584,9 +585,9 @@ function calc(){
   if(state.baby>0) lines.push([`👶 Baby's <3j (${state.baby}×)`, babyKost>0?babyKost:0, babyKost===0]);
   if(state.honden>0) lines.push([`🐕 Hond (${state.honden} × €${PRICES.hond}/n)`, hondKost]);
   if(extraAutoKost>0) lines.push([`🚗 Extra auto's (${state.autos-1} × €${PRICES.extraAuto}/n)`, extraAutoKost]);
-  if(afvalKost>0) lines.push([`♻️ Bijdrage afval`, afvalKost]);
+  if(afvalKost>0) lines.push([`♻️ Afval (€${afvalKost}/nacht)`, afvalKost]);
   extraLines.forEach(([lbl,val])=>lines.push([lbl,val]));
-  if(state.elek) lines.push([`⚡ Elektriciteit (eenmalig)`, elekKost]);
+  if(state.elek) lines.push([`⚡ Elektriciteit (€${PRICES.elektriciteit}/nacht)`, elekKost]);
   if(taks_totaal>0) lines.push([`🏛️ Toeristentaks (BTW-vrij)`, taks_totaal]);
   if(btw>0) lines.push([`📋 BTW 12% (reeds inbegrepen)`, btw]);
   if(waarborg>0) lines.push([`🔒 Waarborg (cash bij aankomst, terugbetaalbaar)`, waarborg, false, true]);
@@ -667,8 +668,10 @@ async function submitForm(){
       const qty=t.id==='tent'?state.tenten:t.id==='camper'?state.campers:(state.extraTypeQties[t.id]||0);
       return sum+qty*t.prijs;
     },0);
-    const dienstenPerNacht=standplaatsPerNacht+(state.volwassenen*PRICES.volwassene)+(state.kinderen*PRICES.kind)+(state.baby*(PRICES.baby||0))+(state.honden*PRICES.hond)+(Math.max(0,state.autos-1)*PRICES.extraAuto)+(Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6);
+    const _p6s=Math.max(totaalPersonen,1);
+    const afvalDagNow=_p6s<=6?PRICES.afvalPer6:PRICES.afvalPer6*(1+Math.ceil((_p6s-6)/2));
     const elekNow=state.elek?PRICES.elektriciteit:0;
+    const dienstenPerNacht=standplaatsPerNacht+(state.volwassenen*PRICES.volwassene)+(state.kinderen*PRICES.kind)+(state.baby*(PRICES.baby||0))+(state.honden*PRICES.hond)+(Math.max(0,state.autos-1)*PRICES.extraAuto)+afvalDagNow+elekNow;
     let extraPerNachtSom=0, extraEenmaligSom=0;
     extraTarievenPublic.forEach(t=>{
       if(!t.naam||!(parseFloat(t.prijs)>0)) return;
@@ -677,7 +680,7 @@ async function submitForm(){
       const perUnit=cat==='standplaats'?p*plaatsen:cat==='personen'?p*personen:p;
       if(t.perNacht)extraPerNachtSom+=perUnit;else extraEenmaligSom+=perUnit;
     });
-    const dienstenTotaal=(dienstenPerNacht+extraPerNachtSom)*nights+elekNow+extraEenmaligSom;
+    const dienstenTotaal=(dienstenPerNacht+extraPerNachtSom)*nights+extraEenmaligSom;
     const taksNow=state.volwassenen*PRICES.toeristentaks*nights;
     const totaalNow=Math.round((dienstenTotaal+taksNow)*100)/100;
     const typeParts=[];

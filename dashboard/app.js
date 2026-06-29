@@ -124,11 +124,16 @@ function calcPrice(o){
   const basis=stdBasis+extraTypeBasis;
   const volw=o.volwassenen||0, kind=o.kinderen||0, baby=o.baby||0;
   const totaalPersonen=volw+kind+baby;
-  const afval=Math.ceil(Math.max(totaalPersonen,1)/6)*PRICES.afvalPer6;
   const extraAutos=Math.max(0,(o.autos||1)-1);
   const honden=o.honden||0;
   const nights=Math.max(o.nights||0,0);
-  const elek=o.elektriciteit?PRICES.elektriciteit:0;
+  // Afval per dag: t/m 6 pers €2/dag, daarna +€2/dag per schijf van 2 personen (× nachten)
+  const _p6=Math.max(totaalPersonen,1);
+  const afvalDag=_p6<=6?PRICES.afvalPer6:PRICES.afvalPer6*(1+Math.ceil((_p6-6)/2));
+  const afval=afvalDag*nights;
+  // Elektriciteit per dag × nachten
+  const elekDag=o.elektriciteit?PRICES.elektriciteit:0;
+  const elek=elekDag*nights;
   const taks=volw*PRICES.toeristentaks;
   const taks_totaal=taks*nights;
   // Extra vrije kostenposten uit instellingen
@@ -149,7 +154,7 @@ function calcPrice(o){
   const btw=Math.round(diensten_totaal*12/112*100)/100;
   const totaal=Math.round((diensten_totaal+taks_totaal)*100)/100;
   const perNacht=diensten_per_nacht+taks;
-  return{basis,stdBasis,extraTypeBasis,extraTypeUnits,afval,taks,taks_totaal,perNacht,nights,elek,btw,diensten_totaal,totaal,personen:totaalPersonen,extraAutos,honden,eenheden,extraLines};
+  return{basis,stdBasis,extraTypeBasis,extraTypeUnits,afval,afvalDag,taks,taks_totaal,perNacht,nights,elek,elekDag,btw,diensten_totaal,totaal,personen:totaalPersonen,extraAutos,honden,eenheden,extraLines};
 }
 function genRef(idOrBooking){
   if(typeof idOrBooking==='object')return idOrBooking.ogm||(idOrBooking.volgnummer?`#${idOrBooking.volgnummer}`:'—');
@@ -1164,8 +1169,8 @@ function priceBreakdownHtml(p){
   if((p.honden||0)>0)rows+=`<div class="price-row"><span>🐕 Honden (${p.honden} × ${p.nights}n)</span><span>€${(p.honden*PRICES.hond*p.nights).toFixed(2)}</span></div>`;
   if((p.extraAutos||0)>0)rows+=`<div class="price-row"><span>🚗 Extra auto's (${p.extraAutos} × ${p.nights}n)</span><span>€${(p.extraAutos*PRICES.extraAuto*p.nights).toFixed(2)}</span></div>`;
   (p.extraLines||[]).forEach(([l,v])=>{rows+=`<div class="price-row"><span>➕ ${l}</span><span>€${v.toFixed(2)}</span></div>`;});
-  rows+=`<div class="price-row"><span>🗑️ Afvalbijdrage</span><span>€${p.afval.toFixed(2)}</span></div>`;
-  if(p.elek)rows+=`<div class="price-row"><span>⚡ Elektriciteit</span><span>€${p.elek.toFixed(2)}</span></div>`;
+  rows+=`<div class="price-row"><span>🗑️ Afval (€${(p.afvalDag||0).toFixed(2)}/dag × ${p.nights}n)</span><span>€${p.afval.toFixed(2)}</span></div>`;
+  if(p.elek)rows+=`<div class="price-row"><span>⚡ Elektriciteit (€${(p.elekDag||0).toFixed(2)}/dag × ${p.nights}n)</span><span>€${p.elek.toFixed(2)}</span></div>`;
   rows+=`<div class="price-row"><span>🏛️ Toeristentaks (BTW-vrij)</span><span>€${p.taks_totaal.toFixed(2)}</span></div>`;
   rows+=`<div class="price-row" style="opacity:.65;font-size:12px;"><span>📊 BTW 12% (reeds inbegrepen)</span><span>€${p.btw.toFixed(2)}</span></div>`;
   rows+=`<div class="price-row total"><span>Totaal</span><span>€${p.totaal.toFixed(2)}</span></div>`;
