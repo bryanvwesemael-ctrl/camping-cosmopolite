@@ -1946,15 +1946,23 @@ async function openWieIsErDetail(id){
   const pendingUploads=(gastenRaw||[]).filter(g=>g.naam==='__pending_guest_upload__');
   const gasten=(gastenRaw||[]).filter(g=>g.naam!=='__pending_guest_upload__');
 
-  // Pending uploads tonen met Scan-knop
+  // Pending uploads tonen met bulk-scan knop
   if(pendingUploads.length){
-    html+=`<div style="background:rgba(255,149,0,.1);border:1.5px solid rgba(255,149,0,.4);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-      <div style="font-size:12px;font-weight:700;color:#CC7700;margin-bottom:6px;">📱 ${pendingUploads.length} gast-foto${pendingUploads.length>1?'\'s':''} wachten op scan</div>
-      ${pendingUploads.map(g=>`
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:5px;">
-          <span style="font-size:11px;color:#666;">Foto geüpload door gast</span>
-          <button onclick="scanPendingGuestUpload('${g.id}','${id}')" style="padding:4px 10px;background:#FF9500;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">🔎 Scan met AI</button>
-        </div>`).join('')}
+    const ids=pendingUploads.map(g=>`'${g.id}'`).join(',');
+    html+=`<div style="background:rgba(255,149,0,.1);border:1.5px solid rgba(255,149,0,.4);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#CC7700;">📱 ${pendingUploads.length} foto${pendingUploads.length>1?'\'s':''} klaar om te scannen</div>
+          <div style="font-size:11px;color:#999;margin-top:2px;">Geüpload door de gast via de link</div>
+        </div>
+        <button id="scanAllBtn-${id}" onclick="scanAllPendingUploads([${ids}],'${id}')" style="padding:8px 14px;background:#FF9500;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;flex-shrink:0;">🔎 Scan alle ${pendingUploads.length}</button>
+      </div>
+      <div id="scanAllProgress-${id}" style="display:none;">
+        <div style="height:5px;background:#ffe5b0;border-radius:3px;overflow:hidden;margin-bottom:6px;">
+          <div id="scanAllFill-${id}" style="height:100%;background:#FF9500;border-radius:3px;width:0%;transition:width .4s;"></div>
+        </div>
+        <div id="scanAllStatus-${id}" style="font-size:11px;color:#CC7700;"></div>
+      </div>
     </div>`;
   }
 
@@ -2741,6 +2749,57 @@ async function scanPendingGuestUpload(gastId, bookingId){
     const el=document.getElementById('wie-gasten-'+bookingId);
     if(el&&el.style.display==='block'){el.style.display='none';openWieIsErDetail(bookingId);}
   }catch(e){toast('⚠️ Scannen mislukt: '+e.message);}
+}
+
+// Scant alle pending gast-uploads in één keer.
+// Toont voortgangsbalk en status per foto, slaat alles op.
+async function scanAllPendingUploads(gastIds, bookingId){
+  const btn=document.getElementById('scanAllBtn-'+bookingId);
+  const progWrap=document.getElementById('scanAllProgress-'+bookingId);
+  const fill=document.getElementById('scanAllFill-'+bookingId);
+  const status=document.getElementById('scanAllStatus-'+bookingId);
+  if(btn)btn.disabled=true;
+  if(progWrap)progWrap.style.display='block';
+  const {data:{session}}=await sb.auth.getSession();
+  let ok=0,fail=0;
+  for(let i=0;i<gastIds.length;i++){
+    const gastId=gastIds[i];
+    if(status)status.textContent=`🔎 Scanning foto ${i+1} van ${gastIds.length}…`;
+    if(fill)fill.style.width=`${Math.round(i/gastIds.length*100)}%`;
+    try{
+      const {data:g}=await sb.from('gasten').select('foto_url').eq('id',gastId).single();
+      if(!g?.foto_url){fail++;continue;}
+      const {data:s}=await sb.storage.from('id-fotos').createSignedUrl(g.foto_url,120);
+      if(!s?.signedUrl){fail++;continue;}
+      const blob=await fetch(s.signedUrl).then(r=>r.blob());
+      const file=new File([blob],'id.jpg',{type:blob.type||'image/jpeg'});
+      const b64=await _fileToBase64(file);
+      const res=await fetch(`${SUPABASE_URL}/functions/v1/scan-id`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+        body:JSON.stringify({image_base64:b64,media_type:file.type}),
+      });
+      const d=await res.json();
+      if(d.error||!d.naam){fail++;continue;}
+      await sb.from('gasten').update({
+        naam:d.naam,
+        geboortedatum:d.geboortedatum||null,
+        nationaliteit:d.nationaliteit||null,
+        id_consent:true,
+      }).eq('id',gastId);
+      ok++;
+    }catch(e){fail++;}
+  }
+  if(fill)fill.style.width='100%';
+  if(status){
+    status.textContent=`✅ ${ok} gescand${fail>0?` · ⚠️ ${fail} mislukt — open handmatig`:''}`;
+    status.style.color=fail>0?'#CC7700':'#1B8A5B';
+  }
+  if(ok>0) toast(`✅ ${ok} gast${ok>1?'en':''} automatisch ingelezen!`);
+  if(fail>0) toast(`⚠️ ${fail} foto${fail>1?'\'s':''} konden niet worden gelezen — vul handmatig in`);
+  // Sectie vernieuwen
+  const el=document.getElementById('wie-gasten-'+bookingId);
+  if(el&&el.style.display==='block'){el.style.display='none';openWieIsErDetail(bookingId);}
 }
 
 async function openEditGuestSheet(gastId){
