@@ -540,13 +540,17 @@ function calc(){
     return qty>0?Math.max(max,t.waarborgBedrag||0):max;
   },0);
 
-  const volwKost = state.volwassenen*PRICES.volwassene;
-  const kindKost = state.kinderen*PRICES.kind;
-  const babyKost = state.baby*(PRICES.baby||0);
+  // All-in modus: boeking bestaat enkel uit all-in eenheden (bv. backpacker)
+  let _allInQty=0,_normaalQty=0;
+  accommodatieTypes.forEach(t=>{const qty=t.id==='tent'?state.tenten:t.id==='camper'?state.campers:(state.extraTypeQties[t.id]||0);if(t.allIn)_allInQty+=qty;else _normaalQty+=qty;});
+  const allInMode=_allInQty>0&&_normaalQty===0;
+  const volwKost = allInMode?0:state.volwassenen*PRICES.volwassene;
+  const kindKost = allInMode?0:state.kinderen*PRICES.kind;
+  const babyKost = allInMode?0:state.baby*(PRICES.baby||0);
   const hondKost = state.honden*PRICES.hond;
   const extraAutoKost = Math.max(0,state.autos-1)*PRICES.extraAuto;
   const _p6 = Math.max(totaalPersonen,1);
-  const afvalKost = _p6<=6 ? PRICES.afvalPer6 : PRICES.afvalPer6*(1+Math.ceil((_p6-6)/2)); // afval per nacht
+  const afvalKost = allInMode ? 0 : (_p6<=6 ? PRICES.afvalPer6 : PRICES.afvalPer6*(1+Math.ceil((_p6-6)/2))); // afval per nacht
   const taksKost = state.volwassenen*PRICES.toeristentaks;
 
   const elekKost = state.elek ? PRICES.elektriciteit : 0; // elektriciteit per nacht
@@ -580,9 +584,10 @@ function calc(){
     const qty=t.id==='tent'?state.tenten:t.id==='camper'?state.campers:(state.extraTypeQties[t.id]||0);
     if(qty>0) lines.push([`${t.emoji||'🏕️'} ${t.naam} (${qty} × €${t.prijs}/n)`, qty*t.prijs]);
   });
-  if(state.volwassenen>0) lines.push([`🧑 Volwassenen (${state.volwassenen} × €${PRICES.volwassene}/n)`, volwKost]);
-  if(state.kinderen>0) lines.push([`🧒 Kinderen 3-11j (${state.kinderen} × €${PRICES.kind}/n)`, kindKost]);
-  if(state.baby>0) lines.push([`👶 Baby's <3j (${state.baby}×)`, babyKost>0?babyKost:0, babyKost===0]);
+  if(allInMode){ lines.push([`✅ All-in (${totaalPersonen}p inbegrepen)`, 0, true]); }
+  if(!allInMode && state.volwassenen>0) lines.push([`🧑 Volwassenen (${state.volwassenen} × €${PRICES.volwassene}/n)`, volwKost]);
+  if(!allInMode && state.kinderen>0) lines.push([`🧒 Kinderen 3-11j (${state.kinderen} × €${PRICES.kind}/n)`, kindKost]);
+  if(!allInMode && state.baby>0) lines.push([`👶 Baby's <3j (${state.baby}×)`, babyKost>0?babyKost:0, babyKost===0]);
   if(state.honden>0) lines.push([`🐕 Hond (${state.honden} × €${PRICES.hond}/n)`, hondKost]);
   if(extraAutoKost>0) lines.push([`🚗 Extra auto's (${state.autos-1} × €${PRICES.extraAuto}/n)`, extraAutoKost]);
   if(afvalKost>0) lines.push([`♻️ Afval (€${afvalKost}/nacht)`, afvalKost]);
@@ -668,10 +673,14 @@ async function submitForm(){
       const qty=t.id==='tent'?state.tenten:t.id==='camper'?state.campers:(state.extraTypeQties[t.id]||0);
       return sum+qty*t.prijs;
     },0);
+    let _allInQtyS=0,_normaalQtyS=0;
+    accommodatieTypes.forEach(t=>{const qty=t.id==='tent'?state.tenten:t.id==='camper'?state.campers:(state.extraTypeQties[t.id]||0);if(t.allIn)_allInQtyS+=qty;else _normaalQtyS+=qty;});
+    const allInModeS=_allInQtyS>0&&_normaalQtyS===0;
     const _p6s=Math.max(totaalPersonen,1);
-    const afvalDagNow=_p6s<=6?PRICES.afvalPer6:PRICES.afvalPer6*(1+Math.ceil((_p6s-6)/2));
+    const afvalDagNow=allInModeS?0:(_p6s<=6?PRICES.afvalPer6:PRICES.afvalPer6*(1+Math.ceil((_p6s-6)/2)));
     const elekNow=state.elek?PRICES.elektriciteit:0;
-    const dienstenPerNacht=standplaatsPerNacht+(state.volwassenen*PRICES.volwassene)+(state.kinderen*PRICES.kind)+(state.baby*(PRICES.baby||0))+(state.honden*PRICES.hond)+(Math.max(0,state.autos-1)*PRICES.extraAuto)+afvalDagNow+elekNow;
+    const persoonsNow=allInModeS?0:((state.volwassenen*PRICES.volwassene)+(state.kinderen*PRICES.kind)+(state.baby*(PRICES.baby||0)));
+    const dienstenPerNacht=standplaatsPerNacht+persoonsNow+(state.honden*PRICES.hond)+(Math.max(0,state.autos-1)*PRICES.extraAuto)+afvalDagNow+elekNow;
     let extraPerNachtSom=0, extraEenmaligSom=0;
     extraTarievenPublic.forEach(t=>{
       if(!t.naam||!(parseFloat(t.prijs)>0)) return;

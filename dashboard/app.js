@@ -122,6 +122,11 @@ function calcPrice(o){
   const extraTypeEenheden=extraTypeUnits.reduce((s,t)=>(t.count||0)+s,0);
   const eenheden=stdEenheden+extraTypeEenheden;
   const basis=stdBasis+extraTypeBasis;
+  // All-in types (bv. backpacker): de typeprijs dekt alles — geen aparte persoons-/afvalkost.
+  // Enkel actief als de boeking uitsluitend uit all-in eenheden bestaat.
+  const allInCount=extraTypeUnits.filter(t=>t.allIn).reduce((s,t)=>s+(t.count||0),0);
+  const normaalCount=stdEenheden+extraTypeUnits.filter(t=>!t.allIn).reduce((s,t)=>s+(t.count||0),0);
+  const allInMode=allInCount>0&&normaalCount===0;
   const volw=o.volwassenen||0, kind=o.kinderen||0, baby=o.baby||0;
   const totaalPersonen=volw+kind+baby;
   const extraAutos=Math.max(0,(o.autos||1)-1);
@@ -130,7 +135,7 @@ function calcPrice(o){
   // Afval per dag: t/m 6 pers €2/dag, daarna +€2/dag per schijf van 2 personen (× nachten)
   const _p6=Math.max(totaalPersonen,1);
   const afvalDag=_p6<=6?PRICES.afvalPer6:PRICES.afvalPer6*(1+Math.ceil((_p6-6)/2));
-  const afval=afvalDag*nights;
+  const afval=allInMode?0:afvalDag*nights;
   // Elektriciteit per dag × nachten
   const elekDag=o.elektriciteit?PRICES.elektriciteit:0;
   const elek=elekDag*nights;
@@ -149,12 +154,13 @@ function calcPrice(o){
     if(t.perNacht){extraPerNacht+=perUnit;extraLines.push([`${t.naam} ×${nights}n`,perUnit*nights]);}
     else{extraEenmalig+=perUnit;extraLines.push([t.naam,perUnit]);}
   });
-  const diensten_per_nacht=basis+volw*PRICES.volwassene+kind*PRICES.kind+honden*PRICES.hond+extraAutos*PRICES.extraAuto+extraPerNacht;
+  const persoonsKost=allInMode?0:(volw*PRICES.volwassene+kind*PRICES.kind);
+  const diensten_per_nacht=basis+persoonsKost+honden*PRICES.hond+extraAutos*PRICES.extraAuto+extraPerNacht;
   const diensten_totaal=diensten_per_nacht*nights+elek+afval+extraEenmalig;
   const btw=Math.round(diensten_totaal*12/112*100)/100;
   const totaal=Math.round((diensten_totaal+taks_totaal)*100)/100;
   const perNacht=diensten_per_nacht+taks;
-  return{basis,stdBasis,extraTypeBasis,extraTypeUnits,afval,afvalDag,taks,taks_totaal,perNacht,nights,elek,elekDag,btw,diensten_totaal,totaal,personen:totaalPersonen,extraAutos,honden,eenheden,extraLines};
+  return{basis,stdBasis,extraTypeBasis,extraTypeUnits,afval,afvalDag,allInMode,taks,taks_totaal,perNacht,nights,elek,elekDag,btw,diensten_totaal,totaal,personen:totaalPersonen,extraAutos,honden,eenheden,extraLines};
 }
 function genRef(idOrBooking){
   if(typeof idOrBooking==='object')return idOrBooking.ogm||(idOrBooking.volgnummer?`#${idOrBooking.volgnummer}`:'—');
@@ -1165,11 +1171,12 @@ function priceBreakdownHtml(p){
   let rows='';
   if((p.stdBasis||0)>0)rows+=`<div class="price-row"><span>🏕️ Standplaats (${p.nights}n)</span><span>€${(p.stdBasis*p.nights).toFixed(2)}</span></div>`;
   (p.extraTypeUnits||[]).forEach(t=>{if(t.count>0)rows+=`<div class="price-row"><span>${t.emoji||'🏕️'} ${t.naam} (${t.count}× × ${p.nights}n)</span><span>€${(t.count*t.prijs*p.nights).toFixed(2)}</span></div>`;});
-  if(p.personen>0){const personKost=(p.diensten_totaal-(p.basis||0)*p.nights-p.elek-p.afval-(p.extraLines||[]).reduce((s,[,v])=>s+v,0)-(p.extraAutos||0)*PRICES.extraAuto*p.nights-(p.honden||0)*PRICES.hond*p.nights);rows+=`<div class="price-row"><span>👥 Personen (${p.personen}p × ${p.nights}n)</span><span>€${Math.max(0,personKost).toFixed(2)}</span></div>`;}
+  if(p.allInMode){rows+=`<div class="price-row" style="opacity:.7;font-size:12px;"><span>✅ All-in (${p.personen}p inbegrepen)</span><span>—</span></div>`;}
+  else if(p.personen>0){const personKost=(p.diensten_totaal-(p.basis||0)*p.nights-p.elek-p.afval-(p.extraLines||[]).reduce((s,[,v])=>s+v,0)-(p.extraAutos||0)*PRICES.extraAuto*p.nights-(p.honden||0)*PRICES.hond*p.nights);rows+=`<div class="price-row"><span>👥 Personen (${p.personen}p × ${p.nights}n)</span><span>€${Math.max(0,personKost).toFixed(2)}</span></div>`;}
   if((p.honden||0)>0)rows+=`<div class="price-row"><span>🐕 Honden (${p.honden} × ${p.nights}n)</span><span>€${(p.honden*PRICES.hond*p.nights).toFixed(2)}</span></div>`;
   if((p.extraAutos||0)>0)rows+=`<div class="price-row"><span>🚗 Extra auto's (${p.extraAutos} × ${p.nights}n)</span><span>€${(p.extraAutos*PRICES.extraAuto*p.nights).toFixed(2)}</span></div>`;
   (p.extraLines||[]).forEach(([l,v])=>{rows+=`<div class="price-row"><span>➕ ${l}</span><span>€${v.toFixed(2)}</span></div>`;});
-  rows+=`<div class="price-row"><span>🗑️ Afval (€${(p.afvalDag||0).toFixed(2)}/dag × ${p.nights}n)</span><span>€${p.afval.toFixed(2)}</span></div>`;
+  if(!p.allInMode)rows+=`<div class="price-row"><span>🗑️ Afval (€${(p.afvalDag||0).toFixed(2)}/dag × ${p.nights}n)</span><span>€${p.afval.toFixed(2)}</span></div>`;
   if(p.elek)rows+=`<div class="price-row"><span>⚡ Elektriciteit (€${(p.elekDag||0).toFixed(2)}/dag × ${p.nights}n)</span><span>€${p.elek.toFixed(2)}</span></div>`;
   rows+=`<div class="price-row"><span>🏛️ Toeristentaks (BTW-vrij)</span><span>€${p.taks_totaal.toFixed(2)}</span></div>`;
   rows+=`<div class="price-row" style="opacity:.65;font-size:12px;"><span>📊 BTW 12% (reeds inbegrepen)</span><span>€${p.btw.toFixed(2)}</span></div>`;
@@ -2277,13 +2284,18 @@ function renderAccTypes(){
           <div style="font-size:10px;color:var(--lbl4);margin-top:2px;">cash bij aankomst</div>
         </div>
       </div>
+      <!-- All-in prijs -->
+      <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;font-size:12.5px;color:var(--lbl2);cursor:pointer;background:var(--bg2);border-radius:8px;padding:9px 11px;">
+        <input type="checkbox" ${t.allIn?'checked':''} onchange="accTypes[${i}].allIn=this.checked" style="width:16px;height:16px;flex-shrink:0;margin-top:1px;">
+        <span><b>All-in prijs</b> — €${t.prijs||0}/nacht dekt alles (geen aparte persoons- of afvalkost). Enkel toeristentaks komt erbij. Bv. backpacker.</span>
+      </label>
       <!-- Beschrijving -->
       <input value="${t.beschrijving||''}" placeholder="Beschrijving voor gast (bv. 'Incl. beddengoed, max. 6 personen')" oninput="accTypes[${i}].beschrijving=this.value"
         style="width:100%;font-size:12px;color:var(--lbl2);border:1.5px solid var(--sep);border-radius:8px;padding:8px 10px;background:var(--bg2);box-sizing:border-box;">
     </div>`).join('');
 }
 function voegAccTypesToe(){
-  accTypes.push({id:'custom_'+Date.now(),naam:'',emoji:'🏕️',prijs:0,maxPersonen:0,waarborgBedrag:0,beschrijving:''});
+  accTypes.push({id:'custom_'+Date.now(),naam:'',emoji:'🏕️',prijs:0,maxPersonen:0,waarborgBedrag:0,allIn:false,beschrijving:''});
   renderAccTypes();
 }
 function verwijderAccType(i){
