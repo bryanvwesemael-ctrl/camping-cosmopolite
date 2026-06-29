@@ -297,12 +297,23 @@ select{color:var(--lbl1)}
 .foto-thumb.show{display:block}
 .foto-thumb-lg{width:100%;max-width:220px;border-radius:var(--r-md);display:block;margin:0 16px 14px}
 
-/* Price breakdown */
-.price-box{margin:0 16px 16px;background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:14px 16px}
-.price-row{display:flex;justify-content:space-between;font-size:13px;color:var(--lbl3);padding:3px 0}
-.price-row.total{border-top:.5px solid var(--sep);margin-top:6px;padding-top:8px;font-size:16px;font-weight:800;color:var(--lbl1)}
-.price-row span:last-child{font-weight:600;color:var(--lbl2)}
-.price-row.total span:last-child{color:var(--green)}
+/* Price breakdown — groene kaart, zelfde stijl als publiek formulier */
+.price-box{margin:0 16px 16px;background:linear-gradient(150deg,#1A4D3A,#1B8A5B);border-radius:var(--r-lg);box-shadow:0 6px 24px rgba(27,138,91,.25);padding:16px 18px}
+.price-row{display:flex;justify-content:space-between;font-size:12.5px;color:rgba(255,255,255,.7);padding:3px 0}
+.price-row span:last-child{font-weight:600;color:rgba(255,255,255,.9)}
+.price-row.muted{color:rgba(255,255,255,.45);font-size:12px;font-style:italic}
+.price-row.subtotal{border-top:1px solid rgba(255,255,255,.2);margin-top:8px;padding-top:8px;font-size:13px;font-weight:700;color:#fff}
+.price-row.subtotal span:last-child{color:#fff;font-weight:800}
+.price-row.nights-line{font-size:12.5px;color:rgba(255,255,255,.75);margin-bottom:6px}
+.price-row.nights-line span:last-child{color:rgba(255,255,255,.85);font-weight:600}
+.price-row.total{border-top:1.5px solid rgba(255,255,255,.3);margin-top:6px;padding-top:10px;font-size:20px;font-weight:800;color:#fff}
+.price-row.total span:last-child{color:#fff;font-size:22px;letter-spacing:-.5px}
+/* Betaalstatus blok */
+.pay-bar-wrap{margin:0 16px 14px;}
+.pay-bar-card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:14px 16px;}
+.pay-bar-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;}
+.pay-bar-track{height:8px;background:var(--sep);border-radius:4px;overflow:hidden;margin:8px 0 10px;}
+.pay-bar-fill{height:100%;background:var(--green);border-radius:4px;transition:width .5s;}
 
 /* Checkbox cells */
 .chk-row{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:.5px solid var(--sep)}

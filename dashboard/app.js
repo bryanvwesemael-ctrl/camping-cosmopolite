@@ -634,17 +634,46 @@ async function loadPaymentInfo(bookingId){
   const el=document.getElementById('paymentInfo');if(!el)return;
   const b=bookings.find(x=>x.id===bookingId);
   const totaal=Number(b?.bedrag||0);
-  const {data}=await sb.from('payments').select('bedrag,status').eq('booking_id',bookingId);
-  const betaald=(data||[]).filter(p=>p.status==='paid').reduce((s,p)=>s+Number(p.bedrag||0),0);
+  const {data}=await sb.from('payments').select('bedrag,status,created_at').eq('booking_id',bookingId).order('created_at');
+  const betaaldRows=(data||[]).filter(p=>p.status==='paid');
+  const betaald=betaaldRows.reduce((s,p)=>s+Number(p.bedrag||0),0);
   const open=Math.round((totaal-betaald)*100)/100;
-  el.innerHTML=`<div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:12px;padding:12px 14px;">
-    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span style="color:var(--lbl3);">Totaal</span><b>€${totaal.toFixed(2)}</b></div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span style="color:var(--lbl3);">Reeds betaald</span><b style="color:var(--green);">€${betaald.toFixed(2)}</b></div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--lbl3);">Nog te betalen</span><b style="color:${open>0.005?'#FF3B30':'var(--green)'};">€${Math.max(0,open).toFixed(2)}</b></div>
-    ${open>0.005
-      ?`<button onclick="stuurBetaallink('${bookingId}')" style="width:100%;margin-top:10px;padding:10px;background:#5856D6;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;">💳 ${betaald>0?'Bijbetaling':'Betaallink'} sturen (€${Math.max(0,open).toFixed(2)})</button>`
-      :`<div style="margin-top:8px;text-align:center;font-size:12px;color:var(--green);font-weight:700;">✅ Volledig betaald</div>`}
-  </div>`;
+  const pct=totaal>0?Math.min(100,Math.round(betaald/totaal*100)):0;
+  const volledig=open<=0.005;
+
+  el.innerHTML=`
+    <div style="background:var(--card);border-radius:14px;box-shadow:0 1px 8px rgba(0,0,0,.07);padding:14px 16px;margin-bottom:4px;">
+      <!-- Bedragenoverzicht -->
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <div style="flex:1;background:var(--bg);border-radius:10px;padding:10px 12px;text-align:center;">
+          <div style="font-size:11px;color:var(--lbl3);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;">Totaal</div>
+          <div style="font-size:17px;font-weight:800;color:var(--lbl1);">€${totaal.toFixed(2)}</div>
+        </div>
+        <div style="flex:1;background:rgba(27,138,91,.08);border-radius:10px;padding:10px 12px;text-align:center;">
+          <div style="font-size:11px;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;">Betaald</div>
+          <div style="font-size:17px;font-weight:800;color:var(--green);">€${betaald.toFixed(2)}</div>
+        </div>
+        <div style="flex:1;background:${volledig?'rgba(27,138,91,.08)':'rgba(255,59,48,.07)'};border-radius:10px;padding:10px 12px;text-align:center;">
+          <div style="font-size:11px;color:${volledig?'var(--green)':'#FF3B30'};font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;">Open</div>
+          <div style="font-size:17px;font-weight:800;color:${volledig?'var(--green)':'#FF3B30'};">${volledig?'✅':'€'+Math.max(0,open).toFixed(2)}</div>
+        </div>
+      </div>
+      <!-- Voortgangsbalk -->
+      <div style="height:8px;background:var(--sep);border-radius:4px;overflow:hidden;margin-bottom:6px;">
+        <div style="height:100%;width:${pct}%;background:${volledig?'var(--green)':'linear-gradient(90deg,var(--green),#22C55E)'};border-radius:4px;transition:width .6s;"></div>
+      </div>
+      <div style="font-size:11px;color:var(--lbl3);text-align:right;margin-bottom:10px;">${pct}% betaald</div>
+      <!-- Betalingshistoriek -->
+      ${betaaldRows.length?`<div style="margin-bottom:10px;">${betaaldRows.map(p=>`
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--lbl3);padding:3px 0;">
+          <span>💳 Mollie — ${new Date(p.created_at).toLocaleDateString('nl-BE',{day:'numeric',month:'short'})}</span>
+          <span style="color:var(--green);font-weight:700;">+€${Number(p.bedrag).toFixed(2)}</span>
+        </div>`).join('')}</div>`:''}
+      <!-- Actieknop -->
+      ${!volledig
+        ?`<button onclick="stuurBetaallink('${bookingId}')" style="width:100%;padding:11px;background:linear-gradient(135deg,#5856D6,#7C3AED);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💳 ${betaald>0?'Bijbetaling':'Betaallink'} sturen — €${Math.max(0,open).toFixed(2)}</button>`
+        :`<div style="text-align:center;font-size:13px;color:var(--green);font-weight:700;padding:6px 0;">✅ Volledig betaald — geen openstaand saldo</div>`}
+    </div>`;
 }
 function switchDetailTab(tab){
   ['info','gasten','mail'].forEach(t=>{
@@ -1247,20 +1276,28 @@ async function saveEdit(){
 
 /* ═══════════ PRIJS LIVE ═══════════ */
 function priceBreakdownHtml(p){
-  if(!p)return'<div class="price-row muted"><span>Vul aankomst, vertrek en verblijfstype in om prijs te berekenen…</span></div>';
+  if(!p)return'<div class="price-row muted"><span>Vul aankomst, vertrek en verblijfstype in…</span></div>';
   let rows='';
+  // Itemlijst: per nacht tarieven
   if((p.stdBasis||0)>0)rows+=`<div class="price-row"><span>🏕️ Standplaats (${p.nights}n)</span><span>€${(p.stdBasis*p.nights).toFixed(2)}</span></div>`;
   (p.extraTypeUnits||[]).forEach(t=>{if(t.count>0)rows+=`<div class="price-row"><span>${t.emoji||'🏕️'} ${t.naam} (${t.count}× × ${p.nights}n)</span><span>€${(t.count*t.prijs*p.nights).toFixed(2)}</span></div>`;});
-  if(p.allInMode){rows+=`<div class="price-row" style="opacity:.7;font-size:12px;"><span>✅ All-in (${p.personen}p inbegrepen)</span><span>—</span></div>`;}
-  else if(p.personen>0){const personKost=(p.diensten_totaal-(p.basis||0)*p.nights-p.elek-p.afval-(p.extraLines||[]).reduce((s,[,v])=>s+v,0)-(p.extraAutos||0)*PRICES.extraAuto*p.nights-(p.honden||0)*PRICES.hond*p.nights);rows+=`<div class="price-row"><span>👥 Personen (${p.personen}p × ${p.nights}n)</span><span>€${Math.max(0,personKost).toFixed(2)}</span></div>`;}
+  if(p.allInMode){rows+=`<div class="price-row muted"><span>✅ All-in — ${p.personen}p inbegrepen</span><span>—</span></div>`;}
+  else if(p.personen>0){
+    const personKost=(p.diensten_totaal-(p.basis||0)*p.nights-p.elek-p.afval-(p.extraLines||[]).reduce((s,[,v])=>s+v,0)-(p.extraAutos||0)*PRICES.extraAuto*p.nights-(p.honden||0)*PRICES.hond*p.nights);
+    rows+=`<div class="price-row"><span>👥 Personen (${p.personen}p × ${p.nights}n)</span><span>€${Math.max(0,personKost).toFixed(2)}</span></div>`;
+  }
   if((p.honden||0)>0)rows+=`<div class="price-row"><span>🐕 Honden (${p.honden} × ${p.nights}n)</span><span>€${(p.honden*PRICES.hond*p.nights).toFixed(2)}</span></div>`;
   if((p.extraAutos||0)>0)rows+=`<div class="price-row"><span>🚗 Extra auto's (${p.extraAutos} × ${p.nights}n)</span><span>€${(p.extraAutos*PRICES.extraAuto*p.nights).toFixed(2)}</span></div>`;
   (p.extraLines||[]).forEach(([l,v])=>{rows+=`<div class="price-row"><span>➕ ${l}</span><span>€${v.toFixed(2)}</span></div>`;});
-  if(!p.allInMode)rows+=`<div class="price-row"><span>🗑️ Afval (€${(p.afvalDag||0).toFixed(2)}/dag × ${p.nights}n)</span><span>€${p.afval.toFixed(2)}</span></div>`;
+  if(!p.allInMode)rows+=`<div class="price-row"><span>♻️ Afval (€${(p.afvalDag||0).toFixed(2)}/dag × ${p.nights}n)</span><span>€${p.afval.toFixed(2)}</span></div>`;
   if(p.elek)rows+=`<div class="price-row"><span>⚡ Elektriciteit (€${(p.elekDag||0).toFixed(2)}/dag × ${p.nights}n)</span><span>€${p.elek.toFixed(2)}</span></div>`;
   rows+=`<div class="price-row"><span>🏛️ Toeristentaks (BTW-vrij)</span><span>€${p.taks_totaal.toFixed(2)}</span></div>`;
-  rows+=`<div class="price-row" style="opacity:.65;font-size:12px;"><span>📊 BTW 12% (reeds inbegrepen)</span><span>€${p.btw.toFixed(2)}</span></div>`;
-  rows+=`<div class="price-row total"><span>Totaal</span><span>€${p.totaal.toFixed(2)}</span></div>`;
+  rows+=`<div class="price-row muted"><span>📊 BTW 12% (reeds inbegrepen)</span><span>€${p.btw.toFixed(2)}</span></div>`;
+  // Per-nacht subtotaal + nachten-rij (zelfde concept als publiek formulier)
+  const dienstenZonderTaks=p.totaal-p.taks_totaal;
+  rows+=`<div class="price-row subtotal"><span>Totaal per nacht (excl. BTW)</span><span>€${(p.perNacht||0).toFixed(2)}</span></div>`;
+  rows+=`<div class="price-row nights-line"><span>× ${p.nights} nacht${p.nights===1?'':'en'}</span><span>€${dienstenZonderTaks.toFixed(2)} + €${p.taks_totaal.toFixed(2)} taks</span></div>`;
+  rows+=`<div class="price-row total"><span>Totaal te betalen</span><span>€${p.totaal.toFixed(2)}</span></div>`;
   return rows;
 }
 function stepField(id,delta){
