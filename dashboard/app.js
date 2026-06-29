@@ -31,25 +31,44 @@ async function doLogout(){await sb.auth.signOut();location.reload()}
 
 /* ═══════════ MELDINGEN NIEUWE BOEKING ═══════════ */
 let notifUnread=0;
+// AudioContext wordt één keer aangemaakt via een gebruikersklik (browserregel).
+// Zonder die eerste klik blokkeert de browser het geluid.
+let _audioCtx=null;
+function _ensureAudioCtx(){
+  try{
+    if(!_audioCtx)_audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(_audioCtx.state==='suspended')_audioCtx.resume();
+  }catch(e){_audioCtx=null;}
+  return _audioCtx;
+}
 function notifSoundOn(){return localStorage.getItem('notifSound')!=='off';}
+function audioUnlocked(){return !!_audioCtx&&_audioCtx.state!=='suspended';}
 function updateNotifBadge(){
   const b=document.getElementById('notifBadge');if(!b)return;
   if(notifUnread>0){b.textContent=notifUnread>9?'9+':notifUnread;b.style.display='block';}
   else b.style.display='none';
 }
 function updateSoundIcon(){
-  const el=document.getElementById('soundIcon');if(el)el.textContent=notifSoundOn()?'🔔':'🔕';
+  const el=document.getElementById('soundIcon');if(!el)return;
+  if(!notifSoundOn()){el.textContent='🔕';return;}
+  el.textContent=audioUnlocked()?'🔔':'🔔*'; // * = nog niet geactiveerd
 }
 function toggleNotifSound(){
   localStorage.setItem('notifSound',notifSoundOn()?'off':'on');
+  if(notifSoundOn()){
+    _ensureAudioCtx(); // unlock via deze gebruikersklik
+    toast('🔔 Meldingsgeluid aan — geluid is nu geactiveerd!');
+    playNotifSound();
+  }else{
+    toast('🔕 Meldingsgeluid uit');
+  }
   updateSoundIcon();
-  toast(notifSoundOn()?'🔔 Meldingsgeluid aan':'🔕 Meldingsgeluid uit');
-  if(notifSoundOn())playNotifSound();
 }
 function playNotifSound(){
   if(!notifSoundOn())return;
+  const ctx=_ensureAudioCtx();
+  if(!ctx||ctx.state==='suspended')return; // nog niet geactiveerd door gebruiker
   try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
     const o=ctx.createOscillator(),g=ctx.createGain();
     o.connect(g);g.connect(ctx.destination);
     o.type='sine';o.frequency.value=880;
@@ -103,21 +122,15 @@ sb.channel('bookings-live')
   .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bookings'},async payload=>{
     const updated=payload.new;
     const idx=bookings.findIndex(b=>b.id===updated.id);
-    if(idx===-1)return;
-    const oldStatus=bookings[idx].status;
-    // Status bijwerken in lokale array
-    bookings[idx].status=updated.status;
-    // UI hertekenen
-    renderDashboard();renderBookingList();renderWieIsEr();
-    // Toast bij check-in
-    if(updated.status==='ingecheckt'&&oldStatus!=='ingecheckt'){
-      const naam=bookings[idx].naam||'Gast';
+    const oldStatus=idx>=0?bookings[idx].status:null;
+    const naam=idx>=0?(bookings[idx].naam||'Gast'):'Gast';
+    // Volledige reload zodat datums, personen, etc. ook bijwerken in Wie is er / Register
+    await loadData();
+    // Toast bij relevante statuswijzigingen
+    if(updated.status==='ingecheckt'&&oldStatus!=='ingecheckt')
       toast(`🏕️ ${naam.split(' ')[0]} heeft ingecheckt!`);
-    }
-    if(updated.status==='betaald'&&oldStatus!=='betaald'){
-      const naam=bookings[idx].naam||'Gast';
+    if(updated.status==='betaald'&&oldStatus!=='betaald')
       toast(`💶 Betaling ontvangen van ${naam.split(' ')[0]}!`);
-    }
   })
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'bookings'},async payload=>{
     // Nieuwe boeking binnengekomen → melding + geluid + badge
@@ -1928,11 +1941,27 @@ async function openWieIsErDetail(id){
   </div>`;
 
   // Gasten ophalen
-  const {data:gasten}=await sb.from('gasten').select('*').eq('booking_id',id).order('created_at');
+  const {data:gastenRaw}=await sb.from('gasten').select('*').eq('booking_id',id).order('created_at');
+  // Splits pending uploads (door gast zelf) van geregistreerde gasten
+  const pendingUploads=(gastenRaw||[]).filter(g=>g.naam==='__pending_guest_upload__');
+  const gasten=(gastenRaw||[]).filter(g=>g.naam!=='__pending_guest_upload__');
+
+  // Pending uploads tonen met Scan-knop
+  if(pendingUploads.length){
+    html+=`<div style="background:rgba(255,149,0,.1);border:1.5px solid rgba(255,149,0,.4);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:#CC7700;margin-bottom:6px;">📱 ${pendingUploads.length} gast-foto${pendingUploads.length>1?'\'s':''} wachten op scan</div>
+      ${pendingUploads.map(g=>`
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:5px;">
+          <span style="font-size:11px;color:#666;">Foto geüpload door gast</span>
+          <button onclick="scanPendingGuestUpload('${g.id}','${id}')" style="padding:4px 10px;background:#FF9500;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">🔎 Scan met AI</button>
+        </div>`).join('')}
+    </div>`;
+  }
+
   const {voornaam,achternaam}=splitNaam(b.naam);
   const alleGasten=[
     {voornaam,achternaam,geboortedatum:b.geboortedatum||'—',nationaliteit:b.nationaliteit||'—',id_nummer:b.idnr||'—',rol:'Hoofdboeker'},
-    ...(gasten||[]).map(g=>({...g,rol:'Gast'}))
+    ...gasten.map(g=>({...g,rol:'Gast'}))
   ];
   html+=`<div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">👥 Geregistreerde gasten (${alleGasten.length}/${b.personen})</div>`;
   html+=alleGasten.map(g=>`
@@ -2031,28 +2060,93 @@ async function renderRegister(date){
     </table></div>
     <div style="font-size:11px;color:var(--lbl4);margin-top:8px;">${rows.length} pers. geregistreerd op ${fmtDateLong(date)} (${activeBookings.length} boekingen)</div>`
 }
-function printRegister(){
+async function printRegister(){
   const date=document.getElementById('registerDate').value||TODAY;
-  const list=registerEntries(date);
+  const activeBookings=registerEntries(date);
+  // Venster meteen openen (vóór await, anders blokkeert popup-blocker)
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>Register Toeristenverblijf — Cosmopolite — ${date}</title>
-  <style>body{font-family:Arial,sans-serif;padding:28px;max-width:1100px;margin:0 auto}
-  h1{color:#1B8A5B;margin-bottom:4px;font-size:20px}
-  .sub{color:#666;margin-bottom:20px;font-size:12px}
-  table{width:100%;border-collapse:collapse;font-size:11.5px}
-  th{background:#1B8A5B;color:#fff;padding:8px 8px;text-align:left;font-size:11px}
-  td{padding:7px 8px;border-bottom:1px solid #eee}
-  tr:nth-child(even) td{background:#f9f9f9}
-  .footer{margin-top:20px;font-size:10.5px;color:#999;border-top:1px solid #eee;padding-top:8px}
-  @media print{.no-print{display:none}}</style></head><body>
+  if(!win){toast('⚠️ Sta pop-ups toe om af te drukken');return;}
+  win.document.write('<html><body style="font-family:Arial;padding:24px;"><p>Register laden met foto\'s…</p></body></html>');
+
+  // Gasten ophalen voor alle actieve boekingen
+  const bookingIds=activeBookings.map(b=>b.id);
+  const {data:gasten}=bookingIds.length?await sb.from('gasten').select('*').in('booking_id',bookingIds):{data:[]};
+
+  // Signed URL's ophalen voor ID-foto's
+  const photoUrls={};
+  for(const g of(gasten||[])){
+    if(g.foto_url){
+      const {data:s}=await sb.storage.from('id-fotos').createSignedUrl(g.foto_url,3600);
+      if(s?.signedUrl)photoUrls[g.id]=s.signedUrl;
+    }
+  }
+
+  const gastenByBooking={};
+  (gasten||[]).forEach(g=>{
+    if(!gastenByBooking[g.booking_id])gastenByBooking[g.booking_id]=[];
+    gastenByBooking[g.booking_id].push(g);
+  });
+
+  // Rijen samenstellen: hoofdgast + extra gasten
+  const rows=[];
+  activeBookings.forEach(b=>{
+    const n=splitNaam(b.naam);
+    const extras=gastenByBooking[b.id]||[];
+    rows.push({volgnummer:b.volgnummer,voornaam:n.voornaam,achternaam:n.achternaam,
+      geboortedatum:b.geboortedatum,nationaliteit:b.nationaliteit,idnr:b.idnr,
+      aankomst:b.aankomst,vertrek:b.vertrek,rol:'Hoofdgast',fotoUrl:null});
+    extras.forEach(g=>{
+      const gn=splitNaam(g.naam);
+      rows.push({volgnummer:b.volgnummer,voornaam:gn.voornaam,achternaam:gn.achternaam,
+        geboortedatum:g.geboortedatum,nationaliteit:g.nationaliteit,idnr:g.id_nummer,
+        aankomst:b.aankomst,vertrek:b.vertrek,rol:g.is_hoofdgast?'Hoofdgast':'Meereizend',
+        fotoUrl:photoUrls[g.id]||null});
+    });
+  });
+
+  const hasPhotos=rows.some(r=>r.fotoUrl);
+  win.document.open();
+  win.document.write(`<!DOCTYPE html><html><head><title>Register Toeristenverblijf — ${date}</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:28px;max-width:1200px;margin:0 auto}
+    h1{color:#1B8A5B;margin-bottom:4px;font-size:20px}
+    .sub{color:#666;margin-bottom:20px;font-size:12px}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th{background:#1B8A5B;color:#fff;padding:8px;text-align:left}
+    td{padding:6px 8px;border-bottom:1px solid #eee;vertical-align:middle}
+    tr:nth-child(even) td{background:#f9f9f9}
+    .foto-cell img{width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid #ddd;}
+    .foto-cell{width:60px;text-align:center;}
+    .missing{color:#c00;font-weight:600}
+    .footer{margin-top:20px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:8px}
+    @media print{body{padding:12px}}
+  </style></head><body>
   <h1>🛂 Camping Cosmopolite — Register Toeristenverblijf</h1>
-  <div class="sub">Datum: ${fmtDateLong(date)} · ${list.length} gast${list.length!==1?'en':''} · conform wettelijke registratieplicht toeristenverblijven</div>
-  <table><tr><th>#</th><th>Voornaam</th><th>Achternaam</th><th>Geboortedatum</th><th>Nationaliteit</th><th>ID-nummer</th><th>Woonplaats</th><th>Aankomst</th><th>Vertrek</th></tr>
-  ${list.map(b=>{const n=splitNaam(b.naam);return`<tr><td>#${b.volgnummer??'—'}</td><td>${n.voornaam}</td><td>${n.achternaam}</td><td>${b.geboortedatum?fmtDateLong(b.geboortedatum):'—'}</td><td>${b.nationaliteit||'—'}</td><td>${b.idnr||'—'}</td><td>${b.woonplaats||'—'}</td><td>${fmtDateLong(b.aankomst)}</td><td>${fmtDateLong(b.vertrek)}</td></tr>`}).join('')}
+  <div class="sub">Datum: ${fmtDateLong(date)} · ${rows.length} pers. in ${activeBookings.length} boekingen · conform wettelijke registratieplicht toeristenverblijven</div>
+  <table>
+    <thead><tr>
+      <th>#</th><th>Voornaam</th><th>Achternaam</th><th>Geboortedatum</th>
+      <th>Nationaliteit</th><th>ID-nummer</th><th>Aankomst</th><th>Vertrek</th><th>Rol</th>
+      ${hasPhotos?'<th>Foto</th>':''}
+    </tr></thead>
+    <tbody>
+    ${rows.map(r=>`<tr>
+      <td>#${r.volgnummer??'—'}</td>
+      <td><b>${r.voornaam||'—'}</b></td>
+      <td><b>${r.achternaam||'—'}</b></td>
+      <td>${r.geboortedatum?fmtDateLong(r.geboortedatum):'—'}</td>
+      <td>${r.nationaliteit||'—'}</td>
+      <td class="${!r.idnr?'missing':''}">${r.idnr||'❌ ontbreekt'}</td>
+      <td>${fmtDateLong(r.aankomst)}</td>
+      <td>${fmtDateLong(r.vertrek)}</td>
+      <td style="color:#666;font-size:10px;">${r.rol}</td>
+      ${hasPhotos?`<td class="foto-cell">${r.fotoUrl?`<img src="${r.fotoUrl}" alt="ID-foto">`:'—'}</td>`:''}
+    </tr>`).join('')}
+    </tbody>
   </table>
-  <div class="footer">Camping Cosmopolite · Register Toeristenverblijf · Afgedrukt op ${fmtDateLong(TODAY)}</div>
+  <div class="footer">Camping Cosmopolite · Register Toeristenverblijf · Afgedrukt op ${fmtDateLong(TODAY)} · Vertrouwelijk</div>
   <script>window.onload=function(){window.print()}<\/script></body></html>`);
-  win.document.close()
+  win.document.close();
 }
 async function exportRegisterCSV(){
   const date=document.getElementById('registerDate').value||TODAY;
@@ -2611,6 +2705,42 @@ async function scanGuestId(file){
     if(d.nationaliteit&&natEl&&!natEl.value)natEl.value=d.nationaliteit;
     if(hint)hint.textContent='✅ Automatisch ingevuld — controleer de gegevens.';
   }catch(e){if(hint)hint.textContent='⚠️ AI-herkenning mislukt — vul handmatig in.';}
+}
+
+// Scant een foto die de gast zelf heeft geüpload via de publieke upload-pagina.
+// Leest de foto uit storage, stuurt naar AI, vult het gasten-record in.
+async function scanPendingGuestUpload(gastId, bookingId){
+  toast('🔎 AI scant de gast-foto…');
+  try{
+    const {data:g}=await sb.from('gasten').select('foto_url').eq('id',gastId).single();
+    if(!g?.foto_url){toast('⚠️ Geen foto gevonden');return;}
+    const {data:s}=await sb.storage.from('id-fotos').createSignedUrl(g.foto_url,120);
+    if(!s?.signedUrl){toast('⚠️ Foto ophalen mislukt');return;}
+    // Foto downloaden als blob
+    const blob=await fetch(s.signedUrl).then(r=>r.blob());
+    const file=new File([blob],'id.jpg',{type:blob.type||'image/jpeg'});
+    const b64=await _fileToBase64(file);
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/scan-id`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({image_base64:b64,media_type:file.type}),
+    });
+    const d=await res.json();
+    if(d.error){toast('⚠️ AI-fout: '+d.error);return;}
+    if(!d.naam){toast('⚠️ AI kon geen naam lezen — open gast handmatig om in te vullen');return;}
+    // Pending record omzetten naar echte gast
+    await sb.from('gasten').update({
+      naam:d.naam||'',
+      geboortedatum:d.geboortedatum||null,
+      nationaliteit:d.nationaliteit||null,
+      id_consent:true,
+    }).eq('id',gastId);
+    toast(`✅ Gast ingelezen: ${d.naam}`);
+    // Wie is er sectie vernieuwen
+    const el=document.getElementById('wie-gasten-'+bookingId);
+    if(el&&el.style.display==='block'){el.style.display='none';openWieIsErDetail(bookingId);}
+  }catch(e){toast('⚠️ Scannen mislukt: '+e.message);}
 }
 
 async function openEditGuestSheet(gastId){

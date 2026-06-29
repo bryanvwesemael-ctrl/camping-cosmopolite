@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>ID-foto uploaden — Camping Cosmopolite</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f7;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px;}
+  .card{background:#fff;border-radius:20px;padding:28px 24px;max-width:440px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.08);margin-top:12px;}
+  .logo{color:#1B8A5B;font-size:28px;margin-bottom:4px;}
+  h1{font-size:19px;font-weight:700;color:#1a1a1a;margin-bottom:6px;}
+  .sub{font-size:13px;color:#666;margin-bottom:24px;line-height:1.5;}
+  .name-badge{background:#f0faf5;border:1.5px solid #1B8A5B;border-radius:12px;padding:10px 14px;margin-bottom:20px;font-weight:600;color:#1B8A5B;font-size:14px;}
+  label{display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:6px;}
+  .consent-row{display:flex;gap:10px;align-items:flex-start;background:#fffbe6;border:1px solid #f0d060;border-radius:10px;padding:12px;margin-bottom:20px;}
+  .consent-row input[type=checkbox]{width:18px;height:18px;flex-shrink:0;margin-top:1px;accent-color:#1B8A5B;}
+  .consent-row span{font-size:12.5px;color:#555;line-height:1.5;}
+  .upload-area{border:2px dashed #ccc;border-radius:14px;padding:28px 16px;text-align:center;cursor:pointer;transition:border .2s,background .2s;margin-bottom:20px;background:#fafafa;}
+  .upload-area:hover{border-color:#1B8A5B;background:#f0faf5;}
+  .upload-area input[type=file]{display:none;}
+  .upload-area .icon{font-size:40px;margin-bottom:8px;}
+  .upload-area .hint{font-size:13px;color:#888;}
+  .preview-wrap{display:none;text-align:center;margin-bottom:20px;}
+  .preview-wrap img{max-width:100%;max-height:240px;border-radius:12px;border:2px solid #1B8A5B;object-fit:contain;}
+  .preview-wrap .change{display:inline-block;margin-top:10px;font-size:12px;color:#1B8A5B;text-decoration:underline;cursor:pointer;}
+  button.main{width:100%;padding:14px;background:#1B8A5B;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;transition:background .2s;}
+  button.main:disabled{background:#aaa;cursor:not-allowed;}
+  button.main:hover:not(:disabled){background:#166b47;}
+  .msg{margin-top:16px;padding:12px 14px;border-radius:10px;font-size:13px;display:none;}
+  .msg.ok{background:#f0faf5;border:1px solid #1B8A5B;color:#1B8A5B;}
+  .msg.err{background:#fff5f5;border:1px solid #ff3b30;color:#cc0000;}
+  .tips{margin-top:20px;font-size:12px;color:#888;line-height:1.6;}
+  .tips li{margin-left:16px;}
+  #loadScreen{padding:40px 0;text-align:center;color:#666;font-size:14px;}
+</style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<div class="card" id="loadScreen">⏳ Reservatie ophalen…</div>
+
+<div class="card" id="mainCard" style="display:none;">
+  <div class="logo">🏕️</div>
+  <h1>ID-foto uploaden</h1>
+  <p class="sub">Camping Cosmopolite vraagt u om een foto van de <strong>voorkant van uw identiteitskaart</strong> te uploaden. Uw foto wordt enkel bewaard voor brandveiligheidsdoeleinden en automatisch verwijderd na afloop van uw verblijf.</p>
+
+  <div class="name-badge" id="nameBadge">👋 Welkom…</div>
+
+  <label>Stap 1 — Toestemming</label>
+  <div class="consent-row">
+    <input type="checkbox" id="consentCheck">
+    <span>Ik ga akkoord dat mijn ID-foto wordt bewaard conform de GDPR-wetgeving en de brandveiligheidsnormen. De foto wordt enkel intern gebruikt en niet gedeeld met derden.</span>
+  </div>
+
+  <label>Stap 2 — Foto nemen of uploaden</label>
+  <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+    <div class="icon">📷</div>
+    <div><strong>Tik hier om een foto te nemen</strong></div>
+    <div class="hint">of selecteer een bestaand bestand · JPG, PNG, HEIC</div>
+    <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="onFileSelected(this)">
+  </div>
+
+  <div class="preview-wrap" id="previewWrap">
+    <img id="previewImg" src="" alt="Preview">
+    <div class="change" onclick="document.getElementById('fileInput').click()">✏️ Andere foto kiezen</div>
+  </div>
+
+  <button class="main" id="uploadBtn" onclick="doUpload()" disabled>📤 Verstuur foto</button>
+  <div class="msg" id="msg"></div>
+
+  <ul class="tips">
+    <li>Zorg dat de tekst duidelijk leesbaar is</li>
+    <li>Foto de <strong>voorkant</strong> van uw identiteitskaart</li>
+    <li>Geen rijbewijs — enkel ID-kaart of paspoort</li>
+  </ul>
+</div>
+
+<div class="card" id="doneCard" style="display:none;text-align:center;padding:40px 24px;">
+  <div style="font-size:60px;margin-bottom:16px;">✅</div>
+  <h1 style="margin-bottom:8px;">Foto ontvangen!</h1>
+  <p style="color:#666;font-size:14px;line-height:1.6;">Bedankt! Uw foto is veilig opgeslagen. U hoeft niets meer te doen.<br><br>Tot binnenkort op Camping Cosmopolite! 🏕️</p>
+</div>
+
+<script>
+const SUPABASE_URL='https://whubbowuqhjdkdequbmb.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWJib3d1cWhqZGtkZXF1Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjM3NTYsImV4cCI6MjA5Nzc5OTc1Nn0.1S-eme0sMmC_25H-XnZ9r3AMKFSSxnpRx3-GRefSyzs';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+let bookingId=null;
+let selectedFile=null;
+
+async function init(){
+  const params=new URLSearchParams(location.search);
+  const token=params.get('token');
+  if(!token){showError('Ongeldige link. Gebruik de link die u per e-mail heeft ontvangen.');return;}
+  const {data:b}=await sb.from('bookings').select('id,volgnummer,clients(naam)').eq('checkin_token',token).maybeSingle();
+  if(!b){showError('Deze link is ongeldig of verlopen. Contacteer de camping.');return;}
+  bookingId=b.id;
+  document.getElementById('nameBadge').textContent=`👋 Welkom, ${(b.clients?.naam||'gast').split(' ')[0]}! (Boeking #${b.volgnummer})`;
+  document.getElementById('loadScreen').style.display='none';
+  document.getElementById('mainCard').style.display='block';
+  document.getElementById('consentCheck').addEventListener('change',updateBtn);
+}
+
+function showError(msg){
+  document.getElementById('loadScreen').innerHTML=`<div style="color:#c00;font-size:14px;">⚠️ ${msg}</div>`;
+}
+
+function onFileSelected(inp){
+  const f=inp.files[0];if(!f)return;
+  selectedFile=f;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    document.getElementById('previewImg').src=e.target.result;
+    document.getElementById('previewWrap').style.display='block';
+    document.getElementById('uploadArea').style.display='none';
+  };
+  reader.readAsDataURL(f);
+  updateBtn();
+}
+
+function updateBtn(){
+  const ok=selectedFile&&document.getElementById('consentCheck').checked;
+  document.getElementById('uploadBtn').disabled=!ok;
+}
+
+async function doUpload(){
+  if(!selectedFile||!bookingId)return;
+  const btn=document.getElementById('uploadBtn');
+  const msg=document.getElementById('msg');
+  btn.disabled=true;btn.textContent='📤 Uploaden…';
+
+  // Lees bestand als base64
+  const base64=await new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>res(e.target.result.split(',')[1]);
+    r.onerror=rej;
+    r.readAsDataURL(selectedFile);
+  });
+
+  const resp=await fetch(`${SUPABASE_URL}/functions/v1/guest-upload`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+    body:JSON.stringify({token:new URLSearchParams(location.search).get('token'),image_base64:base64,media_type:selectedFile.type||'image/jpeg'})
+  });
+  const data=await resp.json();
+  if(data.ok){
+    document.getElementById('mainCard').style.display='none';
+    document.getElementById('doneCard').style.display='block';
+  }else{
+    msg.textContent='⚠️ Fout: '+(data.error||'Onbekende fout. Probeer opnieuw.');
+    msg.className='msg err';msg.style.display='block';
+    btn.disabled=false;btn.textContent='📤 Verstuur foto';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
