@@ -2582,7 +2582,13 @@ function resetGuestFotoUI(){
 }
 function previewGuestFoto(input){
   const f=input.files?.[0];const img=document.getElementById('guestFotoPreview');
-  if(f&&img){img.src=URL.createObjectURL(f);img.style.display='block';scanGuestId(f);}
+  if(f&&img){img.src=URL.createObjectURL(f);img.style.display='block';}
+  const sb2=document.getElementById('gScanBtn');if(sb2)sb2.style.display=f?'block':'none';
+}
+function scanSelectedGuestFoto(){
+  const f=document.getElementById('gIdFoto')?.files?.[0];
+  if(!f){toast('⚠️ Kies eerst een foto');return;}
+  scanGuestId(f);
 }
 function _fileToBase64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
 async function scanGuestId(file){
