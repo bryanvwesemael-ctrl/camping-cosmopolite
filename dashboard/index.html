@@ -632,6 +632,33 @@
   </div>
 </div>
 
+<!-- Bulk ID-foto's inlezen (AI) -->
+<div class="sh-overlay" id="shBulkId" onclick="closeSheetOnOverlay(event,'shBulkId')">
+  <div class="sheet" style="max-height:92vh;">
+    <div class="sh-handle"></div>
+    <div class="sh-hd"><span class="sh-title">📷 Meerdere ID's inlezen</span><button class="sh-close" onclick="closeSheet('shBulkId')">✕</button></div>
+    <div class="sh-body" style="overflow-y:auto;">
+      <input type="hidden" id="bulkIdBookingId">
+      <div style="padding:10px 16px 4px;">
+        <!-- Toestemming -->
+        <label style="display:flex;align-items:flex-start;gap:9px;background:var(--bg2);border:1.5px solid var(--sep);border-radius:10px;padding:11px 13px;font-size:12.5px;color:var(--lbl1);cursor:pointer;margin-bottom:12px;">
+          <input type="checkbox" id="bulkIdConsent" onchange="document.getElementById('bulkIdPickWrap').style.display=this.checked?'block':'none'" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;">
+          <span><b>Toestemming ID-foto's bewaren</b><br><span style="color:var(--lbl3);font-size:11.5px;">De gasten gaven toestemming om een foto van de <b>voorkant</b> van hun identiteitskaart te bewaren (GDPR art. 6.1.a).</span></span>
+        </label>
+        <div id="bulkIdPickWrap" style="display:none;">
+          <input type="file" id="bulkIdFiles" accept="image/*" multiple onchange="bulkIdFilesSelected()" style="font-size:12px;width:100%;margin-bottom:10px;">
+          <button id="bulkIdScanBtn" onclick="leesBulkIdMetAI()" style="display:none;width:100%;padding:11px;background:#5856D6;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">🔎 Lees met AI</button>
+        </div>
+        <div id="bulkIdMsg" style="font-size:12px;color:var(--lbl3);min-height:14px;margin-bottom:6px;"></div>
+      </div>
+      <div id="bulkIdRows" style="padding:0 16px;"></div>
+      <div style="padding:8px 16px 24px;">
+        <button id="bulkIdSaveBtn" onclick="saveBulkId()" style="display:none;width:100%;padding:14px;background:var(--green);color:#fff;border-radius:var(--r-md);font-size:15px;font-weight:700;border:none;cursor:pointer;">✓ Alle gasten opslaan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Gast Toevoegen Sheet -->
 <div class="sh-overlay" id="shAddGuest" onclick="closeSheetOnOverlay(event,'shAddGuest')">
   <div class="sheet">

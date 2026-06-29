@@ -584,10 +584,11 @@ function openBookingDetail(id){
     <!-- TAB: GASTEN -->
     <div id="dtab-content-gasten" style="display:none;padding:14px 16px;">
       <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Wettelijk verplicht reizigersregister (KB 27/04/2007). Voeg alle aanwezige gasten toe inclusief de hoofdboeker.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <button onclick="openBulkGastenSheet('${b.id}',${b.volwassenen||0},${b.kinderen||0},${b.baby||0})" style="padding:10px;background:var(--green);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:700;border:none;cursor:pointer;">👥 Alle gasten</button>
         <button onclick="openAddGuestSheet('${b.id}')" style="padding:10px;background:var(--bg2);color:var(--lbl1);border:1.5px solid var(--sep);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;">+ Individueel</button>
       </div>
+      <button onclick="openBulkIdSheet('${b.id}')" style="width:100%;padding:10px;background:rgba(88,86,214,.1);color:#5856D6;border:1.5px solid rgba(88,86,214,.3);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;">📷 Meerdere ID's inlezen (AI)</button>
       <div id="gastenList">Laden…</div>
     </div>
 
@@ -2678,6 +2679,97 @@ async function saveGuest(){
   }catch(err){
     document.getElementById('addGuestMsg').textContent='⚠️ '+err.message;
   }finally{btn.textContent='Opslaan';btn.disabled=false;}
+}
+
+/* ═══════════ BULK ID-FOTO'S INLEZEN (AI) ═══════════ */
+let _bulkIdRows=[];  // {file, naam, geboortedatum, nationaliteit}
+function openBulkIdSheet(bookingId){
+  document.getElementById('bulkIdBookingId').value=bookingId;
+  document.getElementById('bulkIdConsent').checked=false;
+  document.getElementById('bulkIdPickWrap').style.display='none';
+  document.getElementById('bulkIdFiles').value='';
+  document.getElementById('bulkIdScanBtn').style.display='none';
+  document.getElementById('bulkIdSaveBtn').style.display='none';
+  document.getElementById('bulkIdRows').innerHTML='';
+  document.getElementById('bulkIdMsg').textContent='';
+  _bulkIdRows=[];
+  openSheet('shBulkId');
+}
+function bulkIdFilesSelected(){
+  const files=[...(document.getElementById('bulkIdFiles').files||[])];
+  const btn=document.getElementById('bulkIdScanBtn');
+  const msg=document.getElementById('bulkIdMsg');
+  if(!files.length){btn.style.display='none';msg.textContent='';return;}
+  const kost=(files.length*0.4).toFixed(1);
+  btn.textContent=`🔎 Lees ${files.length} foto${files.length>1?'\'s':''} met AI (± ${kost} cent)`;
+  btn.style.display='block';
+  msg.textContent='';
+}
+async function leesBulkIdMetAI(){
+  const files=[...(document.getElementById('bulkIdFiles').files||[])];
+  if(!files.length)return;
+  const btn=document.getElementById('bulkIdScanBtn');
+  const msg=document.getElementById('bulkIdMsg');
+  btn.disabled=true;
+  const {data:{session}}=await sb.auth.getSession();
+  _bulkIdRows=[];
+  for(let i=0;i<files.length;i++){
+    msg.textContent=`🔎 AI leest foto ${i+1} van ${files.length}…`;
+    const f=files[i];
+    let parsed={naam:'',geboortedatum:'',nationaliteit:''};
+    try{
+      const b64=await _fileToBase64(f);
+      const res=await fetch(`${SUPABASE_URL}/functions/v1/scan-id`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+        body:JSON.stringify({image_base64:b64,media_type:f.type||'image/jpeg'}),
+      });
+      const d=await res.json();
+      if(!d.error)parsed={naam:d.naam||'',geboortedatum:d.geboortedatum||'',nationaliteit:d.nationaliteit||''};
+    }catch(e){}
+    _bulkIdRows.push({file:f,...parsed});
+  }
+  msg.textContent=`✅ ${files.length} kaart(en) gelezen — controleer en corrigeer hieronder.`;
+  btn.disabled=false;btn.style.display='none';
+  renderBulkIdRows();
+  document.getElementById('bulkIdSaveBtn').style.display='block';
+}
+function renderBulkIdRows(){
+  const el=document.getElementById('bulkIdRows');if(!el)return;
+  el.innerHTML=_bulkIdRows.map((r,i)=>`
+    <div style="display:flex;gap:10px;background:var(--bg2);border:1.5px solid var(--sep);border-radius:12px;padding:10px;margin-bottom:8px;">
+      <img src="${URL.createObjectURL(r.file)}" style="width:54px;height:54px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+      <div style="flex:1;min-width:0;">
+        <input value="${escHtml(r.naam)}" placeholder="Naam *" oninput="_bulkIdRows[${i}].naam=this.value" style="width:100%;padding:7px 9px;border-radius:7px;border:1.5px solid var(--sep);background:var(--bg);font-size:13px;color:var(--lbl1);margin-bottom:5px;box-sizing:border-box;">
+        <div style="display:flex;gap:5px;">
+          <input type="date" value="${escHtml(r.geboortedatum)}" oninput="_bulkIdRows[${i}].geboortedatum=this.value" style="flex:1;padding:7px 9px;border-radius:7px;border:1.5px solid var(--sep);background:var(--bg);font-size:12px;color:var(--lbl1);min-width:0;">
+          <input value="${escHtml(r.nationaliteit)}" placeholder="Nat." oninput="_bulkIdRows[${i}].nationaliteit=this.value" style="width:70px;padding:7px 9px;border-radius:7px;border:1.5px solid var(--sep);background:var(--bg);font-size:12px;color:var(--lbl1);">
+        </div>
+      </div>
+      <button onclick="_bulkIdRows.splice(${i},1);renderBulkIdRows()" style="color:var(--red);background:rgba(255,59,48,.08);border:none;border-radius:8px;width:30px;flex-shrink:0;cursor:pointer;">🗑</button>
+    </div>`).join('');
+}
+async function saveBulkId(){
+  const bookingId=document.getElementById('bulkIdBookingId').value;
+  const msg=document.getElementById('bulkIdMsg');
+  const rows=_bulkIdRows.filter(r=>r.naam.trim());
+  if(!rows.length){msg.textContent='⚠️ Geen geldige rijen (naam verplicht).';return;}
+  const btn=document.getElementById('bulkIdSaveBtn');btn.textContent='Opslaan…';btn.disabled=true;
+  try{
+    for(const r of rows){
+      const {data:ins}=await sb.from('gasten').insert({booking_id:bookingId,naam:r.naam.trim(),geboortedatum:r.geboortedatum||null,nationaliteit:r.nationaliteit||null,id_consent:true,is_hoofdgast:false}).select('id').single();
+      if(ins?.id){
+        const ext=(r.file.name.split('.').pop()||'jpg').toLowerCase();
+        const path=`${bookingId}/${ins.id}.${ext}`;
+        const {error:upErr}=await sb.storage.from('id-fotos').upload(path,r.file,{upsert:true,contentType:r.file.type});
+        if(!upErr)await sb.from('gasten').update({foto_url:path}).eq('id',ins.id);
+      }
+    }
+    toast(`✅ ${rows.length} gast(en) toegevoegd`);
+    closeSheet('shBulkId');
+    loadGasten(bookingId);
+  }catch(err){msg.textContent='⚠️ '+err.message;}
+  finally{btn.textContent='✓ Alle gasten opslaan';btn.disabled=false;}
 }
 
 /* ═══════════ BULK GASTEN ═══════════ */
