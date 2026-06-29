@@ -29,6 +29,43 @@ async function forgotPassword(){
 }
 async function doLogout(){await sb.auth.signOut();location.reload()}
 
+/* ═══════════ MELDINGEN NIEUWE BOEKING ═══════════ */
+let notifUnread=0;
+function notifSoundOn(){return localStorage.getItem('notifSound')!=='off';}
+function updateNotifBadge(){
+  const b=document.getElementById('notifBadge');if(!b)return;
+  if(notifUnread>0){b.textContent=notifUnread>9?'9+':notifUnread;b.style.display='block';}
+  else b.style.display='none';
+}
+function updateSoundIcon(){
+  const el=document.getElementById('soundIcon');if(el)el.textContent=notifSoundOn()?'🔔':'🔕';
+}
+function toggleNotifSound(){
+  localStorage.setItem('notifSound',notifSoundOn()?'off':'on');
+  updateSoundIcon();
+  toast(notifSoundOn()?'🔔 Meldingsgeluid aan':'🔕 Meldingsgeluid uit');
+  if(notifSoundOn())playNotifSound();
+}
+function playNotifSound(){
+  if(!notifSoundOn())return;
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type='sine';o.frequency.value=880;
+    g.gain.setValueAtTime(.0001,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.25,ctx.currentTime+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.4);
+    o.start();o.stop(ctx.currentTime+.42);
+  }catch(e){}
+}
+function openNewBookings(){
+  notifUnread=0;updateNotifBadge();
+  activeFilter='aanvraag';
+  showView('boekingen',null);
+  renderBookingList();
+}
+
 // Analytics enkel zichtbaar voor admins (intern gebruik)
 let currentUserRole='staff';
 async function applyRoleVisibility(session){
@@ -52,6 +89,7 @@ async function checkSession(){
     const greet=document.getElementById('heroGreet');
     if(greet&&naam)greet.textContent=`Goeiedag, ${naam} 👋`;
     await applyRoleVisibility(session);
+    updateSoundIcon();updateNotifBadge();
     await loadData();
   }else{
     document.getElementById('loginScreen').style.display='flex';
@@ -80,6 +118,14 @@ sb.channel('bookings-live')
       const naam=bookings[idx].naam||'Gast';
       toast(`💶 Betaling ontvangen van ${naam.split(' ')[0]}!`);
     }
+  })
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'bookings'},async payload=>{
+    // Nieuwe boeking binnengekomen → melding + geluid + badge
+    notifUnread++;
+    updateNotifBadge();
+    playNotifSound();
+    toast('🔔 Nieuwe reservatie binnengekomen!');
+    await loadData();
   })
   .subscribe();
 
