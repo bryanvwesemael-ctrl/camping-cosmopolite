@@ -155,13 +155,6 @@ button{cursor:pointer;border:none;background:none}
     </div>
   </div>
 
-  <!-- Gastnamen -->
-  <div class="card" id="gastnamenCard" style="display:none;">
-    <h2>📋 Gastnamen</h2>
-    <p style="font-size:12.5px;color:var(--lbl3);margin:0 0 14px;line-height:1.5;">Optioneel maar aanbevolen voor het wettelijk gastenregister. Vul de naam en geboortedatum in van elke gast.</p>
-    <div id="gastnamenFields"></div>
-  </div>
-
   <!-- Extra's -->
   <div class="card">
     <h2>➕ Extra's</h2>
@@ -470,43 +463,6 @@ function renderVerblijfTypes(){
     </div>`;
   }).join('');
 }
-function updateGast(i,field,val){if(state.gasten&&state.gasten[i])state.gasten[i][field]=val;}
-function renderGastnamen(){
-  const card=document.getElementById('gastnamenCard');
-  const fields=document.getElementById('gastnamenFields');
-  if(!card||!fields)return;
-  if(!state.gasten)state.gasten=[];
-  const cats=[
-    ...Array(state.volwassenen).fill('volwassene'),
-    ...Array(state.kinderen).fill('kind'),
-    ...Array(state.baby).fill('baby'),
-  ];
-  if(!cats.length){card.style.display='none';return;}
-  card.style.display='block';
-  state.gasten=cats.map((cat,i)=>({
-    naam:state.gasten[i]?.naam||'',
-    geboortedatum:state.gasten[i]?.geboortedatum||'',
-    categorie:cat,
-  }));
-  const emoji={volwassene:'🧑',kind:'🧒',baby:'👶'};
-  const lbl={volwassene:'Volwassene',kind:'Kind',baby:'Baby'};
-  const cnt={volwassene:0,kind:0,baby:0};
-  fields.innerHTML=state.gasten.map((g,i)=>{
-    cnt[g.categorie]++;
-    const isBaby=g.categorie==='baby';
-    return`<div style="margin-bottom:14px;">
-      <div style="font-size:11px;font-weight:800;color:var(--lbl3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">${emoji[g.categorie]} ${lbl[g.categorie]} ${cnt[g.categorie]}</div>
-      <div style="display:grid;grid-template-columns:${isBaby?'1fr':'1fr 1fr'};gap:8px;">
-        <input type="text" placeholder="Volledige naam" value="${g.naam}"
-          oninput="updateGast(${i},'naam',this.value)"
-          style="padding:10px 12px;border-radius:10px;border:1.5px solid var(--sep);background:var(--bg);font-size:14px;color:var(--lbl1);-webkit-appearance:none;">
-        ${isBaby?'':`<input type="date" value="${g.geboortedatum}" oninput="updateGast(${i},'geboortedatum',this.value)"
-          style="padding:10px 12px;border-radius:10px;border:1.5px solid var(--sep);background:var(--bg);font-size:14px;color:var(--lbl1);">`}
-      </div>
-    </div>`;
-  }).join('');
-}
-
 function nbTypeStep(id,delta){
   if(!state.extraTypeQties)state.extraTypeQties={};
   if(id==='tent') state.tenten=Math.max(0,(state.tenten||0)+delta);
@@ -534,7 +490,7 @@ function step(key,delta){
   state[key]=newVal;
   document.getElementById('v-'+key).textContent=state[key];
   calc();
-  if(['volwassenen','kinderen','baby'].includes(key)){renderGastnamen();renderIdFotos();}
+  if(['volwassenen','kinderen','baby'].includes(key)){renderIdFotos();}
 }
 function toggleIdFotoConsent(){
   state.idFotoConsent=!state.idFotoConsent;
@@ -590,9 +546,8 @@ function nightCount(){
 }
 function fmt(n){return '€'+n.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2})}
 
-// Init verblijfTypes en gastnamen renderen
+// Init verblijfTypes renderen
 renderVerblijfTypes();
-renderGastnamen();
 
 function calc(){
   const nights=nightCount();
@@ -747,18 +702,7 @@ async function submitForm(){
     });
     if(bookErr) throw bookErr;
 
-    // 3. Gasten opslaan
-    if(state.gasten&&state.gasten.length){
-      const gastenRows=state.gasten.filter(g=>g.naam.trim()).map((g,i)=>({
-        booking_id:bookingId,
-        naam:g.naam.trim(),
-        geboortedatum:g.geboortedatum||null,
-        nationaliteit:null, id_nummer:null, is_hoofdgast:i===0
-      }));
-      if(gastenRows.length)await sb.from('gasten').insert(gastenRows);
-    }
-
-    // 4. ID-foto's uploaden (optioneel, enkel als toestemming gegeven)
+    // 3. ID-foto's uploaden (optioneel, enkel als toestemming gegeven)
     if(state.idFotoConsent){
       const photosToUpload=idFotos.filter(Boolean);
       if(photosToUpload.length){
