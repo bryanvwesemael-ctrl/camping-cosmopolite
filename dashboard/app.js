@@ -1953,8 +1953,8 @@ async function openWieIsErDetail(id){
   // Gasten ophalen
   const {data:gastenRaw}=await sb.from('gasten').select('*').eq('booking_id',id).order('created_at');
   // Splits pending uploads (door gast zelf) van geregistreerde gasten
-  const pendingUploads=(gastenRaw||[]).filter(g=>g.naam==='__pending_guest_upload__');
-  const gasten=(gastenRaw||[]).filter(g=>g.naam!=='__pending_guest_upload__');
+  const pendingUploads=(gastenRaw||[]).filter(g=>CampingGuests.isPendingDoc(g));
+  const gasten=(gastenRaw||[]).filter(g=>!CampingGuests.isPendingDoc(g));
 
   // Pending uploads tonen met bulk-scan knop
   if(pendingUploads.length){
@@ -2011,7 +2011,7 @@ async function renderRegister(date){
 
   // Haal gasten op voor alle actieve boekingen
   const bookingIds=activeBookings.map(b=>b.id);
-  const {data:gasten}=await sb.from('gasten').select('*').in('booking_id',bookingIds);
+  const {data:gasten}=await sb.from('gasten').select('*').in('booking_id',bookingIds).neq('naam',CampingGuests.PENDING_MARKER);
   const gastenByBooking={};
   (gasten||[]).forEach(g=>{
     if(!gastenByBooking[g.booking_id])gastenByBooking[g.booking_id]=[];
@@ -2088,7 +2088,7 @@ async function printRegister(){
 
   // Gasten ophalen voor alle actieve boekingen
   const bookingIds=activeBookings.map(b=>b.id);
-  const {data:gasten}=bookingIds.length?await sb.from('gasten').select('*').in('booking_id',bookingIds):{data:[]};
+  const {data:gasten}=bookingIds.length?await sb.from('gasten').select('*').in('booking_id',bookingIds).neq('naam',CampingGuests.PENDING_MARKER):{data:[]};
 
   // Signed URL's ophalen voor ID-foto's
   const photoUrls={};
@@ -2174,7 +2174,7 @@ async function exportRegisterCSV(){
   const bookingIds=activeBookings.map(b=>b.id);
   let gastenMap={};
   if(bookingIds.length){
-    const {data:gasten}=await sb.from('gasten').select('*').in('booking_id',bookingIds);
+    const {data:gasten}=await sb.from('gasten').select('*').in('booking_id',bookingIds).neq('naam',CampingGuests.PENDING_MARKER);
     (gasten||[]).forEach(g=>{if(!gastenMap[g.booking_id])gastenMap[g.booking_id]=[];gastenMap[g.booking_id].push(g);});
   }
   activeBookings.forEach(b=>{
