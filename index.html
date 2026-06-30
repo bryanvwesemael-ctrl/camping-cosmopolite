@@ -236,7 +236,14 @@ button{cursor:pointer;border:none;background:none}
       </div>
       <div class="switch" id="swIdFotoConsent" onclick="toggleIdFotoConsent()"></div>
     </div>
-    <div id="idFotoSlots" style="display:none;margin-top:14px;"></div>
+    <div id="idFotoSlots" style="display:none;margin-top:14px;">
+      <div id="idFotoThumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
+      <label style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid var(--green);border-radius:10px;color:var(--green);font-size:13px;font-weight:700;background:#fff;cursor:pointer;">
+        📷 Voeg ID-foto toe
+        <input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="onIdFotoAdd(this)">
+      </label>
+      <div style="font-size:11px;color:var(--lbl4);margin-top:10px;">📌 Voorkant van identiteitskaart of paspoort — geen rijbewijs. Één foto per persoon.</div>
+    </div>
   </div>
 
   <!-- Prijsoverzicht -->
@@ -390,7 +397,7 @@ function pricingInputFromState(nights){
     nights, extraTarieven:(typeof extraTarievenPublic!=='undefined'?extraTarievenPublic:[]),
   };
 }
-let idFotos=[]; // Array van File|null, één per niet-baby persoon
+let idFotos=[]; // Array van File objecten, vrije multi-upload
 let extraTarievenPublic=[];
 let accommodatieTypes=[
   {id:'tent',naam:'Tent',emoji:'⛺',prijs:15,maxPersonen:0,waarborg:0,waarborgBedrag:0,isStandaard:true},
@@ -490,44 +497,30 @@ function step(key,delta){
   state[key]=newVal;
   document.getElementById('v-'+key).textContent=state[key];
   calc();
-  if(['volwassenen','kinderen','baby'].includes(key)){renderIdFotos();}
 }
 function toggleIdFotoConsent(){
   state.idFotoConsent=!state.idFotoConsent;
   document.getElementById('swIdFotoConsent').classList.toggle('on',state.idFotoConsent);
-  const slots=document.getElementById('idFotoSlots');
-  slots.style.display=state.idFotoConsent?'block':'none';
-  if(state.idFotoConsent)renderIdFotos();
+  document.getElementById('idFotoSlots').style.display=state.idFotoConsent?'block':'none';
 }
-function renderIdFotos(){
-  if(!state.idFotoConsent)return;
-  const total=state.volwassenen+state.kinderen; // baby's geen ID nodig
-  while(idFotos.length<total)idFotos.push(null);
-  idFotos=idFotos.slice(0,total);
-  const el=document.getElementById('idFotoSlots');if(!el)return;
-  el.innerHTML=Array.from({length:total},(_,i)=>{
-    const f=idFotos[i];
-    const label=i===0?'Hoofdboeker':i<state.volwassenen?`Volwassene ${i+1}`:`Kind ${i-state.volwassenen+1}`;
-    const thumbUrl=f?URL.createObjectURL(f):null;
-    return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--sep);">
-      <div style="width:48px;height:48px;border-radius:10px;flex-shrink:0;overflow:hidden;${f?'border:2px solid var(--green);':'border:2px dashed #ccc;background:#f5f5f7;display:flex;align-items:center;justify-content:center;font-size:22px;'}">
-        ${f?`<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover;">`:'📷'}
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:700;color:var(--lbl1);">${label}</div>
-        <div style="font-size:11px;color:${f?'var(--green)':'var(--lbl3)'};">${f?'✅ Foto geselecteerd':'Nog geen foto'}</div>
-      </div>
-      <button onclick="document.getElementById('idFotoInp${i}').click()" style="padding:8px 12px;border:1.5px solid var(--green);border-radius:10px;color:var(--green);font-size:12px;font-weight:700;background:#fff;flex-shrink:0;cursor:pointer;">
-        ${f?'📷 Wijzig':'📷 Neem foto'}
-      </button>
-      <input type="file" id="idFotoInp${i}" accept="image/*" capture="environment" style="display:none;" onchange="onIdFotoSelected(${i},this)">
-    </div>`;
-  }).join('')+`<div style="font-size:11px;color:var(--lbl4);margin-top:8px;padding-top:2px;">📌 Foto enkel de <b>voorkant</b> van de identiteitskaart of het paspoort — geen rijbewijs.</div>`;
+function renderIdFotos(){} // no-op, slots zijn nu statisch
+function onIdFotoAdd(inp){
+  const files=Array.from(inp.files||[]);
+  files.forEach(f=>idFotos.push(f));
+  inp.value='';
+  renderIdFotoThumbs();
 }
-function onIdFotoSelected(idx,inp){
-  const f=inp.files[0];if(!f)return;
-  idFotos[idx]=f;
-  renderIdFotos();
+function removeIdFoto(idx){
+  idFotos.splice(idx,1);
+  renderIdFotoThumbs();
+}
+function renderIdFotoThumbs(){
+  const el=document.getElementById('idFotoThumbs');if(!el)return;
+  el.innerHTML=idFotos.map((f,i)=>`
+    <div style="position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;border:2px solid var(--green);flex-shrink:0;">
+      <img src="${URL.createObjectURL(f)}" style="width:100%;height:100%;object-fit:cover;">
+      <button onclick="removeIdFoto(${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.55);border:none;border-radius:50%;width:20px;height:20px;color:#fff;font-size:12px;line-height:20px;cursor:pointer;padding:0;">✕</button>
+    </div>`).join('');
 }
 function toggleElek(){
   state.elek=!state.elek;
