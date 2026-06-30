@@ -567,15 +567,19 @@ function openBookingDetail(id){
       </div>
     </div>
 
-    <!-- TAB: GASTEN -->
+    <!-- TAB: GASTEN & ID -->
     <div id="dtab-content-gasten" style="display:none;padding:14px 16px;">
-      <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Wettelijk verplicht reizigersregister (KB 27/04/2007). Voeg alle aanwezige gasten toe inclusief de hoofdboeker.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-        <button onclick="openBulkGastenSheet('${b.id}',${b.volwassenen||0},${b.kinderen||0},${b.baby||0})" style="padding:10px;background:var(--green);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:700;border:none;cursor:pointer;">👥 Alle gasten</button>
-        <button onclick="openAddGuestSheet('${b.id}')" style="padding:10px;background:var(--bg2);color:var(--lbl1);border:1.5px solid var(--sep);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;">+ Individueel</button>
-      </div>
-      <button onclick="openBulkIdSheet('${b.id}')" style="width:100%;padding:10px;background:rgba(88,86,214,.1);color:#5856D6;border:1.5px solid rgba(88,86,214,.3);border-radius:var(--r-sm);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;">📷 Meerdere ID's inlezen (AI)</button>
+      <div style="font-size:12px;color:var(--lbl3);margin-bottom:10px;line-height:1.5;">Wettelijk verplicht reizigersregister (KB 27/04/2007). De gast uploadt de ID-documenten; jij leest ze hieronder bewust in met AI en bevestigt de gegevens.</div>
+
+      <!-- ID-DOCUMENTEN PANEEL (bewuste AI-gate) -->
+      <div id="docPanel" style="margin-bottom:16px;">Documenten laden…</div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin:14px 0 8px;">👥 Geregistreerde gasten</div>
       <div id="gastenList">Laden…</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+        <button onclick="openBulkGastenSheet('${b.id}',${b.volwassenen||0},${b.kinderen||0},${b.baby||0})" style="padding:9px;background:var(--bg2);color:var(--lbl1);border:1.5px solid var(--sep);border-radius:var(--r-sm);font-size:12.5px;font-weight:700;cursor:pointer;">✏️ Handmatig (bulk)</button>
+        <button onclick="openAddGuestSheet('${b.id}')" style="padding:9px;background:var(--bg2);color:var(--lbl1);border:1.5px solid var(--sep);border-radius:var(--r-sm);font-size:12.5px;font-weight:700;cursor:pointer;">+ Individueel</button>
+      </div>
     </div>
 
     <!-- TAB: MAIL -->
@@ -600,6 +604,7 @@ function openBookingDetail(id){
   openSheet('shDetail');
   loadCommHistory(b.id);
   loadGasten(b.id);
+  loadBookingDocuments(b.id);
   loadPaymentInfo(b.id);
 }
 
@@ -2673,6 +2678,299 @@ async function deleteGast(gastId,bookingId){
   if(!confirm('Gast verwijderen?'))return;
   await sb.from('gasten').delete().eq('id',gastId);
   loadGasten(bookingId);
+}
+
+/* ═══════════ ID-DOCUMENTEN PANEEL — bewuste AI-gate (Fase 3) ═══════════ */
+const _docPanelState={}; // {bookingId:{docs:[],sel:Set}}
+const DOC_STATUS_META={
+  documenten_ontvangen:{lbl:'Ontvangen',cls:'',icon:'📥'},
+  klaar_voor_ai:{lbl:'Klaar voor AI',cls:'',icon:'⏳'},
+  ai_bezig:{lbl:'AI bezig…',cls:'',icon:'🔄'},
+  ai_uitgelezen_controle_nodig:{lbl:'Controle nodig',cls:'',icon:'👁️'},
+  gegevens_bevestigd:{lbl:'Bevestigd',cls:'',icon:'✅'},
+  document_onleesbaar:{lbl:'Onleesbaar',cls:'',icon:'⚠️'},
+  document_afgekeurd:{lbl:'Afgekeurd',cls:'',icon:'🚫'},
+  fout_bij_verwerking:{lbl:'Fout',cls:'',icon:'❌'},
+};
+function docStatusColor(s){
+  return s==='gegevens_bevestigd'?'var(--green)'
+    :s==='ai_uitgelezen_controle_nodig'?'#FF9500'
+    :s==='document_afgekeurd'||s==='document_onleesbaar'||s==='fout_bij_verwerking'?'var(--red)'
+    :'var(--lbl3)';
+}
+
+// Auditlog — privacygevoelige/wettelijke gebeurtenissen, append-only.
+async function auditLog(actie,entiteit,entiteitId,bookingId,extra){
+  try{
+    const {data:{user}}=await sb.auth.getUser();
+    await sb.from('audit_logs').insert({
+      actor:user?.id||null, actor_email:user?.email||null,
+      actie, entiteit, entiteit_id:entiteitId||null, booking_id:bookingId||null,
+      bron:'medewerker', ...(extra||{})
+    });
+  }catch(_e){/* auditfout mag de actie niet blokkeren */}
+}
+
+async function _signedUrl(path,secs){
+  const {data}=await sb.storage.from('id-fotos').createSignedUrl(path,secs||300);
+  return data?.signedUrl||null;
+}
+
+async function loadBookingDocuments(bookingId){
+  const el=document.getElementById('docPanel');if(!el)return;
+  const {data,error}=await sb.from('booking_documents')
+    .select('*').eq('booking_id',bookingId).is('deleted_at',null).order('slot_index').order('created_at');
+  if(error){el.innerHTML='<div style="font-size:12px;color:var(--lbl4);">Kon documenten niet laden</div>';return;}
+  _docPanelState[bookingId]={docs:data||[],sel:new Set()};
+  // Standaard: selecteer alles wat nog niet bevestigd is.
+  (data||[]).forEach(d=>{if(d.status!=='gegevens_bevestigd'&&d.status!=='document_afgekeurd')_docPanelState[bookingId].sel.add(d.id);});
+  await renderDocPanel(bookingId);
+}
+
+async function renderDocPanel(bookingId){
+  const el=document.getElementById('docPanel');if(!el)return;
+  const st=_docPanelState[bookingId];const docs=st?.docs||[];
+  if(!docs.length){
+    el.innerHTML='<div style="background:var(--bg);border:1.5px dashed var(--sep);border-radius:12px;padding:16px;text-align:center;font-size:12.5px;color:var(--lbl4);">📭 Nog geen ID-documenten geüpload door de gast</div>';
+    return;
+  }
+  const b=bookings.find(x=>x.id===bookingId);
+  const nPersonen=b?.personen||0;
+  const nNieuw=docs.filter(d=>st.sel.has(d.id)&&!d.ai_result).length;
+  const nReeds=docs.filter(d=>st.sel.has(d.id)&&d.ai_result).length;
+
+  // Signed previews ophalen (parallel).
+  const urls=await Promise.all(docs.map(d=>_signedUrl(d.storage_path,300)));
+
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;">📄 ID-documenten (${docs.length}/${nPersonen})</div>
+    <button onclick="toggleAllDocs('${bookingId}')" style="font-size:11px;color:var(--blue);background:none;border:none;cursor:pointer;font-weight:700;">Alles aan/uit</button>
+  </div>`;
+
+  html+=docs.map((d,i)=>{
+    const sm=DOC_STATUS_META[d.status]||{lbl:d.status,icon:'•'};
+    const checked=st.sel.has(d.id)?'checked':'';
+    const isPdf=d.media_type==='application/pdf';
+    const thumb=urls[i]&&!isPdf
+      ?`<img src="${urls[i]}" onclick="openDocImage('${bookingId}','${d.id}')" style="width:52px;height:52px;border-radius:8px;object-fit:cover;cursor:pointer;border:1.5px solid var(--sep);flex-shrink:0;">`
+      :`<div onclick="openDocImage('${bookingId}','${d.id}')" style="width:52px;height:52px;border-radius:8px;background:#eef0f3;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--lbl3);cursor:pointer;flex-shrink:0;">${isPdf?'PDF':'IMG'}</div>`;
+    return`<div style="border:1.5px solid var(--sep);border-radius:11px;padding:9px;margin-bottom:8px;background:#fff;">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <input type="checkbox" ${checked} onchange="toggleDocSel('${bookingId}','${d.id}')" ${d.status==='gegevens_bevestigd'?'disabled':''} style="width:17px;height:17px;flex-shrink:0;">
+        ${thumb}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12.5px;font-weight:700;color:var(--lbl1);">Persoon ${(d.slot_index??i)+1}${(d.slot_index??i)===0?' · hoofdboeker':''}</div>
+          <div style="font-size:11px;color:${docStatusColor(d.status)};font-weight:600;">${sm.icon} ${sm.lbl}</div>
+          <div style="font-size:10px;color:var(--lbl4);font-family:monospace;" title="SHA-256">#${(d.content_hash||'').slice(0,10)}</div>
+        </div>
+      </div>
+      ${d.ai_result?renderDocReview(bookingId,d):''}
+      ${d.fout_melding?`<div style="font-size:11px;color:var(--red);margin-top:6px;">⚠️ ${escHtml(d.fout_melding)}</div>`:''}
+    </div>`;
+  }).join('');
+
+  // AI-gate knop met kostwaarschuwing.
+  const anySel=st.sel.size>0;
+  html+=`<div id="docAiProgress-${bookingId}" style="display:none;margin:6px 0;">
+      <div style="height:5px;background:var(--sep);border-radius:3px;overflow:hidden;"><div id="docAiFill-${bookingId}" style="height:100%;width:0%;background:#FF9500;transition:width .3s;"></div></div>
+      <div id="docAiStatus-${bookingId}" style="font-size:11px;color:#CC7700;margin-top:4px;"></div>
+    </div>`;
+  html+=`<button id="docAiBtn-${bookingId}" ${anySel?'':'disabled'} onclick="aiScanSelected('${bookingId}')"
+      style="width:100%;padding:11px;background:${anySel?'#5856D6':'#c7c7cc'};color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:${anySel?'pointer':'default'};">
+      🤖 Geselecteerde ID's inlezen met AI${anySel?` (${st.sel.size})`:''}
+    </button>`;
+  if(anySel){
+    html+=`<div style="font-size:11px;color:var(--lbl4);margin-top:6px;line-height:1.5;">
+      ${nNieuw} nieuw document${nNieuw===1?'':'en'} wordt uitgelezen${nReeds?` · ${nReeds} reeds verwerkt wordt overgeslagen (geen extra kost)`:''}. Dit veroorzaakt AI-verbruik.</div>`;
+  }
+  const nBevestigd=docs.filter(d=>d.status==='gegevens_bevestigd').length;
+  if(docs.some(d=>d.ai_result&&d.status!=='gegevens_bevestigd')){
+    html+=`<button onclick="confirmAllDocs('${bookingId}')" style="width:100%;padding:10px;margin-top:8px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;">✅ Alle gecontroleerde personen bevestigen</button>`;
+  }
+  html+=`<div style="font-size:11px;color:var(--lbl4);margin-top:6px;">${nBevestigd}/${docs.length} bevestigd</div>`;
+  el.innerHTML=html;
+}
+
+// Bewerkbaar controleformulier per document (AI-resultaat = concept tot bevestiging).
+function renderDocReview(bookingId,d){
+  const r=d.ai_result||{};
+  const b=bookings.find(x=>x.id===bookingId);
+  const conf=r.confidence||'gemiddeld';
+  const confColor=conf==='hoog'?'var(--green)':conf==='laag'?'var(--red)':'#FF9500';
+  const bevestigd=d.status==='gegevens_bevestigd';
+  // Verschil met de hoofdboeker-naam op het formulier (alleen voor de hoofdboeker-slot).
+  let diff='';
+  if((d.slot_index??0)===0 && b?.naam && r.naam && b.naam.trim().toLowerCase()!==r.naam.trim().toLowerCase()){
+    diff=`<div style="font-size:10.5px;color:#CC7700;margin-bottom:6px;background:rgba(255,149,0,.1);padding:5px 7px;border-radius:7px;">
+      ⚠️ Formulier: <b>${escHtml(b.naam)}</b> · ID: <b>${escHtml(r.naam)}</b> — kies de juiste.</div>`;
+  }
+  const f=(id,lbl,val,type)=>`<label style="display:block;font-size:10px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.3px;margin:5px 0 2px;">${lbl}</label>
+    <input id="dr-${id}-${d.id}" type="${type||'text'}" value="${escHtml(val||'')}" ${bevestigd?'disabled':''} style="width:100%;padding:7px 9px;border:1.5px solid var(--sep);border-radius:8px;font-size:13px;background:${bevestigd?'var(--bg)':'#fff'};">`;
+  return`<div style="margin-top:9px;padding-top:9px;border-top:1px dashed var(--sep);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <span style="font-size:10.5px;font-weight:700;color:var(--lbl3);">🤖 AI-resultaat (controleer)</span>
+      <span style="font-size:10px;font-weight:700;color:${confColor};">zekerheid: ${conf}</span>
+    </div>
+    ${diff}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <div>${f('voornaam','Voornaam',r.voornaam)}</div>
+      <div>${f('achternaam','Achternaam',r.achternaam)}</div>
+      <div>${f('geboortedatum','Geboortedatum',r.geboortedatum,'date')}</div>
+      <div>${f('geboorteplaats','Geboorteplaats',r.geboorteplaats)}</div>
+      <div>${f('nationaliteit','Nationaliteit',r.nationaliteit)}</div>
+      <div>${f('documenttype','Documenttype',r.documenttype)}</div>
+      <div>${f('documentnummer','Documentnr.',r.documentnummer)}</div>
+      <div style="display:flex;align-items:flex-end;padding-bottom:1px;"><label style="font-size:11.5px;color:var(--lbl2);display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="dr-hoofd-${d.id}" ${r._hoofdgast||(d.slot_index??0)===0?'checked':''} ${bevestigd?'disabled':''}> Hoofdgast</label></div>
+    </div>
+    ${bevestigd?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:7px;">✅ Bevestigd & gekoppeld aan de boeking</div>`
+      :`<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px;margin-top:8px;">
+        <button onclick="confirmDocGuest('${bookingId}','${d.id}')" style="padding:8px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;">✅ Bevestig persoon</button>
+        <button onclick="rescanDoc('${bookingId}','${d.id}')" style="padding:8px;background:var(--bg2);color:var(--lbl2);border:1.5px solid var(--sep);border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;">↻ Opnieuw</button>
+        <button onclick="rejectDoc('${bookingId}','${d.id}')" style="padding:8px;background:#fff;color:var(--red);border:1.5px solid rgba(255,59,48,.4);border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;">🚫 Afkeuren</button>
+      </div>`}
+  </div>`;
+}
+
+function toggleDocSel(bookingId,docId){
+  const st=_docPanelState[bookingId];if(!st)return;
+  if(st.sel.has(docId))st.sel.delete(docId);else st.sel.add(docId);
+  renderDocPanel(bookingId);
+}
+function toggleAllDocs(bookingId){
+  const st=_docPanelState[bookingId];if(!st)return;
+  const selectable=st.docs.filter(d=>d.status!=='gegevens_bevestigd');
+  if(st.sel.size>=selectable.length)st.sel.clear();
+  else selectable.forEach(d=>st.sel.add(d.id));
+  renderDocPanel(bookingId);
+}
+
+async function openDocImage(bookingId,docId){
+  const st=_docPanelState[bookingId];const d=st?.docs.find(x=>x.id===docId);if(!d)return;
+  const url=await _signedUrl(d.storage_path,120);
+  if(!url){toast('⚠️ Kon document niet openen');return;}
+  auditLog('document_geopend','document',docId,bookingId);
+  window.open(url,'_blank');
+}
+
+// Stuurt één document naar de AI en bewaart het resultaat als concept op het document.
+async function _scanOneDoc(d,session){
+  const url=await _signedUrl(d.storage_path,180);
+  if(!url)throw new Error('signed url');
+  const blob=await fetch(url).then(r=>r.blob());
+  const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(blob);});
+  const res=await fetch(`${SUPABASE_URL}/functions/v1/scan-id`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+    body:JSON.stringify({image_base64:b64,media_type:d.media_type||'image/jpeg'}),
+  });
+  const data=await res.json();
+  if(data.error)throw new Error(data.error);
+  const ai={voornaam:data.voornaam,achternaam:data.achternaam,naam:data.naam,geboortedatum:data.geboortedatum,
+    geboorteplaats:data.geboorteplaats,nationaliteit:data.nationaliteit,documenttype:data.documenttype,
+    documentnummer:data.documentnummer,vervaldatum:data.vervaldatum,confidence:data.confidence};
+  const leesbaar=!!(data.naam||data.geboortedatum);
+  await sb.from('booking_documents').update({
+    ai_result:ai, ai_verwerkt_at:new Date().toISOString(),
+    status:leesbaar?'ai_uitgelezen_controle_nodig':'document_onleesbaar',
+    fout_melding:leesbaar?null:'AI kon geen leesbare gegevens vinden',
+  }).eq('id',d.id);
+}
+
+// Bewuste AI-start. Slaat reeds verwerkte documenten over (dedup → geen dubbele kost).
+// Concurrency 2; één fout blokkeert de rest niet.
+async function aiScanSelected(bookingId){
+  const st=_docPanelState[bookingId];if(!st)return;
+  const selected=st.docs.filter(d=>st.sel.has(d.id));
+  const nieuw=selected.filter(d=>!d.ai_result);
+  const reeds=selected.filter(d=>d.ai_result);
+  if(!nieuw.length){toast('ℹ️ Alle geselecteerde documenten zijn al verwerkt. Gebruik "Opnieuw" om te herverwerken.');return;}
+  if(!confirm(`Je gaat ${nieuw.length} nieuw(e) document(en) laten uitlezen met AI.${reeds.length?`\n${reeds.length} document(en) werd al verwerkt en wordt overgeslagen (geen extra kost).`:''}\n\nDit veroorzaakt AI-verbruik. Doorgaan?`))return;
+
+  await auditLog('ai_verwerking_gestart','booking',bookingId,bookingId,{nieuwe_waarde:{aantal:nieuw.length}});
+  const btn=document.getElementById('docAiBtn-'+bookingId);if(btn){btn.disabled=true;}
+  const prog=document.getElementById('docAiProgress-'+bookingId);if(prog)prog.style.display='block';
+  const fill=document.getElementById('docAiFill-'+bookingId);
+  const status=document.getElementById('docAiStatus-'+bookingId);
+  const {data:{session}}=await sb.auth.getSession();
+
+  let done=0,fail=0;const total=nieuw.length;
+  // Concurrency-pool van 2.
+  const queue=[...nieuw];
+  async function worker(){
+    while(queue.length){
+      const d=queue.shift();
+      if(status)status.textContent=`🔎 ${done+1} van ${total} verwerkt…`;
+      try{ await _scanOneDoc(d,session); }
+      catch(e){
+        fail++;
+        await sb.from('booking_documents').update({status:'fout_bij_verwerking',fout_melding:String(e.message||e).slice(0,200)}).eq('id',d.id);
+      }
+      done++;
+      if(fill)fill.style.width=Math.round(done/total*100)+'%';
+    }
+  }
+  await Promise.all([worker(),worker()]);
+  if(status)status.textContent=`✅ ${total-fail} verwerkt${fail?` · ${fail} fout`:''}. Controleer de gegevens hieronder.`;
+  await loadBookingDocuments(bookingId);
+}
+
+async function rescanDoc(bookingId,docId){
+  const st=_docPanelState[bookingId];const d=st?.docs.find(x=>x.id===docId);if(!d)return;
+  if(!confirm('Dit document werd al verwerkt. Opnieuw uitlezen kan extra AI-kosten veroorzaken. Doorgaan?'))return;
+  await auditLog('ai_verwerking_opnieuw','document',docId,bookingId);
+  const {data:{session}}=await sb.auth.getSession();
+  toast('🔎 AI leest opnieuw…');
+  try{ await _scanOneDoc(d,session); toast('✅ Opnieuw uitgelezen'); }
+  catch(e){ toast('⚠️ Mislukt: '+(e.message||e)); }
+  await loadBookingDocuments(bookingId);
+}
+
+// Bevestigt de gecontroleerde gegevens → maakt/updatet de echte gast en koppelt het document.
+async function confirmDocGuest(bookingId,docId){
+  const g=id=>document.getElementById(`dr-${id}-${docId}`)?.value?.trim()||'';
+  const voornaam=g('voornaam'),achternaam=g('achternaam');
+  const naam=`${voornaam} ${achternaam}`.trim();
+  if(!naam){toast('⚠️ Vul minstens een naam in');return;}
+  const isHoofd=document.getElementById('dr-hoofd-'+docId)?.checked;
+  const st=_docPanelState[bookingId];const d=st?.docs.find(x=>x.id===docId);
+
+  // Max één hoofdgast: bestaande hoofdgast degraderen indien deze hoofdgast wordt.
+  if(isHoofd){
+    await sb.from('gasten').update({is_hoofdgast:false}).eq('booking_id',bookingId).eq('is_hoofdgast',true);
+    await auditLog('hoofdgast_gewijzigd','booking',bookingId,bookingId,{nieuwe_waarde:{naam}});
+  }
+  const row={
+    booking_id:bookingId, naam,
+    geboortedatum:g('geboortedatum')||null, geboorteplaats:g('geboorteplaats')||null,
+    nationaliteit:g('nationaliteit')||null, documenttype:g('documenttype')||null,
+    id_nummer:g('documentnummer')||null, is_hoofdgast:!!isHoofd, id_consent:true,
+    foto_url:d?.storage_path||null,
+  };
+  let gastId=d?.gast_id;
+  if(gastId){ await sb.from('gasten').update(row).eq('id',gastId); }
+  else { const {data:ins}=await sb.from('gasten').insert(row).select('id').single(); gastId=ins?.id; }
+
+  await sb.from('booking_documents').update({gast_id:gastId,status:'gegevens_bevestigd'}).eq('id',docId);
+  await auditLog('gastgegevens_bevestigd','document',docId,bookingId,{nieuwe_waarde:{naam,is_hoofdgast:!!isHoofd}});
+  toast('✅ Persoon bevestigd: '+naam);
+  await loadBookingDocuments(bookingId);
+  loadGasten(bookingId);
+}
+
+async function confirmAllDocs(bookingId){
+  const st=_docPanelState[bookingId];if(!st)return;
+  const todo=st.docs.filter(d=>d.ai_result&&d.status!=='gegevens_bevestigd'&&d.status!=='document_afgekeurd');
+  if(!todo.length){toast('Niets te bevestigen');return;}
+  if(!confirm(`${todo.length} gecontroleerde perso(o)n(en) bevestigen en aan de boeking koppelen?`))return;
+  for(const d of todo){ await confirmDocGuest(bookingId,d.id); }
+}
+
+async function rejectDoc(bookingId,docId){
+  if(!confirm('Document afkeuren? Je kan de gast daarna een nieuwe uploadlink sturen.'))return;
+  await sb.from('booking_documents').update({status:'document_afgekeurd'}).eq('id',docId);
+  await auditLog('document_afgekeurd','document',docId,bookingId);
+  toast('🚫 Document afgekeurd');
+  await loadBookingDocuments(bookingId);
 }
 
 function openAddGuestSheet(bookingId){

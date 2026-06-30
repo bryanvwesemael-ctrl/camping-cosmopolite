@@ -13,8 +13,9 @@ async function setting(sb: any, key: string): Promise<string|null> {
   return data?.value || null
 }
 
-// AI-herkenning van de VOORKANT van een identiteitskaart (Claude vision).
-// Leest enkel naam/geboortedatum/nationaliteit — nooit het rijksregisternummer.
+// AI-herkenning van de VOORKANT van een identiteitsdocument (Claude vision).
+// Wordt ALLEEN aangeroepen wanneer een ingelogde medewerker er bewust om vraagt.
+// Leest registervelden uit, maar NOOIT het rijksregisternummer.
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
@@ -29,14 +30,20 @@ Deno.serve(async (req) => {
     const { image_base64, media_type } = await req.json()
     if (!image_base64) throw new Error('Geen afbeelding ontvangen')
 
-    const prompt = 'Dit is de VOORKANT van een identiteitskaart. Geef UITSLUITEND geldige JSON terug, niets anders, in dit formaat: {"naam":"Voornaam Achternaam","geboortedatum":"YYYY-MM-DD","nationaliteit":"..."}. Lees NOOIT het rijksregisternummer. Als een veld onleesbaar is, gebruik een lege string.'
+    const prompt = [
+      'Dit is de VOORKANT van een identiteitsdocument (identiteitskaart, paspoort, Kids-ID of buitenlands ID).',
+      'Geef UITSLUITEND geldige JSON terug, niets anders, in exact dit formaat:',
+      '{"voornaam":"","achternaam":"","geboortedatum":"YYYY-MM-DD","geboorteplaats":"","nationaliteit":"","documenttype":"identiteitskaart|paspoort|kids-id|buitenlands|ander","documentnummer":"","vervaldatum":"YYYY-MM-DD","confidence":"hoog|gemiddeld|laag"}',
+      'documentnummer = het KAARTNUMMER/documentnummer (niet het rijksregisternummer). Lees NOOIT het rijksregisternummer (de lange reeks 11 cijfers).',
+      'Als een veld onleesbaar of afwezig is: lege string. confidence = jouw zekerheid over de gelezen naam/geboortedatum.',
+    ].join(' ')
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 300,
+        max_tokens: 400,
         messages: [{ role:'user', content: [
           { type:'image', source:{ type:'base64', media_type: media_type||'image/jpeg', data: image_base64 } },
           { type:'text', text: prompt }
@@ -46,9 +53,25 @@ Deno.serve(async (req) => {
     const data = await res.json()
     if (data.error) throw new Error(data.error?.message || 'AI-fout')
     const text = data.content?.[0]?.text || ''
-    let parsed: any = {}
-    try { parsed = JSON.parse((text.match(/\{[\s\S]*\}/)||['{}'])[0]) } catch(_e) {}
-    return new Response(JSON.stringify({ ok:true, naam: parsed.naam||'', geboortedatum: parsed.geboortedatum||'', nationaliteit: parsed.nationaliteit||'' }), { headers:{...cors,'Content-Type':'application/json'} })
+    let p: any = {}
+    try { p = JSON.parse((text.match(/\{[\s\S]*\}/)||['{}'])[0]) } catch(_e) {}
+
+    const voornaam = p.voornaam || ''
+    const achternaam = p.achternaam || ''
+    const naam = (voornaam || achternaam) ? `${voornaam} ${achternaam}`.trim() : (p.naam || '')
+
+    return new Response(JSON.stringify({
+      ok: true,
+      naam,
+      voornaam, achternaam,
+      geboortedatum: p.geboortedatum || '',
+      geboorteplaats: p.geboorteplaats || '',
+      nationaliteit: p.nationaliteit || '',
+      documenttype: p.documenttype || '',
+      documentnummer: p.documentnummer || '',
+      vervaldatum: p.vervaldatum || '',
+      confidence: p.confidence || 'gemiddeld',
+    }), { headers:{...cors,'Content-Type':'application/json'} })
   } catch(err) {
     return new Response(JSON.stringify({ error: String((err as Error).message) }), { status:400, headers:{...cors,'Content-Type':'application/json'} })
   }
