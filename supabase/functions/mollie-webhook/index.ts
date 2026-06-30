@@ -31,16 +31,35 @@ Deno.serve(async (req) => {
       const bookingId = payment.metadata?.booking_id
       if (!bookingId) return new Response('ok')
 
-      await sb.from('payments').update({ status:'paid', betaald_at: new Date().toISOString() }).eq('mollie_id', mollieId)
-      await sb.from('bookings').update({ status:'betaald' }).eq('id', bookingId)
+      // Idempotent: enkel de neveneffecten (mail/communicatie) de EERSTE keer
+      // uitvoeren. Een herhaalde/dubbele webhook mag geen dubbele records maken.
+      const { data: existing } = await sb.from('payments').select('status').eq('mollie_id', mollieId).maybeSingle()
+      const alreadyPaid = existing?.status === 'paid'
 
-      const { data: b } = await sb.from('bookings').select('volgnummer,bedrag_totaal,clients(naam,email)').eq('id', bookingId).single()
+      await sb.from('payments').update({ status:'paid', betaald_at: new Date().toISOString() }).eq('mollie_id', mollieId)
+
+      const { data: b } = await sb.from('bookings').select('volgnummer,bedrag_totaal,status,clients(naam,email)').eq('id', bookingId).single()
+
+      // Betaalstatus AFLEIDEN uit de som van betaalde betalingen vs het boekingstotaal.
+      // Zo wordt een GEDEELTELIJKE (bij)betaling nooit als volledig "betaald" gemarkeerd.
+      const { data: paidRows } = await sb.from('payments').select('bedrag').eq('booking_id', bookingId).eq('status','paid')
+      const reedsBetaald = (paidRows||[]).reduce((s:number,p:any)=>s+Number(p.bedrag||0),0)
+      const totaal = Number(b?.bedrag_totaal||0)
+      const volledigBetaald = totaal > 0 && (reedsBetaald + 0.001) >= totaal
+
+      // Alleen op "betaald" zetten bij VOLLEDIGE betaling, en de lifecycle-status
+      // (ingecheckt/geannuleerd) niet overschrijven.
+      if (volledigBetaald && b?.status !== 'ingecheckt' && b?.status !== 'geannuleerd') {
+        await sb.from('bookings').update({ status:'betaald' }).eq('id', bookingId)
+      }
+
+      if (alreadyPaid) return new Response('ok')  // neveneffecten al uitgevoerd
 
       // 'verzonden' = geldige enum-waarde (concept/verzonden/mislukt)
       await sb.from('communicatie').insert({
         booking_id: bookingId, richting:'inkomend', status:'verzonden',
         onderwerp:`✅ Betaling ontvangen — ${b?.clients?.naam} #${b?.volgnummer}`,
-        inhoud:`Bedrag: €${payment.amount?.value}\nMollie ID: ${mollieId}\nTijdstip: ${new Date().toLocaleString('nl-BE')}`
+        inhoud:`Bedrag: €${payment.amount?.value} (${volledigBetaald?'volledig':'gedeeltelijk'} betaald — totaal betaald €${reedsBetaald.toFixed(2)}/${totaal.toFixed(2)})\nMollie ID: ${mollieId}\nTijdstip: ${new Date().toLocaleString('nl-BE')}`
       })
 
       // Notificatiemail naar het team (indien Resend + afzender ingesteld)
