@@ -223,27 +223,39 @@ button{cursor:pointer;border:none;background:none}
     </div>
   </div>
 
-  <!-- ID-foto's (optioneel) -->
+  <!-- Identiteitsdocumenten — één per persoon -->
   <div class="card" id="idFotoCard">
-    <h2>📷 ID-foto's uploaden <span style="font-weight:400;font-size:12px;color:var(--lbl3);">(optioneel — versnelt check-in)</span></h2>
-    <p style="font-size:12.5px;color:var(--lbl3);margin:0 0 14px;line-height:1.5;">
-      Upload nu al de voorkant van uw identiteitskaart. Dit versnelt de check-in en is wettelijk verplicht voor het gastenregister. De foto's worden enkel intern gebruikt.
+    <h2>🪪 Identiteitsdocumenten</h2>
+    <p style="font-size:12.5px;color:var(--lbl3);margin:0 0 12px;line-height:1.5;">
+      Upload voor <b>iedere persoon</b> één identiteitsdocument (voorkant). Wettelijk verplicht voor het reizigersregister. Geldig: identiteitskaart, paspoort, Kids-ID of buitenlands ID. <b>Geen namen nodig</b> — die lezen wij van het document.
     </p>
-    <div class="toggle-row" style="margin-bottom:0;">
-      <div class="sr-info">
-        <div class="sr-title">Ik geef toestemming voor bewaring van mijn ID-foto</div>
-        <div class="sr-sub">GDPR-conform · enkel voor brandveiligheid · automatisch verwijderd na verblijf</div>
+
+    <!-- Voortgangsteller -->
+    <div id="docCounter" style="display:flex;align-items:center;gap:10px;background:var(--bg);border:1.5px solid var(--sep);border-radius:12px;padding:10px 14px;margin-bottom:12px;">
+      <div id="docCounterIcon" style="font-size:20px;">📋</div>
+      <div style="flex:1;min-width:0;">
+        <div id="docCounterText" style="font-size:13px;font-weight:700;color:var(--lbl1);">Je hebt 0 personen opgegeven.</div>
+        <div id="docCounterBarWrap" style="height:5px;background:var(--sep);border-radius:3px;overflow:hidden;margin-top:6px;">
+          <div id="docCounterBar" style="height:100%;width:0%;background:var(--green);border-radius:3px;transition:width .3s;"></div>
+        </div>
       </div>
-      <div class="switch" id="swIdFotoConsent" onclick="toggleIdFotoConsent()"></div>
     </div>
-    <div id="idFotoSlots" style="display:none;margin-top:14px;">
-      <div id="idFotoThumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
-      <label style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border:1.5px solid var(--green);border-radius:10px;color:var(--green);font-size:13px;font-weight:700;background:#fff;cursor:pointer;">
-        📷 Voeg ID-foto toe
-        <input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="onIdFotoAdd(this)">
-      </label>
-      <div style="font-size:11px;color:var(--lbl4);margin-top:10px;">📌 Voorkant van identiteitskaart of paspoort — geen rijbewijs. Één foto per persoon.</div>
+
+    <!-- Dropzone / bulk-upload -->
+    <label id="docDrop" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:18px;border:2px dashed var(--green);border-radius:12px;color:var(--green);background:rgba(27,138,91,.04);cursor:pointer;text-align:center;">
+      <div style="font-size:26px;">📷</div>
+      <div style="font-size:13.5px;font-weight:800;">Voeg documenten toe</div>
+      <div style="font-size:11px;color:var(--lbl3);">Tik om te kiezen of foto te nemen · of sleep bestanden hierheen</div>
+      <div style="font-size:10.5px;color:var(--lbl4);">Meerdere tegelijk · JPG, PNG, HEIC of PDF · max 15 MB per stuk</div>
+      <input type="file" id="docInput" accept="image/*,application/pdf,.heic,.heif" multiple style="display:none;" onchange="onDocsSelected(this)">
+    </label>
+
+    <div id="docList" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"></div>
+
+    <div style="font-size:11px;color:var(--lbl4);margin-top:12px;line-height:1.5;">
+      📌 Fotografeer enkel de <b>voorkant</b> van het identiteitsdocument — geen rijbewijs. Een PDF met meerdere pagina's wordt automatisch in losse documenten gesplitst.
     </div>
+    <div id="docPrivacyNote" style="font-size:11px;color:var(--lbl4);margin-top:8px;line-height:1.5;"></div>
   </div>
 
   <!-- Prijsoverzicht -->
@@ -327,7 +339,12 @@ button{cursor:pointer;border:none;background:none}
 <div class="toast" id="toastEl"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="shared/pricing.js"></script>
+<script src="shared/upload.js"></script>
+<script>
+if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+</script>
 <script>
 /* ═══════════ SUPABASE ═══════════
    Publieke (anon) sleutel — mag veilig in de browser staan, deze mag enkel
@@ -380,7 +397,7 @@ function ogmReference(volgnummer){
 // Defaults uit de centrale module (shared/pricing.js). Worden overschreven met
 // de actuele tarieven uit Supabase (settings). Eén bron, gedeeld met dashboard.
 const PRICES=Object.assign({},CampingPricing.DEFAULTS);
-let state={tenten:1,campers:0,extraTypeQties:{},volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,elek:false,akkoord:false,idFotoConsent:false};
+let state={tenten:1,campers:0,extraTypeQties:{},volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,elek:false,akkoord:false};
 
 /* Bouwt de genormaliseerde invoer voor de CENTRALE berekening uit de
    formulierstaat. Zowel de live prijsweergave als het opslaan gebruiken dit. */
@@ -397,7 +414,13 @@ function pricingInputFromState(nights){
     nights, extraTarieven:(typeof extraTarievenPublic!=='undefined'?extraTarievenPublic:[]),
   };
 }
-let idFotos=[]; // Array van File objecten, vrije multi-upload
+// Identiteitsdocumenten. Eén item = één document (afbeelding of één PDF-pagina).
+// {id, blob, name, size, mime, hash, rotation, dataUrl, warn, pdfPage}
+let idDocs=[];
+let _docSeq=0;
+// Stabiele ids per pagina-load → idempotency: een dubbele inzending hergebruikt
+// dezelfde sleutels en kan dus geen tweede boeking maken (unique idempotency_key).
+const _submitIds={clientId:crypto.randomUUID(),bookingId:crypto.randomUUID(),checkinToken:crypto.randomUUID(),idemKey:crypto.randomUUID()};
 let extraTarievenPublic=[];
 let accommodatieTypes=[
   {id:'tent',naam:'Tent',emoji:'⛺',prijs:15,maxPersonen:0,waarborg:0,waarborgBedrag:0,isStandaard:true},
@@ -497,31 +520,175 @@ function step(key,delta){
   state[key]=newVal;
   document.getElementById('v-'+key).textContent=state[key];
   calc();
+  if(['volwassenen','kinderen','baby'].includes(key))renderDocs();
 }
-function toggleIdFotoConsent(){
-  state.idFotoConsent=!state.idFotoConsent;
-  document.getElementById('swIdFotoConsent').classList.toggle('on',state.idFotoConsent);
-  document.getElementById('idFotoSlots').style.display=state.idFotoConsent?'block':'none';
+/* ═══════════ IDENTITEITSDOCUMENTEN (bulk-upload, geen AI) ═══════════ */
+function totalPersons(){return (state.volwassenen||0)+(state.kinderen||0)+(state.baby||0);}
+function renderIdFotos(){renderDocCounter();} // compat: oude aanroepen updaten de teller
+
+async function sha256Hex(buf){
+  const d=await crypto.subtle.digest('SHA-256',buf);
+  return Array.from(new Uint8Array(d)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
-function renderIdFotos(){} // no-op, slots zijn nu statisch
-function onIdFotoAdd(inp){
+function readFileBytes(file){
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(new Uint8Array(e.target.result));r.onerror=rej;r.readAsArrayBuffer(file);});
+}
+function blobToDataUrl(blob){
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(blob);});
+}
+// Laadt een afbeelding-blob en geeft {w,h} terug; faalt bij corrupte afbeelding.
+function probeImage(dataUrl){
+  return new Promise((res,rej)=>{const im=new Image();im.onload=()=>res({w:im.naturalWidth,h:im.naturalHeight});im.onerror=()=>rej(new Error('corrupt'));im.src=dataUrl;});
+}
+
+async function onDocsSelected(inp){
   const files=Array.from(inp.files||[]);
-  files.forEach(f=>idFotos.push(f));
   inp.value='';
-  renderIdFotoThumbs();
+  await addDocFiles(files);
 }
-function removeIdFoto(idx){
-  idFotos.splice(idx,1);
-  renderIdFotoThumbs();
+async function addDocFiles(files){
+  const drop=document.getElementById('docDrop');
+  for(const file of files){
+    try{
+      const bytes=await readFileBytes(file);
+      const mime=CampingUpload.sniffMime(bytes);
+      const v=CampingUpload.validateFile(file.size,mime);
+      if(!v.ok){toast('⚠️ '+(CampingUpload.reasonText[v.reason]||'Bestand geweigerd')+': '+file.name);continue;}
+
+      if(CampingUpload.isPdf(mime)){
+        await addPdfPages(file,bytes);
+        continue;
+      }
+      // HEIC: aanvaarden + opslaan, maar geen browser-thumbnail mogelijk.
+      if(CampingUpload.isHeic(mime)){
+        const blob=new Blob([bytes],{type:mime});
+        await pushDoc({blob,name:file.name,size:file.size,mime,dataUrl:'',warn:'heic'});
+        continue;
+      }
+      // Gewone afbeelding: preview + resolutiecheck + corrupt-detectie.
+      const blob=new Blob([bytes],{type:mime});
+      const dataUrl=await blobToDataUrl(blob);
+      let warn='';
+      try{
+        const dim=await probeImage(dataUrl);
+        if(Math.max(dim.w,dim.h)<CampingUpload.MIN_IMAGE_PX)warn='lage_resolutie';
+      }catch(_e){toast('⚠️ Beschadigde afbeelding: '+file.name);continue;}
+      await pushDoc({blob,name:file.name,size:file.size,mime,dataUrl,warn});
+    }catch(_e){toast('⚠️ Kon bestand niet lezen: '+file.name);}
+  }
+  renderDocs();
 }
-function renderIdFotoThumbs(){
-  const el=document.getElementById('idFotoThumbs');if(!el)return;
-  el.innerHTML=idFotos.map((f,i)=>`
-    <div style="position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;border:2px solid var(--green);flex-shrink:0;">
-      <img src="${URL.createObjectURL(f)}" style="width:100%;height:100%;object-fit:cover;">
-      <button onclick="removeIdFoto(${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.55);border:none;border-radius:50%;width:20px;height:20px;color:#fff;font-size:12px;line-height:20px;cursor:pointer;padding:0;">✕</button>
-    </div>`).join('');
+async function addPdfPages(file,bytes){
+  if(!window.pdfjsLib){toast('⚠️ PDF-ondersteuning laadt nog, probeer opnieuw');return;}
+  let pdf;
+  try{ pdf=await pdfjsLib.getDocument({data:bytes.slice()}).promise; }
+  catch(e){
+    if(String(e&&e.name).includes('Password')){toast('⚠️ '+CampingUpload.reasonText.pdf_beveiligd+': '+file.name);}
+    else toast('⚠️ Kon PDF niet lezen: '+file.name);
+    return;
+  }
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const vp=page.getViewport({scale:2});
+    const cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
+    await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+    const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.9));
+    const dataUrl=cv.toDataURL('image/jpeg',0.6);
+    await pushDoc({blob,name:`${file.name} — p.${p}`,size:blob.size,mime:'image/jpeg',dataUrl,warn:'',pdfPage:p});
+  }
 }
+// Voegt een document toe na dedup-controle (SHA-256). Respecteert de teller.
+async function pushDoc(d){
+  if(idDocs.length>=totalPersons()){
+    toast(`⚠️ Je hebt al ${totalPersons()} document${totalPersons()>1?'en':''} (= aantal personen)`);
+    return;
+  }
+  const buf=await d.blob.arrayBuffer();
+  const hash=await sha256Hex(buf);
+  if(idDocs.some(x=>x.hash===hash)){toast('⚠️ '+CampingUpload.reasonText.duplicaat);return;}
+  idDocs.push({id:++_docSeq,blob:d.blob,name:d.name,size:d.size,mime:d.mime,hash,rotation:0,dataUrl:d.dataUrl,warn:d.warn||'',pdfPage:d.pdfPage||null});
+}
+function removeDoc(id){idDocs=idDocs.filter(d=>d.id!==id);renderDocs();}
+function replaceDoc(id){
+  const inp=document.createElement('input');inp.type='file';inp.accept='image/*,application/pdf,.heic,.heif';
+  inp.onchange=async()=>{const f=inp.files[0];if(!f)return;removeDoc(id);await addDocFiles([f]);};
+  inp.click();
+}
+// Roteert een afbeelding-document 90° via canvas (nieuwe blob + preview).
+async function rotateDoc(id){
+  const d=idDocs.find(x=>x.id===id);if(!d||!d.dataUrl){toast('⚠️ Roteren niet mogelijk voor dit bestand');return;}
+  const im=new Image();
+  await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=d.dataUrl;});
+  const deg=(d.rotation+90)%360;
+  const cv=document.createElement('canvas');
+  const swap=deg===90||deg===270;
+  cv.width=swap?im.naturalHeight:im.naturalWidth;
+  cv.height=swap?im.naturalWidth:im.naturalHeight;
+  const ctx=cv.getContext('2d');
+  ctx.translate(cv.width/2,cv.height/2);ctx.rotate(deg*Math.PI/180);
+  ctx.drawImage(im,-im.naturalWidth/2,-im.naturalHeight/2);
+  const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.9));
+  d.blob=blob;d.dataUrl=cv.toDataURL('image/jpeg',0.6);d.rotation=deg;d.mime='image/jpeg';
+  d.hash=await sha256Hex(await blob.arrayBuffer());
+  renderDocs();
+}
+function renderDocCounter(){
+  const n=totalPersons(),have=idDocs.length;
+  const txt=document.getElementById('docCounterText');
+  const bar=document.getElementById('docCounterBar');
+  const icon=document.getElementById('docCounterIcon');
+  if(!txt)return;
+  const compleet=have===n&&n>0;
+  txt.innerHTML=`Je hebt <b>${n}</b> ${n===1?'persoon':'personen'} opgegeven. <b style="color:${compleet?'var(--green)':have>n?'var(--red)':'#CC7700'};">${have} van ${n}</b> document${have===1?'':'en'} toegevoegd.`;
+  if(bar){bar.style.width=Math.min(100,n?have/n*100:0)+'%';bar.style.background=compleet?'var(--green)':have>n?'var(--red)':'#FF9500';}
+  if(icon)icon.textContent=compleet?'✅':have>n?'⚠️':'📋';
+}
+function renderDocs(){
+  renderDocCounter();
+  const list=document.getElementById('docList');if(!list)return;
+  const n=totalPersons();
+  list.innerHTML=idDocs.map((d,i)=>{
+    const thumb=d.dataUrl
+      ?`<img src="${d.dataUrl}" style="width:54px;height:54px;border-radius:9px;object-fit:cover;flex-shrink:0;border:1.5px solid var(--sep);">`
+      :`<div style="width:54px;height:54px;border-radius:9px;background:#eef0f3;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--lbl3);flex-shrink:0;border:1.5px solid var(--sep);">${d.mime==='image/heic'?'HEIC':'DOC'}</div>`;
+    const warnHtml=d.warn==='lage_resolutie'
+      ?`<div style="font-size:10.5px;color:#CC7700;margin-top:2px;">⚠️ Lage resolutie — controleer of alles leesbaar is</div>`
+      :d.warn==='heic'
+      ?`<div style="font-size:10.5px;color:var(--lbl4);margin-top:2px;">📱 HEIC — geen voorbeeld, wordt wel correct bewaard</div>`:'';
+    const canImg=!!d.dataUrl;
+    return`<div style="display:flex;align-items:center;gap:10px;padding:8px;border:1.5px solid ${d.warn&&d.warn!=='heic'?'rgba(255,149,0,.5)':'var(--sep)'};border-radius:11px;background:#fff;">
+      ${thumb}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:11px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.3px;">Persoon ${i+1}${i===0?' · hoofdboeker':''}</div>
+        <div style="font-size:12px;color:var(--lbl1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.name}</div>
+        <div style="font-size:10.5px;color:var(--lbl4);">${CampingUpload.humanSize(d.size)}</div>
+        ${warnHtml}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+        ${canImg?`<button type="button" onclick="rotateDoc(${d.id})" title="Draaien" style="width:30px;height:28px;border:1px solid var(--sep);border-radius:7px;background:#fff;cursor:pointer;font-size:13px;">↻</button>`:''}
+        <button type="button" onclick="replaceDoc(${d.id})" title="Vervangen" style="width:30px;height:28px;border:1px solid var(--sep);border-radius:7px;background:#fff;cursor:pointer;font-size:12px;">⇄</button>
+        <button type="button" onclick="removeDoc(${d.id})" title="Verwijderen" style="width:30px;height:28px;border:1px solid rgba(255,59,48,.4);border-radius:7px;background:#fff;cursor:pointer;font-size:12px;color:var(--red);">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  // Lege documentplaatsen tonen voor de resterende personen.
+  for(let i=idDocs.length;i<n;i++){
+    list.innerHTML+=`<div style="display:flex;align-items:center;gap:10px;padding:8px;border:1.5px dashed var(--sep);border-radius:11px;background:var(--bg);">
+      <div style="width:54px;height:54px;border-radius:9px;background:#f0f1f4;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🪪</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:11px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.3px;">Persoon ${i+1}${i===0?' · hoofdboeker':''}</div>
+        <div style="font-size:12px;color:var(--lbl4);">Nog geen document</div>
+      </div>
+    </div>`;
+  }
+}
+// Drag-and-drop op de dropzone.
+(function(){
+  const dz=document.getElementById('docDrop');if(!dz)return;
+  ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.style.background='rgba(27,138,91,.12)';}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.style.background='rgba(27,138,91,.04)';}));
+  dz.addEventListener('drop',async e=>{const files=Array.from(e.dataTransfer?.files||[]);if(files.length)await addDocFiles(files);});
+})();
 function toggleElek(){
   state.elek=!state.elek;
   document.getElementById('swElek').classList.toggle('on',state.elek);
@@ -539,8 +706,11 @@ function nightCount(){
 }
 function fmt(n){return '€'+n.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2})}
 
-// Init verblijfTypes renderen
+// Init verblijfTypes + documentplaatsen renderen
 renderVerblijfTypes();
+renderDocs();
+// Privacy-/bewaarinfo (fase 7 koppelt dit aan één centrale instelling).
+(function(){const el=document.getElementById('docPrivacyNote');if(el)el.innerHTML='🔒 Je documenten worden privé en versleuteld bewaard, enkel toegankelijk voor de campingbeheerder voor het wettelijke reizigersregister. Ze worden nooit als bijlage gemaild.';})();
 
 function calc(){
   const nights=nightCount();
@@ -643,6 +813,15 @@ async function submitForm(){
   if(!email || !email.includes('@')){ toast('⚠️ Vul een geldig e-mailadres in'); document.getElementById('fEmail').focus(); return; }
   if(!state.akkoord){ toast('⚠️ Bevestig akkoord met verwerking van je gegevens'); return; }
 
+  // Verplicht: één identiteitsdocument per opgegeven persoon.
+  const nPersonen=totalPersons();
+  if(idDocs.length!==nPersonen){
+    const tekort=nPersonen-idDocs.length;
+    toast(tekort>0?`⚠️ Nog ${tekort} document${tekort>1?'en':''} nodig (${idDocs.length}/${nPersonen})`:`⚠️ Te veel documenten (${idDocs.length}/${nPersonen})`);
+    document.getElementById('idFotoCard')?.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+
   // --- Bot-bescherming (rate limiting / anti-spam) ---
   // 1. Honeypot: enkel bots vullen dit verborgen veld in
   if(document.getElementById('hp_website')?.value){ showConfirm('—', fmt(0)); return; }
@@ -656,16 +835,14 @@ async function submitForm(){
   btn.classList.add('loading'); btn.textContent='Bezig met versturen…';
 
   try{
-    const clientId=crypto.randomUUID();
-    const bookingId=crypto.randomUUID();
-    const checkinToken=crypto.randomUUID();
+    const {clientId,bookingId,checkinToken,idemKey}=_submitIds;
 
-    // 1. Klant aanmaken (geen .select() → geen SELECT-policy nodig)
-    const {error:clientErr}=await sb.from('clients').insert({
+    // 1. Klant aanmaken. ignoreDuplicates → een retry met dezelfde id botst niet.
+    const {error:clientErr}=await sb.from('clients').upsert({
       id:clientId,
       naam, email, telefoon:tel||null, id_nummer:idnr||null, nummerplaten:plaat||null,
       geboortedatum:geboorte, nationaliteit:nationaliteit||null, woonplaats:woonplaats||null
-    });
+    },{onConflict:'id',ignoreDuplicates:true});
     if(clientErr) throw clientErr;
 
     // 2. Boeking aanmaken — bedragen uit de CENTRALE berekening (single source of truth)
@@ -691,26 +868,30 @@ async function submitForm(){
       volwassenen:state.volwassenen,
       kinderen:state.kinderen, baby:state.baby, honden:state.honden, autos:state.autos,
       elektriciteit:state.elek, bedrag_per_nacht:dienstenPerNacht, bedrag_totaal:totaalNow,
-      nota:nota||null, bron:'website', status:'aanvraag', checkin_token:checkinToken
+      nota:nota||null, bron:'website', status:'aanvraag', checkin_token:checkinToken,
+      idempotency_key:idemKey
     });
+    // 23505 = unique violation op idempotency_key → boeking bestaat al (dubbele inzending).
+    if(bookErr && bookErr.code==='23505'){ _abandoned=false; showConfirm('—', fmt(totaalNow)); return; }
     if(bookErr) throw bookErr;
 
-    // 3. ID-foto's uploaden (optioneel, enkel als toestemming gegeven)
-    if(state.idFotoConsent){
-      const photosToUpload=idFotos.filter(Boolean);
-      if(photosToUpload.length){
-        btn.textContent=`📷 ${photosToUpload.length} foto${photosToUpload.length>1?"'s":""} uploaden…`;
-        const images=[];
-        for(const f of photosToUpload){
-          const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
-          images.push({image_base64:b64,media_type:f.type||'image/jpeg'});
-        }
-        await fetch(`${SUPABASE_URL}/functions/v1/guest-upload`,{
-          method:'POST',
-          headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
-          body:JSON.stringify({token:checkinToken,images})
-        });
-      }
+    // 3. Identiteitsdocumenten uploaden (verplicht, één per persoon). GEEN AI hier.
+    btn.textContent=`📷 ${idDocs.length} document${idDocs.length>1?'en':''} uploaden…`;
+    const documents=[];
+    for(let i=0;i<idDocs.length;i++){
+      const d=idDocs[i];
+      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(d.blob);});
+      documents.push({image_base64:b64,media_type:d.mime,slot_index:i,page_index:d.pdfPage||0});
+    }
+    const upRes=await fetch(`${SUPABASE_URL}/functions/v1/guest-upload`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+      body:JSON.stringify({token:checkinToken,documents})
+    });
+    if(!upRes.ok){
+      // Boeking staat er, documenten niet → meld het, blokkeer geen tweede boeking.
+      console.error('guest-upload faalde',await upRes.text());
+      toast('⚠️ Aanvraag opgeslagen, maar documenten uploaden mislukte. We sturen je een nieuwe uploadlink.');
     }
 
     // 5. Conceptmail klaarzetten (OGM wordt door dashboard gegenereerd na aanmaak)
