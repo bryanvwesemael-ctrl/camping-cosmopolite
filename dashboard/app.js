@@ -167,59 +167,32 @@ const TODAY=new Date().toISOString().split('T')[0];
 /* Prijzen — eenvoudig aanpasbaar op één plek. Safaritent volgt voorlopig
    dezelfde basis als de andere types (basis + per volwassene/kind) —
    te bevestigen met Karen zodra het exacte safaritent-tarief gekend is. */
-const PRICES={
-  tent:15,camper:15,
-  volwassene:7,kind:5,baby:0,hond:3,extraAuto:2,elektriciteit:6,afvalPer6:2,toeristentaks:1
-};
+// Defaults uit de centrale module (shared/pricing.js). Worden bij het laden
+// overschreven met de actuele tarieven uit Supabase (settings).
+const PRICES=Object.assign({},CampingPricing.DEFAULTS);
+/* Delegeert naar de CENTRALE berekening in shared/pricing.js (single source of
+   truth). Bouwt de genormaliseerde units en behoudt de dashboard-specifieke
+   weergavevelden (stdBasis/extraTypeBasis + per-nacht zonder verbruik). */
 function calcPrice(o){
-  // Standaard types: tent + camper
-  const stdEenheden=(o.tenten||0)+(o.campers||0);
-  const stdBasis=(o.tenten||0)*PRICES.tent+(o.campers||0)*PRICES.camper;
-  // Extra accTypes (safaritent, glamping…): [{id,naam,prijs,count}]
   const extraTypeUnits=o.extraTypeUnits||[];
-  const extraTypeBasis=extraTypeUnits.reduce((s,t)=>(t.count||0)*t.prijs+s,0);
-  const extraTypeEenheden=extraTypeUnits.reduce((s,t)=>(t.count||0)+s,0);
-  const eenheden=stdEenheden+extraTypeEenheden;
-  const basis=stdBasis+extraTypeBasis;
-  // All-in types (bv. backpacker): de typeprijs dekt alles — geen aparte persoons-/afvalkost.
-  // Enkel actief als de boeking uitsluitend uit all-in eenheden bestaat.
-  const allInCount=extraTypeUnits.filter(t=>t.allIn).reduce((s,t)=>s+(t.count||0),0);
-  const normaalCount=stdEenheden+extraTypeUnits.filter(t=>!t.allIn).reduce((s,t)=>s+(t.count||0),0);
-  const allInMode=allInCount>0&&normaalCount===0;
-  const volw=o.volwassenen||0, kind=o.kinderen||0, baby=o.baby||0;
-  const totaalPersonen=volw+kind+baby;
-  const extraAutos=Math.max(0,(o.autos||1)-1);
-  const honden=o.honden||0;
-  const nights=Math.max(o.nights||0,0);
-  // Afval per dag: t/m 6 pers €2/dag, daarna +€2/dag per schijf van 2 personen (× nachten)
-  const _p6=Math.max(totaalPersonen,1);
-  const afvalDag=_p6<=6?PRICES.afvalPer6:PRICES.afvalPer6*(1+Math.ceil((_p6-6)/2));
-  const afval=allInMode?0:afvalDag*nights;
-  // Elektriciteit per dag × nachten
-  const elekDag=o.elektriciteit?PRICES.elektriciteit:0;
-  const elek=elekDag*nights;
-  const taks=volw*PRICES.toeristentaks;
-  const taks_totaal=taks*nights;
-  // Extra vrije kostenposten uit instellingen
-  let extraPerNacht=0,extraEenmalig=0;
-  const extraLines=[];
-  (extraTarieven||[]).forEach(t=>{
-    if(!t.naam||!(parseFloat(t.prijs)>0))return;
-    const p=parseFloat(t.prijs);
-    const cat=t.categorie||'extra';
-    const plaatsen=Math.max(eenheden,1);
-    const pers=Math.max(totaalPersonen,1);
-    const perUnit=cat==='standplaats'?p*plaatsen:cat==='personen'?p*pers:p;
-    if(t.perNacht){extraPerNacht+=perUnit;extraLines.push([`${t.naam} ×${nights}n`,perUnit*nights]);}
-    else{extraEenmalig+=perUnit;extraLines.push([t.naam,perUnit]);}
+  const units=[
+    {prijs:PRICES.tent,count:o.tenten||0,allIn:false},
+    {prijs:PRICES.camper,count:o.campers||0,allIn:false},
+    ...extraTypeUnits.map(t=>({prijs:t.prijs,count:t.count||0,allIn:!!t.allIn})),
+  ];
+  const r=CampingPricing.calc({
+    prices:PRICES, units,
+    volwassenen:o.volwassenen||0, kinderen:o.kinderen||0, baby:o.baby||0,
+    honden:o.honden||0, autos:o.autos||1, elektriciteit:o.elektriciteit,
+    nights:Math.max(o.nights||0,0), extraTarieven:extraTarieven||[],
   });
-  const persoonsKost=allInMode?0:(volw*PRICES.volwassene+kind*PRICES.kind);
-  const diensten_per_nacht=basis+persoonsKost+honden*PRICES.hond+extraAutos*PRICES.extraAuto+extraPerNacht;
-  const diensten_totaal=diensten_per_nacht*nights+elek+afval+extraEenmalig;
-  const btw=Math.round(diensten_totaal*12/112*100)/100;
-  const totaal=Math.round((diensten_totaal+taks_totaal)*100)/100;
-  const perNacht=diensten_per_nacht+taks;
-  return{basis,stdBasis,extraTypeBasis,extraTypeUnits,afval,afvalDag,allInMode,taks,taks_totaal,perNacht,nights,elek,elekDag,btw,diensten_totaal,totaal,personen:totaalPersonen,extraAutos,honden,eenheden,extraLines};
+  const stdBasis=(o.tenten||0)*PRICES.tent+(o.campers||0)*PRICES.camper;
+  const extraTypeBasis=extraTypeUnits.reduce((s,t)=>(t.count||0)*(t.prijs||0)+s,0);
+  // Dashboard toont "per nacht" zonder verbruik (afval/elek staan apart in de lijst)
+  return Object.assign({}, r, {
+    stdBasis, extraTypeBasis, extraTypeUnits,
+    perNacht:CampingPricing.round2(r.dienstenPerNachtExclVerbruik+r.taksPerNacht),
+  });
 }
 function genRef(idOrBooking){
   if(typeof idOrBooking==='object')return idOrBooking.ogm||(idOrBooking.volgnummer?`#${idOrBooking.volgnummer}`:'—');
@@ -264,12 +237,12 @@ function updateNieuwBoekingLabels(){
   const set=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
   set('lblPrijsTent',`€${PRICES.tent}/nacht`);
   set('lblPrijsCamper',`€${PRICES.camper}/nacht`);
-  set('lblPrijsVolw',`€${PRICES.volwassene}/nacht + taks`);
+  set('lblPrijsVolw',`€${PRICES.volwassene}/nacht + €${PRICES.toeristentaks} taks`);
   set('lblPrijsKind',`€${PRICES.kind}/nacht`);
   set('lblPrijsBaby',PRICES.baby>0?`€${PRICES.baby}/nacht`:'gratis');
   set('lblPrijsHond',`€${PRICES.hond}/hond/nacht`);
-  set('lblPrijsAuto',`1e gratis, +€${PRICES.extraAuto}/extra`);
-  set('lblPrijsElek',`+€${PRICES.elektriciteit} eenmalig`);
+  set('lblPrijsAuto',`1e gratis, +€${PRICES.extraAuto}/extra/nacht`);
+  set('lblPrijsElek',`+€${PRICES.elektriciteit}/nacht`);
 }
 
 /* ═══════════ LADEN UIT SUPABASE ═══════════ */

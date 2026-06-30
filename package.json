@@ -1,0 +1,13 @@
+{
+  "name": "camping-cosmopolite",
+  "version": "1.0.0",
+  "description": "Reservatieplatform Camping Cosmopolite — publiek formulier + beheerdashboard (vanilla JS + Supabase).",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "test:unit": "node --test tests/",
+    "test:e2e": "echo \"(e2e: Playwright nog toe te voegen — zie AUDIT_REPORT.md)\" && exit 0",
+    "test:integration": "node --test tests/"
+  },
+  "license": "UNLICENSED"
+}
