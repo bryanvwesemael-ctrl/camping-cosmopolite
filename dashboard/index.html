@@ -167,10 +167,16 @@
   <div class="section-wrap mt16">
     <div class="card">
       <div class="card-hd">
-        <span class="card-title" id="wieIsErTitle">🪪 Wie is er nu?</span>
+        <span class="card-title" id="wieIsErTitle">🪪 Wie is er?</span>
         <button class="card-action" onclick="printPresence()">🖨 Afdrukken</button>
       </div>
-      <div style="padding:0 16px 12px;font-size:12.5px;color:var(--lbl3);line-height:1.5;">Verplichte dagregistratie conform het register toeristenverblijf. Klik op een gast voor het volledige overzicht.</div>
+      <div style="padding:0 16px 10px;">
+        <div style="font-size:12.5px;color:var(--lbl3);line-height:1.5;margin-bottom:10px;">Verwacht en ingecheckt op de gekozen datum. Klik op een gast voor het volledige overzicht.</div>
+        <div class="cell" style="margin:0;"><div class="cell-icon ci-blue">📅</div><div class="cell-body"><div class="cell-lbl">Datum</div><input type="date" id="wieDate" onchange="renderWieIsEr(this.value)"></div></div>
+      </div>
+      <div style="padding:0 16px 12px;">
+        <button class="card-action" style="width:100%;background:rgba(255,59,48,.1);color:var(--red);border-color:rgba(255,59,48,.3);" onclick="openCalamiteiten()">🚨 Calamiteitenlijst nu</button>
+      </div>
       <div class="plist-wrap" id="wieIsErList"></div>
     </div>
   </div>
@@ -292,6 +298,7 @@
   </div>
   <!-- Maandgrid -->
   <div id="calMaandWrap" style="display:none;padding:0 16px 16px;">
+    <div id="calFilters" style="display:flex;gap:6px;overflow-x:auto;padding:0 0 10px;-webkit-overflow-scrolling:touch;"></div>
     <div id="calGrid" class="cal-grid"></div>
   </div>
   <div style="height:8px;"></div>
@@ -1050,6 +1057,20 @@
             <div style="margin-top:6px;font-size:12px;color:var(--lbl3);">De cookiebanner op de publiekswebsite is actief. Enkel functionele cookies (geen analytics) worden geladen zonder toestemming.</div>
           </div>
         </div>
+        <div class="cfg-section-label">🗄️ Bewaartermijn originele ID-afbeeldingen</div>
+        <div class="cfg-card" style="margin-bottom:16px;">
+          <label style="font-size:12.5px;font-weight:700;color:var(--lbl2);">Automatisch verwijderen na vertrek</label>
+          <select id="idRetentionDays" style="width:100%;margin-top:6px;padding:10px;border:1.5px solid var(--sep);border-radius:9px;font-size:14px;background:var(--bg);">
+            <option value="30">30 dagen na vertrek</option>
+            <option value="90" selected>90 dagen na vertrek (aanbevolen)</option>
+            <option value="180">6 maanden na vertrek</option>
+            <option value="365">1 jaar na vertrek</option>
+            <option value="2555">7 jaar (enkel met juridische bevestiging)</option>
+          </select>
+          <div style="margin-top:10px;font-size:11.5px;color:#CC7700;background:rgba(255,149,0,.1);border:1px solid rgba(255,149,0,.3);border-radius:8px;padding:8px 10px;line-height:1.5;">
+            ⚠️ De wettelijke bewaartermijn voor geregistreerde reizigersgegevens betekent niet automatisch dat originele ID-kopieën even lang mogen worden bewaard. Activeer langdurige bewaring enkel wanneer hiervoor een gedocumenteerde rechtsgrond bestaat. De uitgelezen registergegevens blijven los hiervan bewaard.
+          </div>
+        </div>
         <div class="cfg-section-label">📋 DPA's (verwerkersovereenkomsten)</div>
         <div class="cfg-card" style="margin-bottom:16px;">
           <div style="font-size:12.5px;color:var(--lbl2);line-height:2;">
@@ -1301,6 +1322,8 @@
 </div><!-- /appRoot -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../shared/pricing.js"></script>
+<script src="../shared/guests.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
