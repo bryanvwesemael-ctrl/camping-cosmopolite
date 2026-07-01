@@ -2569,6 +2569,7 @@ async function loadSettings(){
   if(cfg.adres){const el=document.getElementById('cfgAdres');if(el)el.value=cfg.adres;}
   if(cfg.gemeente){const el=document.getElementById('cfgGemeente');if(el)el.value=cfg.gemeente;}
   if(cfg.annulering_beleid){const el=document.getElementById('cfgAnnulering');if(el)el.value=cfg.annulering_beleid;}
+  if(cfg.id_bewaartermijn_dagen){const el=document.getElementById('idRetentionDays');if(el)el.value=cfg.id_bewaartermijn_dagen;}
 
   // Herinnering template
   if(cfg.tpl_herinnering_subject){const el=document.getElementById('cfgSubjectHer');if(el)el.value=cfg.tpl_herinnering_subject;}
@@ -2815,6 +2816,7 @@ async function saveJuridisch(){
       ['adres',document.getElementById('cfgAdres')?.value.trim()||''],
       ['gemeente',document.getElementById('cfgGemeente')?.value.trim()||''],
       ['annulering_beleid',document.getElementById('cfgAnnulering')?.value.trim()||''],
+      ['id_bewaartermijn_dagen',document.getElementById('idRetentionDays')?.value||'90'],
     ];
     for(const [key,value] of pairs){
       await sb.from('settings').upsert({user_id:session.user.id,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
