@@ -117,30 +117,54 @@ async function checkSession(){
 }
 sb.auth.onAuthStateChange((_event,_session)=>{checkSession()});
 
-/* ═══════════ REALTIME — live updates voor boekingen ═══════════ */
+/* ═══════════ REALTIME — live updates (meerdere medewerkers tegelijk) ═══════════ */
+// Gedebouncede reload: veel events vlak na elkaar → één reload.
+let _rtTimer=null;
+function scheduleRealtimeRefresh(){
+  clearTimeout(_rtTimer);
+  _rtTimer=setTimeout(async()=>{
+    await loadData();
+    // Als een boekingsdetail openstaat, ook het documentenpaneel/gasten verversen.
+    if(activeBookingId && document.getElementById('shDetail')?.classList.contains('on')){
+      loadBookingDocuments(activeBookingId); loadGasten(activeBookingId);
+    }
+  },400);
+}
 sb.channel('bookings-live')
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bookings'},async payload=>{
+  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bookings'},payload=>{
     const updated=payload.new;
     const idx=bookings.findIndex(b=>b.id===updated.id);
     const oldStatus=idx>=0?bookings[idx].status:null;
     const naam=idx>=0?(bookings[idx].naam||'Gast'):'Gast';
-    // Volledige reload zodat datums, personen, etc. ook bijwerken in Wie is er / Register
-    await loadData();
-    // Toast bij relevante statuswijzigingen
-    if(updated.status==='ingecheckt'&&oldStatus!=='ingecheckt')
+    if(updated.status==='ingecheckt'&&oldStatus&&oldStatus!=='ingecheckt')
       toast(`🏕️ ${naam.split(' ')[0]} heeft ingecheckt!`);
-    if(updated.status==='betaald'&&oldStatus!=='betaald')
+    if(updated.status==='betaald'&&oldStatus&&oldStatus!=='betaald')
       toast(`💶 Betaling ontvangen van ${naam.split(' ')[0]}!`);
+    scheduleRealtimeRefresh();
   })
-  .on('postgres_changes',{event:'INSERT',schema:'public',table:'bookings'},async payload=>{
-    // Nieuwe boeking binnengekomen → melding + geluid + badge
-    notifUnread++;
-    updateNotifBadge();
-    playNotifSound();
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'bookings'},()=>{
+    notifUnread++; updateNotifBadge(); playNotifSound();
     toast('🔔 Nieuwe reservatie binnengekomen!');
-    await loadData();
+    scheduleRealtimeRefresh();
   })
+  .on('postgres_changes',{event:'DELETE',schema:'public',table:'bookings'},()=>scheduleRealtimeRefresh())
+  .on('postgres_changes',{event:'*',schema:'public',table:'gasten'},()=>scheduleRealtimeRefresh())
+  .on('postgres_changes',{event:'*',schema:'public',table:'booking_documents'},()=>scheduleRealtimeRefresh())
   .subscribe();
+
+// Optimistic locking via compare-and-swap op het version-veld. Als de version
+// niet meer klopt (iemand anders wijzigde ondertussen), raakt de update 0 rijen
+// → we melden een conflict i.p.v. stil te overschrijven.
+async function casUpdateBooking(id, patch, expectedVersion){
+  const {data:{user}}=await sb.auth.getUser();
+  patch=Object.assign({updated_by:user?.id||null},patch);
+  let q=sb.from('bookings').update(patch).eq('id',id);
+  if(expectedVersion!=null)q=q.eq('version',expectedVersion);
+  const {data,error}=await q.select('id,version');
+  if(error)return {ok:false,error};
+  if(expectedVersion!=null&&(!data||!data.length))return {ok:false,conflict:true};
+  return {ok:true,row:data&&data[0]};
+}
 
 /* ═══════════ DATA ═══════════ */
 const AV_COLORS=[
@@ -1235,13 +1259,14 @@ async function saveEdit(){
   if(!naam||!aankomst||!vertrek){toast('⚠️ Vul naam en datums in');return}
   if(aankomst>=vertrek){toast('⚠️ Vertrek moet na aankomst zijn');return}
   if(volwassenen+kinderen+baby<1){toast('⚠️ Minstens 1 persoon is verplicht');return}
-  const {error:bErr}=await sb.from('bookings').update({
+  const res=await casUpdateBooking(b.id,{
     aankomst,vertrek,tenten,campers,
     volwassenen,kinderen,baby,honden,autos,
     elektriciteit,bron,bedrag_totaal:bedrag,nota,
     extra_type_units:extraTypeUnits.length?JSON.stringify(extraTypeUnits):null
-  }).eq('id',b.id);
-  if(bErr){toast('⚠️ Opslaan mislukt: '+bErr.message);return}
+  },b.version);
+  if(res.conflict){closeSheet('shEdit');toast('⚠️ Boeking werd ondertussen aangepast — nieuwste versie geladen');await loadData();return;}
+  if(!res.ok){toast('⚠️ Opslaan mislukt: '+(res.error?.message||''));return}
   if(b.clientId){
     const upd={naam,nummerplaten:plaat};
     if(email)upd.email=email;
@@ -1963,17 +1988,15 @@ async function saveDateChange(bookingId,prepMail){
   const newNights=nightCount(na,nv);
   if(!(newNights>0)){toast('⚠️ Ongeldige datums');return;}
   const r=_repriceFor(b,newNights);
-  // Optimistic locking: enkel updaten als de version nog dezelfde is.
-  const {data:cur}=await sb.from('bookings').select('version,aankomst,vertrek').eq('id',bookingId).single();
-  if(cur && b.version!=null && cur.version!==b.version){
-    if(!confirm('⚠️ Deze boeking werd ondertussen door iemand anders aangepast.\n\nOK = toch overschrijven · Annuleren = eerst herladen'))
-      { await loadBookings(); return; }
+  // Optimistic locking via compare-and-swap op version.
+  const res=await casUpdateBooking(bookingId,{aankomst:na,vertrek:nv,bedrag_totaal:r.totaal,bedrag_per_nacht:r.dienstenPerNacht},b.version);
+  if(res.conflict){
+    document.getElementById('dateChangeOverlay')?.remove();
+    toast('⚠️ Boeking werd ondertussen aangepast — nieuwste versie geladen');
+    await loadData();
+    return;
   }
-  const {data:{user}}=await sb.auth.getUser();
-  const {error}=await sb.from('bookings').update({
-    aankomst:na, vertrek:nv, bedrag_totaal:r.totaal, bedrag_per_nacht:r.dienstenPerNacht, updated_by:user?.id||null
-  }).eq('id',bookingId);
-  if(error){toast('⚠️ Opslaan mislukt: '+error.message);return;}
+  if(!res.ok){toast('⚠️ Opslaan mislukt: '+(res.error?.message||''));return;}
   await auditLog('datum_gewijzigd','booking',bookingId,bookingId,
     {oude_waarde:{aankomst:b.aankomst,vertrek:b.vertrek,bedrag:b.bedrag},nieuwe_waarde:{aankomst:na,vertrek:nv,bedrag:r.totaal}});
   document.getElementById('dateChangeOverlay')?.remove();
