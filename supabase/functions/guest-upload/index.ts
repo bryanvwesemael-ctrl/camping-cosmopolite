@@ -48,6 +48,19 @@ Deno.serve(async (req) => {
     if (!token) throw new Error('Geen token meegegeven')
     if (!docs.length) throw new Error('Geen documenten ontvangen')
 
+    // Optionele bot-check: enkel actief wanneer TURNSTILE_SECRET is ingesteld.
+    const TURNSTILE_SECRET = Deno.env.get('TURNSTILE_SECRET')
+    if (TURNSTILE_SECRET) {
+      const tk = body.turnstile_token
+      if (!tk) throw new Error('Bot-verificatie ontbreekt')
+      const vr = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `secret=${encodeURIComponent(TURNSTILE_SECRET)}&response=${encodeURIComponent(tk)}`
+      }).then(r => r.json()).catch(() => ({ success: false }))
+      if (!vr.success) throw new Error('Bot-verificatie mislukt')
+    }
+
     const { data: booking } = await sb
       .from('bookings').select('id,volgnummer').eq('checkin_token', token).maybeSingle()
     if (!booking) throw new Error('Ongeldige of verlopen link')

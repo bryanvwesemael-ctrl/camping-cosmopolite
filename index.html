@@ -221,6 +221,7 @@ button{cursor:pointer;border:none;background:none}
       <div class="sr-info"><div class="sr-title">Akkoord met verwerking gegevens</div><div class="sr-sub">Nodig om je aanvraag te kunnen bevestigen — <a href="/privacy/" target="_blank" style="color:inherit;text-decoration:underline;">privacybeleid</a></div></div>
       <div class="switch" id="swAkkoord" onclick="toggleAkkoord()"></div>
     </div>
+    <div id="turnstileHost" style="margin-top:12px;"></div>
   </div>
 
   <!-- Identiteitsdocumenten — één per persoon -->
@@ -433,10 +434,11 @@ let accommodatieTypes=[
     const {data}=await sb.from('settings').select('key,value').in('key',[
       'prijs_tent','prijs_camper','prijs_volwassene','prijs_kind','prijs_baby',
       'prijs_hond','prijs_extra_auto','prijs_elektriciteit','prijs_afval_per_6',
-      'toeristentaks','prijs_waarborg','extra_tarieven','accommodatie_types'
+      'toeristentaks','prijs_waarborg','extra_tarieven','accommodatie_types','turnstile_site_key'
     ]);
     if(!data||!data.length)return;
     const m={};data.forEach(r=>m[r.key]=r.value);
+    if(m.turnstile_site_key)enableTurnstile(m.turnstile_site_key);
     if(m.prijs_tent){PRICES.tent=parseFloat(m.prijs_tent)||0;accommodatieTypes.find(t=>t.id==='tent').prijs=PRICES.tent;}
     if(m.prijs_camper){PRICES.camper=parseFloat(m.prijs_camper)||0;accommodatieTypes.find(t=>t.id==='camper').prijs=PRICES.camper;}
     if(m.prijs_volwassene)PRICES.volwassene=parseFloat(m.prijs_volwassene)||0;
@@ -796,6 +798,30 @@ function closeConfirm(){
   location.reload();
 }
 
+/* ═══════════ CLOUDFLARE TURNSTILE (bot-check, optioneel) ═══════════ */
+// Slaapt tot een 'turnstile_site_key' in de instellingen staat + TURNSTILE_SECRET
+// als Edge-secret. Dan verschijnt de widget en wordt het token server-side
+// geverifieerd in guest-upload.
+let _turnstileToken=null;
+function enableTurnstile(siteKey){
+  if(window._turnstileOn||!siteKey)return;
+  window._turnstileOn=true;
+  const s=document.createElement('script');
+  s.src='https://challenges.cloudflare.com/turnstile/v0/api.js';s.async=true;s.defer=true;
+  document.head.appendChild(s);
+  const host=document.getElementById('turnstileHost');
+  if(host){
+    const w=document.createElement('div');
+    w.className='cf-turnstile';w.setAttribute('data-sitekey',siteKey);w.setAttribute('data-callback','onTurnstileToken');
+    host.appendChild(w);
+  }
+}
+function onTurnstileToken(t){_turnstileToken=t;}
+function getTurnstileToken(){
+  try{ if(window.turnstile&&turnstile.getResponse)return turnstile.getResponse()||_turnstileToken; }catch(_e){}
+  return _turnstileToken;
+}
+
 async function submitForm(){
   const nights=nightCount();
   const naam=document.getElementById('fNaam').value.trim();
@@ -812,6 +838,7 @@ async function submitForm(){
   if(!naam){ toast('⚠️ Vul je naam in'); document.getElementById('fNaam').focus(); return; }
   if(!email || !email.includes('@')){ toast('⚠️ Vul een geldig e-mailadres in'); document.getElementById('fEmail').focus(); return; }
   if(!state.akkoord){ toast('⚠️ Bevestig akkoord met verwerking van je gegevens'); return; }
+  if(window._turnstileOn && !getTurnstileToken()){ toast('⚠️ Bevestig even dat je geen robot bent'); return; }
 
   // Verplicht: één identiteitsdocument per opgegeven persoon.
   const nPersonen=totalPersons();
@@ -886,7 +913,7 @@ async function submitForm(){
     const upRes=await fetch(`${SUPABASE_URL}/functions/v1/guest-upload`,{
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
-      body:JSON.stringify({token:checkinToken,documents})
+      body:JSON.stringify({token:checkinToken,documents,turnstile_token:getTurnstileToken()})
     });
     if(!upRes.ok){
       // Boeking staat er, documenten niet → meld het, blokkeer geen tweede boeking.
