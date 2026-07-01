@@ -264,7 +264,7 @@ async function loadData(){
       aankomst:row.aankomst, vertrek:row.vertrek, type,
       tenten:row.tenten||0, campers:row.campers||0,
       extraTypeUnits:(()=>{try{return typeof row.extra_type_units==='string'?JSON.parse(row.extra_type_units):(row.extra_type_units||[]);}catch(e){return[];}})(),
-      status:row.status, bron:row.bron, bedrag:row.bedrag_totaal||0,
+      status:row.status, bron:row.bron, bedrag:row.bedrag_totaal||0, version:row.version,
       nota:row.nota||'', honden:row.honden||0, autos:row.autos||1,
       hond:(row.honden||0)>0, extraAuto:(row.autos||0)>1,
       elektriciteit:!!row.elektriciteit,
@@ -280,7 +280,7 @@ async function loadData(){
     }
   });
   renderDashboard();renderBookingList();renderWieIsEr();
-  if(document.getElementById('view-kalender').classList.contains('on'))renderCalendar();
+  if(document.getElementById('view-kalender').classList.contains('on')){if(calViewMode==='maand')renderCalendar_monthView();else renderCalendar();}
   if(document.getElementById('view-analytics').classList.contains('on'))renderAnalytics();
   if(document.getElementById('view-mail').classList.contains('on'))loadMailView();
   checkEveningAlert();
@@ -557,6 +557,7 @@ function openBookingDetail(id){
         <div class="detail-r"><span class="dr-k">Betaalref.</span><span class="dr-v" style="font-size:11px;font-family:monospace;">${genRef(b)}</span></div>
         ${b.nota?`<div class="detail-r"><span class="dr-k">Nota</span><span class="dr-v">${b.nota}</span></div>`:''}
       </div>
+      <button onclick="openDateChangeModal('${b.id}')" style="width:100%;padding:10px;margin-bottom:14px;background:rgba(0,122,255,.08);color:#007AFF;border:1.5px solid rgba(0,122,255,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">📅 Datums wijzigen / verlengen (met herprijzing)</button>
       <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">💶 Betaling</div>
       <div id="paymentInfo" style="margin-bottom:16px;">Laden…</div>
       <div style="font-size:11px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">✅ Controle bij aankomst</div>
@@ -1799,50 +1800,186 @@ function renderCalendar(){
 function prevMonth(){calMonth--;if(calMonth<0){calMonth=11;calYear--}renderCalendar_monthView()}
 function nextMonth(){calMonth++;if(calMonth>11){calMonth=0;calYear++}renderCalendar_monthView()}
 
+const CAL_FILTERS=[
+  {key:'alle',label:'Alles'},
+  {key:'aanvraag',label:'⏳ Aanvraag'},
+  {key:'bevestigd',label:'✅ Bevestigd'},
+  {key:'ingecheckt',label:'🏕️ Ingecheckt'},
+  {key:'betaald',label:'💶 Betaald'},
+  {key:'arr',label:'↓ Aankomsten'},
+  {key:'dep',label:'↑ Vertrekken'},
+  {key:'geannuleerd',label:'🚫 Geannuleerd'},
+];
+let calFilter='alle';
+function setCalFilter(k){calFilter=k;renderCalendar_monthView();}
+function renderCalFilters(){
+  const el=document.getElementById('calFilters');if(!el)return;
+  el.innerHTML=CAL_FILTERS.map(f=>{
+    const on=calFilter===f.key;
+    return`<button onclick="setCalFilter('${f.key}')" style="flex-shrink:0;padding:6px 11px;border-radius:20px;font-size:11.5px;font-weight:700;cursor:pointer;border:1.5px solid ${on?'var(--green)':'var(--sep)'};background:${on?'var(--green)':'#fff'};color:${on?'#fff':'var(--lbl2)'};">${f.label}</button>`;
+  }).join('');
+}
+function ymd(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+
 function renderCalendar_monthView(){
   const DAYS=['Ma','Di','Wo','Do','Vr','Za','Zo'];
   const MONTHS=['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
-  const lbl=`${MONTHS[calMonth]} ${calYear}`;
-  const el=document.getElementById('calMaandLabel');if(el)el.textContent=lbl;
+  const el=document.getElementById('calMaandLabel');if(el)el.textContent=`${MONTHS[calMonth]} ${calYear}`;
+  renderCalFilters();
   const offset=(new Date(calYear,calMonth,1).getDay()+6)%7;
   const dim=new Date(calYear,calMonth+1,0).getDate();
-  // Build event map: key=day, val={arrivals:[],departures:[]}
-  const evMap={};
-  bookings.forEach(b=>{
-    const[ay,am,ad]=b.aankomst.split('-').map(Number);
-    const[vy,vm,vd]=b.vertrek.split('-').map(Number);
-    if(ay===calYear&&am-1===calMonth){
-      if(!evMap[ad])evMap[ad]={arr:[],dep:[]};evMap[ad].arr.push(b)
-    }
-    if(vy===calYear&&vm-1===calMonth){
-      if(!evMap[vd])evMap[vd]={arr:[],dep:[]};evMap[vd].dep.push(b)
-    }
-  });
   const td=new Date(TODAY);
+  const active=bookings.filter(b=>b.status!=='geannuleerd'||calFilter==='geannuleerd');
+  const statusFilter=['aanvraag','bevestigd','ingecheckt','betaald','geannuleerd'].includes(calFilter)?calFilter:null;
+
   let html=DAYS.map(d=>`<div class="cal-dh">${d}</div>`).join('');
   for(let i=0;i<offset;i++)html+=`<div></div>`;
+
   for(let d=1;d<=dim;d++){
-    const ev=evMap[d];
+    const ds=ymd(calYear,calMonth,d);
     const isToday=(calYear===td.getFullYear()&&calMonth===td.getMonth()&&d===td.getDate());
-    const hasEv=ev&&(ev.arr.length||ev.dep.length);
-    const cls=[isToday?'today':'',hasEv?'has-ev':''].join(' ');
-    let minis='';
-    if(ev){
-      minis='<div class="cal-minis">';
-      ev.arr.slice(0,2).forEach(b=>{
-        const c=avColor(b.id);
-        minis+=`<div class="cal-mini" style="background:${c.bg};color:${c.fg};">${b.naam[0]}</div>`
-      });
-      if(ev.arr.length>2)minis+=`<div class="cal-mini" style="background:rgba(52,199,89,.15);color:#1A7A35;">+${ev.arr.length-2}</div>`;
-      ev.dep.slice(0,1).forEach(b=>{
-        minis+=`<div class="cal-dep-chip">→</div>`
-      });
-      minis+='</div>'
+    const arr=active.filter(b=>CampingGuests.isArrival(b,ds));
+    const dep=active.filter(b=>CampingGuests.isDeparture(b,ds));
+    const stay=active.filter(b=>CampingGuests.isPresentOn(b,ds));
+    const presentPersonen=stay.reduce((s,b)=>s+(b.personen||0),0);
+
+    // Welke boekingen tonen we als chip op deze dag? (afhankelijk van filter)
+    let chipsB;
+    if(calFilter==='arr')chipsB=arr;
+    else if(calFilter==='dep')chipsB=dep;
+    else{
+      // stay (incl. aankomstdag) + vertrekkers die die dag weggaan
+      const map=new Map();stay.forEach(b=>map.set(b.id,b));dep.forEach(b=>map.set(b.id,b));
+      chipsB=[...map.values()];
     }
-    const clickFn=hasEv?`openDayDetail(${d})`:'';
-    html+=`<div class="cal-d ${cls}" ${clickFn?`onclick="${clickFn}"`:''}><div class="cal-d-num">${d}</div>${minis}</div>`
+    if(statusFilter)chipsB=chipsB.filter(b=>b.status===statusFilter);
+    chipsB.sort((a,b)=>a.aankomst.localeCompare(b.aankomst));
+
+    const hasEv=arr.length||dep.length||stay.length;
+    const cls=[isToday?'today':'',hasEv&&!isToday?'has-ev':''].join(' ').trim();
+
+    // Dagtotalen bovenaan de cel.
+    let totals='';
+    if(arr.length||dep.length||presentPersonen){
+      totals=`<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;font-size:8.5px;font-weight:800;line-height:1;margin-bottom:2px;">
+        ${arr.length?`<span style="color:${isToday?'#fff':'#1A7A35'};">↓${arr.length}</span>`:''}
+        ${dep.length?`<span style="color:${isToday?'#fff':'#CC7700'};">↑${dep.length}</span>`:''}
+        ${presentPersonen?`<span style="color:${isToday?'#fff':'var(--lbl3)'};">👥${presentPersonen}</span>`:''}
+      </div>`;
+    }
+
+    // Chips (doorlopende balkjes met marker).
+    const MAXCHIPS=3;
+    let chips='';
+    chipsB.slice(0,MAXCHIPS).forEach(b=>{
+      const color=GANTT_COLORS[b.status]||'#8E8E93';
+      const isArr=CampingGuests.isArrival(b,ds), isDep=CampingGuests.isDeparture(b,ds);
+      const marker=isArr?'↓':isDep?'↑':'';
+      chips+=`<div onclick="event.stopPropagation();openBookingDetail('${b.id}')" title="${escHtml(b.naam)} · ${b.personen}p · ${b.type||''}"
+        style="display:flex;align-items:center;gap:2px;background:${color};color:#fff;border-radius:${isArr?'6px':'0'} ${isDep?'6px':'0'} ${isDep?'6px':'0'} ${isArr?'6px':'0'};padding:1px 4px;margin-bottom:2px;font-size:8.5px;font-weight:700;line-height:1.4;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;">
+        <span style="flex-shrink:0;">${marker}</span><span style="overflow:hidden;text-overflow:ellipsis;">${escHtml((b.naam||'').split(' ')[0])}</span>
+      </div>`;
+    });
+    if(chipsB.length>MAXCHIPS){
+      chips+=`<div onclick="event.stopPropagation();openDayDetail(${d})" style="font-size:8.5px;font-weight:800;color:${isToday?'#fff':'var(--green)'};cursor:pointer;">+${chipsB.length-MAXCHIPS} meer</div>`;
+    }
+
+    const clickFn=hasEv?`onclick="openDayDetail(${d})"`:'';
+    html+=`<div class="cal-d ${cls}" style="min-height:70px;align-items:stretch;" ${clickFn}>
+      <div class="cal-d-num" style="text-align:center;">${d}</div>
+      ${totals}
+      <div style="width:100%;">${chips}</div>
+    </div>`;
   }
-  document.getElementById('calGrid').innerHTML=html
+  document.getElementById('calGrid').innerHTML=html;
+}
+
+/* ═══════════ DATUMS WIJZIGEN + HERPRIJZING (sectie 24-25) ═══════════ */
+// Overlay met datumkiezers + LIVE prijsvergelijking. Wijzigt nooit stilzwijgend:
+// Karen ziet oud/nieuw bedrag en verschil voordat ze opslaat.
+async function openDateChangeModal(bookingId){
+  const b=bookings.find(x=>x.id===bookingId);if(!b)return;
+  // Reeds betaald ophalen.
+  const {data:pays}=await sb.from('payments').select('bedrag,status').eq('booking_id',bookingId).eq('status','paid');
+  const betaald=(pays||[]).reduce((s,p)=>s+Number(p.bedrag||0),0);
+  let ov=document.getElementById('dateChangeOverlay');
+  if(ov)ov.remove();
+  ov=document.createElement('div');
+  ov.id='dateChangeOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  ov.innerHTML=`<div style="background:#fff;width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:18px 18px 24px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-size:16px;font-weight:800;color:var(--lbl1);">📅 Datums wijzigen — ${escHtml(b.naam)}</div>
+      <button onclick="document.getElementById('dateChangeOverlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--lbl3);">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
+      <div><label style="font-size:11px;font-weight:700;color:var(--lbl3);">Aankomst</label>
+        <input type="date" id="dcAankomst" value="${b.aankomst}" onchange="updateDateChangePreview('${bookingId}')" style="width:100%;padding:9px;border:1.5px solid var(--sep);border-radius:9px;font-size:14px;"></div>
+      <div><label style="font-size:11px;font-weight:700;color:var(--lbl3);">Vertrek</label>
+        <input type="date" id="dcVertrek" value="${b.vertrek}" onchange="updateDateChangePreview('${bookingId}')" style="width:100%;padding:9px;border:1.5px solid var(--sep);border-radius:9px;font-size:14px;"></div>
+    </div>
+    <div id="dcPreview" data-betaald="${betaald}"></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
+      <button onclick="saveDateChange('${bookingId}',false)" style="padding:12px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;">💾 Opslaan (geen klantmail)</button>
+      <button onclick="saveDateChange('${bookingId}',true)" style="padding:12px;background:rgba(0,122,255,.1);color:#007AFF;border:1.5px solid #007AFF;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;">💾 Opslaan + wijzigingsmail voorbereiden</button>
+      <button onclick="document.getElementById('dateChangeOverlay').remove()" style="padding:11px;background:none;color:var(--lbl3);border:1.5px solid var(--sep);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Annuleren</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  updateDateChangePreview(bookingId);
+}
+function _repriceFor(b,nights){
+  return calcPrice({tenten:b.tenten,campers:b.campers,extraTypeUnits:b.extraTypeUnits,
+    volwassenen:b.volwassenen,kinderen:b.kinderen,baby:b.baby,honden:b.honden,autos:b.autos,
+    elektriciteit:b.elektriciteit,nights});
+}
+function updateDateChangePreview(bookingId){
+  const b=bookings.find(x=>x.id===bookingId);if(!b)return;
+  const pv=document.getElementById('dcPreview');if(!pv)return;
+  const na=document.getElementById('dcAankomst').value, nv=document.getElementById('dcVertrek').value;
+  const betaald=Number(pv.dataset.betaald||0);
+  const oldNights=nightCount(b.aankomst,b.vertrek);
+  const newNights=nightCount(na,nv);
+  if(!(newNights>0)){pv.innerHTML='<div style="color:var(--red);font-size:13px;padding:8px 0;">⚠️ Vertrek moet na aankomst liggen.</div>';return;}
+  const oldTot=Number(b.bedrag||0);
+  const newTot=_repriceFor(b,newNights).totaal;
+  const diff=CampingPricing.round2(newTot-oldTot);
+  const openstaand=CampingPricing.round2(newTot-betaald);
+  const row=(k,v,c)=>`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;${c||''}"><span style="color:var(--lbl3);">${k}</span><span style="font-weight:700;">${v}</span></div>`;
+  const teveel=betaald>newTot+0.001;
+  pv.innerHTML=`<div style="background:var(--bg);border:1.5px solid var(--sep);border-radius:12px;padding:12px 14px;margin-top:4px;">
+    ${row('Nachten',`${oldNights} → <b style="color:var(--lbl1)">${newNights}</b>`)}
+    ${row('Oud bedrag',fmt(oldTot))}
+    ${row('Nieuw bedrag',fmt(newTot))}
+    ${row('Verschil',(diff>=0?'+':'')+fmt(diff),diff!==0?`color:${diff>0?'#CC7700':'#1A7A35'};`:'')}
+    ${row('Reeds betaald',fmt(betaald))}
+    ${row(teveel?'⚠️ Te veel betaald':'Nieuw openstaand saldo',fmt(Math.abs(openstaand)),`color:${teveel?'#CC7700':openstaand>0?'var(--red)':'var(--green)'};font-weight:800;`)}
+    ${teveel?`<div style="font-size:11px;color:#CC7700;margin-top:6px;">Terugbetaling nodig — gebeurt nooit automatisch.</div>`:''}
+  </div>`;
+}
+async function saveDateChange(bookingId,prepMail){
+  const b=bookings.find(x=>x.id===bookingId);if(!b)return;
+  const na=document.getElementById('dcAankomst').value, nv=document.getElementById('dcVertrek').value;
+  const newNights=nightCount(na,nv);
+  if(!(newNights>0)){toast('⚠️ Ongeldige datums');return;}
+  const r=_repriceFor(b,newNights);
+  // Optimistic locking: enkel updaten als de version nog dezelfde is.
+  const {data:cur}=await sb.from('bookings').select('version,aankomst,vertrek').eq('id',bookingId).single();
+  if(cur && b.version!=null && cur.version!==b.version){
+    if(!confirm('⚠️ Deze boeking werd ondertussen door iemand anders aangepast.\n\nOK = toch overschrijven · Annuleren = eerst herladen'))
+      { await loadBookings(); return; }
+  }
+  const {data:{user}}=await sb.auth.getUser();
+  const {error}=await sb.from('bookings').update({
+    aankomst:na, vertrek:nv, bedrag_totaal:r.totaal, bedrag_per_nacht:r.dienstenPerNacht, updated_by:user?.id||null
+  }).eq('id',bookingId);
+  if(error){toast('⚠️ Opslaan mislukt: '+error.message);return;}
+  await auditLog('datum_gewijzigd','booking',bookingId,bookingId,
+    {oude_waarde:{aankomst:b.aankomst,vertrek:b.vertrek,bedrag:b.bedrag},nieuwe_waarde:{aankomst:na,vertrek:nv,bedrag:r.totaal}});
+  document.getElementById('dateChangeOverlay')?.remove();
+  toast('✅ Datums bijgewerkt');
+  await loadBookings(); // ververst kalender, wie is er, register, lijst, analytics
+  if(prepMail){ closeSheet('shDetail'); prepareMail(bookingId); }
 }
 
 function openDayDetail(d){
