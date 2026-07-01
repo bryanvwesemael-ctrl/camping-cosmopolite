@@ -42,8 +42,10 @@
   function presenceCategory(booking, dateStr) {
     if (!isPresentOn(booking, dateStr)) return null;
     if (booking.status === 'ingecheckt') return 'ingecheckt';
-    if (booking.status === 'geannuleerd' || booking.status === 'uitgecheckt') return null;
-    return 'verwacht';
+    // Enkel bevestigde/aangevraagde/betaalde boekingen tellen als 'verwacht'.
+    // wachtlijst/geannuleerd/uitgecheckt → niet aanwezig.
+    if (['aanvraag', 'bevestigd', 'betaald'].indexOf(booking.status) !== -1) return 'verwacht';
+    return null;
   }
 
   // Maskeer een gevoelig nummer: toon enkel de laatste 4 tekens (sectie 15).

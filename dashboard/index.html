@@ -167,10 +167,16 @@
   <div class="section-wrap mt16">
     <div class="card">
       <div class="card-hd">
-        <span class="card-title" id="wieIsErTitle">🪪 Wie is er nu?</span>
+        <span class="card-title" id="wieIsErTitle">🪪 Wie is er?</span>
         <button class="card-action" onclick="printPresence()">🖨 Afdrukken</button>
       </div>
-      <div style="padding:0 16px 12px;font-size:12.5px;color:var(--lbl3);line-height:1.5;">Verplichte dagregistratie conform het register toeristenverblijf. Klik op een gast voor het volledige overzicht.</div>
+      <div style="padding:0 16px 10px;">
+        <div style="font-size:12.5px;color:var(--lbl3);line-height:1.5;margin-bottom:10px;">Verwacht en ingecheckt op de gekozen datum. Klik op een gast voor het volledige overzicht.</div>
+        <div class="cell" style="margin:0;"><div class="cell-icon ci-blue">📅</div><div class="cell-body"><div class="cell-lbl">Datum</div><input type="date" id="wieDate" onchange="renderWieIsEr(this.value)"></div></div>
+      </div>
+      <div style="padding:0 16px 12px;">
+        <button class="card-action" style="width:100%;background:rgba(255,59,48,.1);color:var(--red);border-color:rgba(255,59,48,.3);" onclick="openCalamiteiten()">🚨 Calamiteitenlijst nu</button>
+      </div>
       <div class="plist-wrap" id="wieIsErList"></div>
     </div>
   </div>

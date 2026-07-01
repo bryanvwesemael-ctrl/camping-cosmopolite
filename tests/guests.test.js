@@ -42,8 +42,10 @@ test('presenceCategory: verwacht vs ingecheckt', () => {
   const datum = '2026-07-11';
   assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'bevestigd' }, datum), 'verwacht');
   assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'aanvraag' }, datum), 'verwacht');
+  assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'betaald' }, datum), 'verwacht');
   assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'ingecheckt' }, datum), 'ingecheckt');
   assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'uitgecheckt' }, datum), null);
+  assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'wachtlijst' }, datum), null);
 });
 
 test('maskId toont enkel laatste 4 tekens', () => {
