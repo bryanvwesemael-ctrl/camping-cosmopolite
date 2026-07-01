@@ -2171,7 +2171,7 @@ async function openWieIsErDetail(id){
   html+=alleGasten.map(g=>`
     <div style="background:#F9F9FB;border-radius:8px;padding:8px 10px;margin-bottom:5px;font-size:12px;">
       <div style="font-weight:700;color:var(--lbl1);">${g.voornaam} ${g.achternaam} <span style="font-size:10px;font-weight:500;color:var(--lbl4);">${g.rol}</span></div>
-      <div style="color:var(--lbl3);margin-top:2px;">📅 ${g.geboortedatum||'—'} · 🌍 ${g.nationaliteit||'—'} · 🪪 ${g.id_nummer?CampingGuests.maskId(g.id_nummer):'—'}</div>
+      <div style="color:var(--lbl3);margin-top:2px;">📅 ${g.geboortedatum||'—'} · 🌍 ${g.nationaliteit||'—'} · 🪪 ${g.id_nummer||'—'}</div>
     </div>`).join('');
   if(alleGasten.length<b.personen){
     html+=`<div style="font-size:11px;color:#FF9500;font-weight:600;margin-top:4px;">⚠️ ${b.personen-alleGasten.length} persoon/personen nog niet geregistreerd</div>`;
@@ -2260,7 +2260,7 @@ async function renderRegister(date){
         <td style="padding:7px 6px;">${r.geboorteplaats||'—'}</td>
         <td style="padding:7px 6px;">${r.nationaliteit||'—'}</td>
         <td style="padding:7px 6px;">${r.documenttype||'—'}</td>
-        <td style="padding:7px 6px;font-family:monospace;${!r.idnr?'color:var(--red);font-weight:600;':''}">${r.idnr?CampingGuests.maskId(r.idnr):'❌'}</td>
+        <td style="padding:7px 6px;font-family:monospace;${!r.idnr?'color:var(--red);font-weight:600;':''}">${r.idnr||'❌'}</td>
         <td style="padding:7px 6px;font-family:monospace;">${r.nummerplaat||'—'}</td>
         <td style="padding:7px 6px;">${fmtDateLong(r.aankomst)}</td>
         <td style="padding:7px 6px;${r.isVertrek?'color:var(--orange);font-weight:700;':''}">${fmtDateLong(r.vertrek)}${r.isVertrek?' ↑':''}</td>
