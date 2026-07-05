@@ -637,7 +637,7 @@ async function loadPaymentInfo(bookingId){
   const el=document.getElementById('paymentInfo');if(!el)return;
   const b=bookings.find(x=>x.id===bookingId);
   const totaal=Number(b?.bedrag||0);
-  const {data}=await sb.from('payments').select('bedrag,status,created_at').eq('booking_id',bookingId).order('created_at');
+  const {data}=await sb.from('payments').select('bedrag,status,created_at,methode').eq('booking_id',bookingId).order('created_at');
   const betaaldRows=(data||[]).filter(p=>p.status==='paid');
   const betaald=betaaldRows.reduce((s,p)=>s+Number(p.bedrag||0),0);
   const open=Math.round((totaal-betaald)*100)/100;
@@ -669,14 +669,44 @@ async function loadPaymentInfo(bookingId){
       <!-- Betalingshistoriek -->
       ${betaaldRows.length?`<div style="margin-bottom:10px;">${betaaldRows.map(p=>`
         <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--lbl3);padding:3px 0;">
-          <span>💳 Mollie — ${new Date(p.created_at).toLocaleDateString('nl-BE',{day:'numeric',month:'short'})}</span>
+          <span>${p.methode==='cash'?'💵 Cash':'💳 Mollie'} — ${new Date(p.created_at).toLocaleDateString('nl-BE',{day:'numeric',month:'short'})}</span>
           <span style="color:var(--green);font-weight:700;">+€${Number(p.bedrag).toFixed(2)}</span>
         </div>`).join('')}</div>`:''}
-      <!-- Actieknop -->
+      <!-- Actieknoppen -->
       ${!volledig
-        ?`<button onclick="stuurBetaallink('${bookingId}')" style="width:100%;padding:11px;background:linear-gradient(135deg,#5856D6,#7C3AED);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💳 ${betaald>0?'Bijbetaling':'Betaallink'} sturen — €${Math.max(0,open).toFixed(2)}</button>`
+        ?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button onclick="stuurBetaallink('${bookingId}')" style="padding:11px;background:linear-gradient(135deg,#5856D6,#7C3AED);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;">💳 ${betaald>0?'Bijbetaling':'Betaallink'}</button>
+            <button onclick="registerCashPayment('${bookingId}',${Math.max(0,open).toFixed(2)})" style="padding:11px;background:rgba(27,138,91,.1);color:var(--green);border:1.5px solid var(--green);border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;">💵 Cash betaald</button>
+          </div>
+          <div style="font-size:11px;color:var(--lbl4);text-align:center;margin-top:6px;">Openstaand: €${Math.max(0,open).toFixed(2)}</div>`
         :`<div style="text-align:center;font-size:13px;color:var(--green);font-weight:700;padding:6px 0;">✅ Volledig betaald — geen openstaand saldo</div>`}
     </div>`;
+}
+
+// Registreert een contant betaald bedrag. Standaard het openstaande saldo; je
+// kan een ander bedrag ingeven (deelbetaling). Werkt naast Mollie.
+async function registerCashPayment(bookingId, openstaand){
+  const inp=prompt(`Cash ontvangen bedrag (€):`, String(openstaand||''));
+  if(inp===null)return;
+  const bedrag=Math.round(parseFloat(String(inp).replace(',','.'))*100)/100;
+  if(!(bedrag>0)){toast('⚠️ Geef een geldig bedrag in');return;}
+  const {error}=await sb.from('payments').insert({
+    booking_id:bookingId, bedrag, status:'paid', methode:'cash', betaald_at:new Date().toISOString()
+  });
+  if(error){toast('⚠️ Opslaan mislukt: '+error.message);return;}
+  await auditLog('cash_betaling_geregistreerd','booking',bookingId,bookingId,{nieuwe_waarde:{bedrag}});
+
+  // Betaalstatus afleiden uit som van betaalde betalingen vs totaal.
+  const b=bookings.find(x=>x.id===bookingId);
+  const {data:paidRows}=await sb.from('payments').select('bedrag').eq('booking_id',bookingId).eq('status','paid');
+  const reedsBetaald=(paidRows||[]).reduce((s,p)=>s+Number(p.bedrag||0),0);
+  const totaal=Number(b?.bedrag||0);
+  if(totaal>0 && reedsBetaald+0.005>=totaal && b?.status!=='ingecheckt' && b?.status!=='geannuleerd'){
+    await casUpdateBooking(bookingId,{status:'betaald'},b?.version);
+  }
+  toast(`✅ €${bedrag.toFixed(2)} cash geregistreerd`);
+  await loadData();
+  loadPaymentInfo(bookingId);
 }
 function switchDetailTab(tab){
   ['info','gasten','mail'].forEach(t=>{
@@ -1282,25 +1312,24 @@ async function saveEdit(){
 function priceBreakdownHtml(p){
   if(!p)return'<div class="price-row muted"><span>Vul aankomst, vertrek en verblijfstype in…</span></div>';
   let rows='';
-  // Itemlijst: per nacht tarieven
-  if((p.stdBasis||0)>0)rows+=`<div class="price-row"><span>🏕️ Standplaats (${p.nights}n)</span><span>€${(p.stdBasis*p.nights).toFixed(2)}</span></div>`;
-  (p.extraTypeUnits||[]).forEach(t=>{if(t.count>0)rows+=`<div class="price-row"><span>${t.emoji||'🏕️'} ${t.naam} (${t.count}× × ${p.nights}n)</span><span>€${(t.count*t.prijs*p.nights).toFixed(2)}</span></div>`;});
+  // Itemlijst: alle tarieven PER DAG. Op het einde × aantal dagen = totaal.
+  // Zo is meteen duidelijk wat één extra dag kost.
+  const perDag=(lbl,val)=>`<div class="price-row"><span>${lbl} <span style="font-size:10px;opacity:.6;">/dag</span></span><span>€${(val||0).toFixed(2)}</span></div>`;
+  if((p.stdBasis||0)>0)rows+=perDag('🏕️ Standplaats',p.stdBasis);
+  (p.extraTypeUnits||[]).forEach(t=>{if(t.count>0)rows+=perDag(`${t.emoji||'🏕️'} ${t.naam} (${t.count}×)`,t.count*t.prijs);});
   if(p.allInMode){rows+=`<div class="price-row muted"><span>✅ All-in — ${p.personen}p inbegrepen</span><span>—</span></div>`;}
-  else if(p.personen>0){
-    const personKost=(p.diensten_totaal-(p.basis||0)*p.nights-p.elek-p.afval-(p.extraLines||[]).reduce((s,[,v])=>s+v,0)-(p.extraAutos||0)*PRICES.extraAuto*p.nights-(p.honden||0)*PRICES.hond*p.nights);
-    rows+=`<div class="price-row"><span>👥 Personen (${p.personen}p × ${p.nights}n)</span><span>€${Math.max(0,personKost).toFixed(2)}</span></div>`;
-  }
-  if((p.honden||0)>0)rows+=`<div class="price-row"><span>🐕 Honden (${p.honden} × ${p.nights}n)</span><span>€${(p.honden*PRICES.hond*p.nights).toFixed(2)}</span></div>`;
-  if((p.extraAutos||0)>0)rows+=`<div class="price-row"><span>🚗 Extra auto's (${p.extraAutos} × ${p.nights}n)</span><span>€${(p.extraAutos*PRICES.extraAuto*p.nights).toFixed(2)}</span></div>`;
-  (p.extraLines||[]).forEach(([l,v])=>{rows+=`<div class="price-row"><span>➕ ${l}</span><span>€${v.toFixed(2)}</span></div>`;});
-  if(!p.allInMode)rows+=`<div class="price-row"><span>♻️ Afval (€${(p.afvalDag||0).toFixed(2)}/dag × ${p.nights}n)</span><span>€${p.afval.toFixed(2)}</span></div>`;
-  if(p.elek)rows+=`<div class="price-row"><span>⚡ Elektriciteit (€${(p.elekDag||0).toFixed(2)}/dag × ${p.nights}n)</span><span>€${p.elek.toFixed(2)}</span></div>`;
-  rows+=`<div class="price-row"><span>🏛️ Toeristentaks (BTW-vrij)</span><span>€${p.taks_totaal.toFixed(2)}</span></div>`;
-  rows+=`<div class="price-row muted"><span>📊 BTW 12% (reeds inbegrepen)</span><span>€${p.btw.toFixed(2)}</span></div>`;
-  // Per-nacht subtotaal + nachten-rij (zelfde concept als publiek formulier)
-  const dienstenZonderTaks=p.totaal-p.taks_totaal;
-  rows+=`<div class="price-row subtotal"><span>Totaal per nacht (excl. BTW)</span><span>€${(p.perNacht||0).toFixed(2)}</span></div>`;
-  rows+=`<div class="price-row nights-line"><span>× ${p.nights} nacht${p.nights===1?'':'en'}</span><span>€${dienstenZonderTaks.toFixed(2)} + €${p.taks_totaal.toFixed(2)} taks</span></div>`;
+  else if(p.personen>0){rows+=perDag(`👥 Personen (${p.personen}p)`,p.persoonsKost);}
+  if((p.honden||0)>0)rows+=perDag(`🐕 Honden (${p.honden})`,p.hondKost);
+  if((p.extraAutos||0)>0)rows+=perDag(`🚗 Extra auto's (${p.extraAutos})`,p.extraAutoKost);
+  if(!p.allInMode&&(p.afvalDag||0)>0)rows+=perDag('♻️ Afval',p.afvalDag);
+  if(p.elek)rows+=perDag('⚡ Elektriciteit',p.elekDag);
+  if((p.taksPerNacht||0)>0)rows+=perDag('🏛️ Toeristentaks',p.taksPerNacht);
+  // Subtotaal per dag + × dagen = totaal.
+  const eenmalig=p.extraEenmalig||0;
+  rows+=`<div class="price-row subtotal"><span><b>Subtotaal per dag</b> (incl. taks)</span><span><b>€${(p.perNacht||0).toFixed(2)}</b></span></div>`;
+  rows+=`<div class="price-row nights-line"><span>× ${p.nights} dag${p.nights===1?'':'en'}${eenmalig>0?' + eenmalig':''}</span><span>€${((p.perNacht||0)*p.nights+eenmalig).toFixed(2)}</span></div>`;
+  if(eenmalig>0)rows+=`<div class="price-row muted"><span>➕ Eenmalige kosten</span><span>€${eenmalig.toFixed(2)}</span></div>`;
+  rows+=`<div class="price-row muted"><span>📊 incl. €${p.btw.toFixed(2)} BTW (12%)</span><span></span></div>`;
   rows+=`<div class="price-row total"><span>Totaal te betalen</span><span>€${p.totaal.toFixed(2)}</span></div>`;
   return rows;
 }
@@ -3242,8 +3271,15 @@ function resetGuestFotoUI(){
   const p=document.getElementById('guestFotoPreview');if(p){p.style.display='none';p.src='';}
   const h=document.getElementById('gIdAiHint');if(h)h.textContent='';
 }
+// Opent meteen de camera (gsm/tablet) om een ID te scannen; zet toestemming aan.
+function scanIdDirect(){
+  const c=document.getElementById('gIdConsent');if(c)c.checked=true;
+  const w=document.getElementById('gIdFotoWrap');if(w)w.style.display='block';
+  const f=document.getElementById('gIdFoto');if(f)f.click();
+}
 function previewGuestFoto(input){
   const f=input.files?.[0];const img=document.getElementById('guestFotoPreview');
+  const c=document.getElementById('gIdConsent');if(c&&f)c.checked=true; // foto = impliciete toestemming
   if(f&&img){img.src=URL.createObjectURL(f);img.style.display='block';}
   const sb2=document.getElementById('gScanBtn');if(sb2)sb2.style.display=f?'block':'none';
 }

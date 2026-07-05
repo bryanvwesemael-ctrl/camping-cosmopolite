@@ -767,17 +767,19 @@ function calc(){
   if(extraAutoKost>0) lines.push([`🚗 Extra auto's (${state.autos-1} × €${PRICES.extraAuto}/n)`, extraAutoKost]);
   if(afvalKost>0) lines.push([`♻️ Afval (€${afvalKost}/nacht)`, afvalKost]);
   extraLines.forEach(([lbl,val])=>lines.push([lbl,val]));
-  if(state.elek) lines.push([`⚡ Elektriciteit (€${PRICES.elektriciteit}/nacht)`, elekKost]);
-  if(taks_totaal>0) lines.push([`🏛️ Toeristentaks (BTW-vrij)`, taks_totaal]);
-  if(btw>0) lines.push([`📋 BTW 12% (reeds inbegrepen)`, btw]);
+  if(state.elek) lines.push([`⚡ Elektriciteit (€${PRICES.elektriciteit}/dag)`, elekKost]);
+  if(r.taksPerNacht>0) lines.push([`🏛️ Toeristentaks (${state.volwassenen} × €${PRICES.toeristentaks}/dag)`, r.taksPerNacht]);
+  // Eenmalige extra kosten (niet × dagen) — apart onderaan.
+  const eenmalig = r.extraEenmalig||0;
+  if(eenmalig>0) lines.push([`➕ Eenmalige kosten`, eenmalig, false, false, true]);
   if(waarborg>0) lines.push([`🔒 Waarborg (cash bij aankomst, terugbetaalbaar)`, waarborg, false, true]);
 
-  document.getElementById('priceLines').innerHTML = lines.map(([l,v,gratis,isWaarborg])=>`
+  document.getElementById('priceLines').innerHTML = lines.map(([l,v,gratis,isWaarborg,isEenmalig])=>`
     <div class="pl" ${isWaarborg?'style="border-top:1.5px dashed var(--sep);margin-top:6px;padding-top:8px;color:var(--lbl3);"':''}>
-      <span>${l}</span><b>${gratis?'Gratis':fmt(v)}</b>
+      <span>${l}${isEenmalig?' <span style="font-size:10px;color:var(--lbl4);">(eenmalig)</span>':(!isWaarborg&&!gratis?' <span style="font-size:10px;color:var(--lbl4);">/dag</span>':'')}</span><b>${gratis?'Gratis':fmt(v)}</b>
     </div>`).join('') || '<div class="pl"><span>Vul de velden hierboven in…</span><span>—</span></div>';
-  document.getElementById('plPerNacht').innerHTML = `<span>Totaal per nacht (excl. BTW)</span><span>${fmt(perNacht)}</span>`;
-  document.getElementById('plNachtenLine').innerHTML = `<span>× ${nights} nacht${nights===1?'':'en'}</span><span>${fmt(nachtenLineVal)}</span>`;
+  document.getElementById('plPerNacht').innerHTML = `<span><b>Subtotaal per dag</b> (incl. taks)</span><span><b>${fmt(perNacht)}</b></span>`;
+  document.getElementById('plNachtenLine').innerHTML = `<span>× ${nights} dag${nights===1?'':'en'}${eenmalig>0?' + eenmalig':''}</span><span><b>${fmt(perNacht*nights+eenmalig)}</b></span>`;
   document.getElementById('plElekLine').style.display='none';
   document.getElementById('totaalVal').textContent = fmt(totaal) + (waarborg>0 ? ` + ${fmt(waarborg)} waarborg` : '');
   document.getElementById('barTotaal').textContent = fmt(totaal);
