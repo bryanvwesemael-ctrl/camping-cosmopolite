@@ -1458,7 +1458,7 @@ function previewFoto(e,prefix){
 }
 
 /* ═══════════ ADD BOOKING ═══════════ */
-async function addBooking(){
+async function addBooking(asConcept=false){
   const naam=document.getElementById('fNaam').value.trim();
   const email=document.getElementById('fEmail').value.trim();
   const plaat=document.getElementById('fPlaat').value.trim();
@@ -1496,26 +1496,72 @@ async function addBooking(){
   extraTypeUnits.forEach(t=>typeParts.push(`${t.count}× ${t.naam}`));
   const verblijfstype=typeParts.join(' + ')||'Tent';
   const clientEmail=email||`geen-email+${Date.now()}@cosmopolite.local`;
-  const {data:client,error:cErr}=await sb.from('clients').insert({naam,nummerplaten:plaat,email:clientEmail}).select().single();
-  if(cErr){toast('⚠️ Klant aanmaken mislukt: '+cErr.message);return}
   // Voor extra eenheden (safaritent e.d.): sla op als tenten=count zodat capaciteit klopt
   const dbTenten=tenten+(extraTypeUnits.reduce((s,t)=>s+t.count,0));
-  const {data:newBooking,error:bErr}=await sb.from('bookings').insert({
-    client_id:client.id,aankomst,vertrek,
-    tenten:dbTenten,campers,verblijfstype,
-    volwassenen,kinderen,baby,honden,autos,elektriciteit,
-    bron,bedrag_totaal:bedrag,nota,status:'aanvraag'
-  }).select('id').single();
-  if(bErr){toast('⚠️ Boeking opslaan mislukt: '+bErr.message);return}
-  // Gasten opslaan
-  if(newBooking&&nbGastenData.length){
-    const gastenRows=nbGastenData.filter(g=>g.naam.trim()).map((g,i)=>({
-      booking_id:newBooking.id,naam:g.naam.trim(),
-      geboortedatum:g.geboortedatum||null,
-      nationaliteit:null,id_nummer:null,is_hoofdgast:i===0
-    }));
-    if(gastenRows.length)await sb.from('gasten').insert(gastenRows);
+  const payload={
+    client:{naam,nummerplaten:plaat,email:clientEmail},
+    booking:{aankomst,vertrek,tenten:dbTenten,campers,verblijfstype,volwassenen,kinderen,baby,honden,autos,elektriciteit,bron,bedrag_totaal:bedrag,nota,status:'aanvraag'},
+    gasten:(nbGastenData||[]).filter(g=>g.naam.trim()).map((g,i)=>({naam:g.naam.trim(),geboortedatum:g.geboortedatum||null,nationaliteit:null,id_nummer:null,is_hoofdgast:i===0})),
+  };
+
+  // Geen verbinding? → als concept bewaren en later doorvoeren.
+  if(!navigator.onLine || asConcept){
+    saveConceptBooking(payload); resetNBForm();
+    toast(asConcept?'💾 Opgeslagen als concept':'💾 Geen verbinding — opgeslagen als concept');
+    showView('boekingen',null);
+    return;
   }
+  const res=await insertBookingPayload(payload);
+  if(!res.ok){
+    // Waarschijnlijk netwerkfout → toch als concept bewaren zodat niets verloren gaat.
+    saveConceptBooking(payload); resetNBForm();
+    toast('📴 Opslaan mislukt — bewaard als concept');
+    return;
+  }
+  resetNBForm();
+  toast('✅ Boeking opgeslagen!');showView('boekingen',null);
+  await loadData();
+}
+
+/* ═══════════ CONCEPT-BOEKINGEN (offline → later doorvoeren) ═══════════ */
+// Maakt de echte records aan uit een payload. Retourneert {ok} of {ok:false,error}.
+async function insertBookingPayload(p){
+  try{
+    const {data:client,error:cErr}=await sb.from('clients').insert(p.client).select('id').single();
+    if(cErr)return {ok:false,error:cErr};
+    const {data:bk,error:bErr}=await sb.from('bookings').insert({...p.booking,client_id:client.id}).select('id').single();
+    if(bErr)return {ok:false,error:bErr};
+    if(bk && p.gasten && p.gasten.length){
+      await sb.from('gasten').insert(p.gasten.map(g=>({...g,booking_id:bk.id})));
+    }
+    return {ok:true};
+  }catch(e){return {ok:false,error:e};}
+}
+function getConcepts(){try{return JSON.parse(localStorage.getItem('cc_concept_bookings')||'[]')}catch(_e){return[]}}
+function setConcepts(a){localStorage.setItem('cc_concept_bookings',JSON.stringify(a));updateConceptBadge();}
+function saveConceptBooking(p){const a=getConcepts();a.push({cid:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),savedAt:Date.now(),payload:p});setConcepts(a);}
+async function syncConcepts(){
+  const a=getConcepts();if(!a.length){toast('Geen concepten om door te voeren');return;}
+  if(!navigator.onLine){toast('📴 Nog geen verbinding');return;}
+  let ok=0;const rest=[];
+  for(const c of a){ const r=await insertBookingPayload(c.payload); if(r.ok)ok++; else rest.push(c); }
+  setConcepts(rest);
+  toast(ok?`✅ ${ok} concept${ok>1?'en':''} doorgevoerd${rest.length?` · ${rest.length} mislukt`:''}`:`⚠️ Doorvoeren mislukt (${rest.length})`);
+  await loadData();
+}
+// Zwevende knop die verschijnt zodra er concepten wachten.
+function updateConceptBadge(){
+  const n=getConcepts().length;
+  let el=document.getElementById('conceptBadge');
+  if(!n){ if(el)el.remove(); return; }
+  if(!el){
+    el=document.createElement('button');el.id='conceptBadge';el.onclick=syncConcepts;
+    el.style.cssText='position:fixed;left:12px;bottom:80px;z-index:9999;background:#FF9500;color:#fff;border:none;border-radius:22px;padding:10px 15px;font-size:13px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;';
+    document.body.appendChild(el);
+  }
+  el.textContent=`${navigator.onLine?'💾':'📴'} ${n} concept${n>1?'en':''} — doorvoeren`;
+}
+function resetNBForm(){
   nbGastenData=[];
   ['fNaam','fEmail','fPlaat','fAankomst','fVertrek','fBedrag','fNota','fID'].forEach(f=>document.getElementById(f)&&(document.getElementById(f).value=''));
   document.getElementById('fVolwassenen').value=2;
@@ -1525,13 +1571,15 @@ async function addBooking(){
   document.getElementById('fHonden').value=0;
   document.getElementById('fBron').value='';
   document.getElementById('fElektriciteit').checked=false;
-  document.getElementById('fFotoPreview').classList.remove('show');fFotoData=null;
+  const fp=document.getElementById('fFotoPreview');if(fp)fp.classList.remove('show');fFotoData=null;
   document.getElementById('priceBreakdown').innerHTML=priceBreakdownHtml(null);
   renderVerblijfTypesNB();
   renderNBGasten();
-  toast('✅ Boeking opgeslagen!');showView('boekingen',null);
-  await loadData()
 }
+// Auto-doorvoeren zodra de verbinding terug is + badge tonen bij opstart.
+window.addEventListener('online',()=>{updateConceptBadge();syncConcepts();});
+window.addEventListener('offline',()=>updateConceptBadge());
+try{updateConceptBadge();}catch(_e){}
 
 /* ═══════════ DELETE ═══════════ */
 async function deleteBooking(id){
