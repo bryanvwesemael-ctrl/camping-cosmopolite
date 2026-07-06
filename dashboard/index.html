@@ -254,7 +254,17 @@
 
     <div class="sg"><div class="sg-lbl">Extra info</div><div class="cells">
       <div class="cell"><div class="cell-icon ci-gray">📝</div><div class="cell-body"><div class="cell-lbl">Opmerkingen</div><textarea id="fNota" placeholder="Speciale wensen…" rows="3"></textarea></div></div>
-      <div class="cell"><div class="cell-icon ci-blue">🪪</div><div class="cell-body"><div class="cell-lbl">ID-kaart (vertrouwelijk)</div><input type="text" id="fID" placeholder="Eenmalig scannummer"></div></div>
+      <div class="cell"><div class="cell-icon ci-blue">🪪</div><div class="cell-body"><div class="cell-lbl">ID-kaart (vertrouwelijk)</div>
+        <input type="text" id="fID" placeholder="Scannummer (optioneel)">
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <label style="display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1.5px solid var(--green);border-radius:10px;color:var(--green);font-size:13px;font-weight:700;cursor:pointer;background:#fff;">
+            📷 Foto van ID
+            <input type="file" id="fIdFotoInput" accept="image/*" capture="environment" multiple style="display:none;" onchange="onNbIdFotoAdd(this)">
+          </label>
+          <span id="fIdFotoCount" style="font-size:12px;color:var(--lbl4);"></span>
+        </div>
+        <div id="fIdFotoPreview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+      </div></div>
     </div></div>
 
     <button class="btn-full btn-primary mt16" onclick="addBooking()">Boeking opslaan ✓</button>
