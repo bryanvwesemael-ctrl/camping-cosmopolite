@@ -1489,7 +1489,7 @@ async function onNbIdFotoAdd(input){
 function removeNbIdFoto(i){nbIdFotos.splice(i,1);renderNbIdFotos();}
 function renderNbIdFotos(){
   const wrap=document.getElementById('fIdFotoPreview');const cnt=document.getElementById('fIdFotoCount');
-  if(cnt)cnt.textContent=nbIdFotos.length?`${nbIdFotos.length} foto${nbIdFotos.length>1?'s':''}`:'';
+  if(cnt)cnt.textContent=nbIdFotos.length?`${nbIdFotos.length} foto${nbIdFotos.length>1?"'s":''} toegevoegd`:'';
   if(!wrap)return;
   wrap.innerHTML=nbIdFotos.map((f,i)=>`
     <div style="position:relative;width:60px;height:60px;border-radius:9px;overflow:hidden;border:1.5px solid var(--green);">
@@ -3123,7 +3123,7 @@ async function renderDocPanel(bookingId){
   const st=_docPanelState[bookingId];const docs=st?.docs||[];
   const addBtn=`<label style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;margin-top:8px;background:rgba(27,138,91,.1);color:var(--green);border:1.5px solid var(--green);border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;">
       📷 ID's toevoegen (foto of bulk)
-      <input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="addDocsToBooking('${bookingId}',this)">
+      <input type="file" accept="image/*" multiple style="display:none;" onchange="addDocsToBooking('${bookingId}',this)">
     </label>`;
   if(!docs.length){
     el.innerHTML='<div style="background:var(--bg);border:1.5px dashed var(--sep);border-radius:12px;padding:16px;text-align:center;font-size:12.5px;color:var(--lbl4);">📭 Nog geen ID-documenten</div>'+addBtn;
