@@ -3121,8 +3121,12 @@ async function loadBookingDocuments(bookingId){
 async function renderDocPanel(bookingId){
   const el=document.getElementById('docPanel');if(!el)return;
   const st=_docPanelState[bookingId];const docs=st?.docs||[];
+  const addBtn=`<label style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;margin-top:8px;background:rgba(27,138,91,.1);color:var(--green);border:1.5px solid var(--green);border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;">
+      📷 ID's toevoegen (foto of bulk)
+      <input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="addDocsToBooking('${bookingId}',this)">
+    </label>`;
   if(!docs.length){
-    el.innerHTML='<div style="background:var(--bg);border:1.5px dashed var(--sep);border-radius:12px;padding:16px;text-align:center;font-size:12.5px;color:var(--lbl4);">📭 Nog geen ID-documenten geüpload door de gast</div>';
+    el.innerHTML='<div style="background:var(--bg);border:1.5px dashed var(--sep);border-radius:12px;padding:16px;text-align:center;font-size:12.5px;color:var(--lbl4);">📭 Nog geen ID-documenten</div>'+addBtn;
     return;
   }
   const b=bookings.find(x=>x.id===bookingId);
@@ -3179,7 +3183,24 @@ async function renderDocPanel(bookingId){
     html+=`<button onclick="confirmAllDocs('${bookingId}')" style="width:100%;padding:10px;margin-top:8px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;">✅ Alle gecontroleerde personen bevestigen</button>`;
   }
   html+=`<div style="font-size:11px;color:var(--lbl4);margin-top:6px;">${nBevestigd}/${docs.length} bevestigd</div>`;
+  html+=addBtn;
   el.innerHTML=html;
+}
+
+// Karen voegt zelf ID's toe aan een boeking (foto's of bulk). Uploadt naar
+// booking_documents zodat ze meteen in dit paneel verschijnen.
+async function addDocsToBooking(bookingId,input){
+  const files=Array.from(input.files||[]);input.value='';
+  if(!files.length)return;
+  toast(`⬆️ ${files.length} document${files.length>1?'en':''} uploaden…`);
+  const start=(_docPanelState[bookingId]?.docs||[]).length;
+  let ok=0;
+  for(let i=0;i<files.length;i++){
+    try{ await uploadDashboardIdFoto(bookingId,await _compressToDataUrl(files[i]),start+i); ok++; }
+    catch(_e){}
+  }
+  toast(ok?`✅ ${ok} ID${ok>1?'\'s':''} toegevoegd`:'⚠️ Uploaden mislukt');
+  await loadBookingDocuments(bookingId);
 }
 
 // Bewerkbaar controleformulier per document (AI-resultaat = concept tot bevestiging).
