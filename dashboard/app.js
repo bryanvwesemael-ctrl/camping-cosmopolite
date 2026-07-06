@@ -240,6 +240,7 @@ let bookings=[];
 let activeFilter='alle',activeSource='alle',activeBookingId=null,editingId=null;
 let calYear=new Date(TODAY).getFullYear(),calMonth=new Date(TODAY).getMonth();
 let fFotoData=null,eFotoData=null,eveningShown=false;
+let nbIdFotos=[]; // ID-foto's genomen bij een nieuwe boeking: [{dataUrl}]
 const EVENING_HOUR=20;
 
 /* ═══════════ PRIJZEN UIT DB LADEN ═══════════ */
@@ -1457,6 +1458,63 @@ function previewFoto(e,prefix){
   reader.readAsDataURL(file)
 }
 
+/* ═══════════ ID-FOTO'S BIJ NIEUWE BOEKING ═══════════ */
+// Comprimeert een afbeelding naar een JPEG-dataUrl (max 1400px) — klein genoeg
+// om ook als concept lokaal te bewaren en later te uploaden.
+function _compressToDataUrl(file,maxPx=1400,q=0.8){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      const im=new Image();
+      im.onload=()=>{
+        let{width:w,height:h}=im;
+        if(Math.max(w,h)>maxPx){const s=maxPx/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(im,0,0,w,h);
+        res(cv.toDataURL('image/jpeg',q));
+      };
+      im.onerror=rej;im.src=r.result;
+    };
+    r.onerror=rej;r.readAsDataURL(file);
+  });
+}
+async function onNbIdFotoAdd(input){
+  const files=Array.from(input.files||[]);input.value='';
+  for(const f of files){
+    try{ nbIdFotos.push({dataUrl:await _compressToDataUrl(f)}); }
+    catch(_e){ toast('⚠️ Kon foto niet lezen'); }
+  }
+  renderNbIdFotos();
+}
+function removeNbIdFoto(i){nbIdFotos.splice(i,1);renderNbIdFotos();}
+function renderNbIdFotos(){
+  const wrap=document.getElementById('fIdFotoPreview');const cnt=document.getElementById('fIdFotoCount');
+  if(cnt)cnt.textContent=nbIdFotos.length?`${nbIdFotos.length} foto${nbIdFotos.length>1?'s':''}`:'';
+  if(!wrap)return;
+  wrap.innerHTML=nbIdFotos.map((f,i)=>`
+    <div style="position:relative;width:60px;height:60px;border-radius:9px;overflow:hidden;border:1.5px solid var(--green);">
+      <img src="${f.dataUrl}" style="width:100%;height:100%;object-fit:cover;">
+      <button type="button" onclick="removeNbIdFoto(${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.55);border:none;border-radius:50%;width:19px;height:19px;color:#fff;font-size:11px;line-height:19px;cursor:pointer;padding:0;">✕</button>
+    </div>`).join('');
+}
+async function _sha256HexFromBytes(bytes){
+  const d=await crypto.subtle.digest('SHA-256',bytes);
+  return Array.from(new Uint8Array(d)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+// Uploadt een ID-foto (dataUrl) rechtstreeks naar storage + booking_documents
+// (admin). Zo verschijnt ze meteen in de "Gasten & ID"-tab van de boeking.
+async function uploadDashboardIdFoto(bookingId,dataUrl,slot){
+  const b64=dataUrl.split(',')[1];
+  const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+  const hash=await _sha256HexFromBytes(bytes);
+  const {data:dup}=await sb.from('booking_documents').select('id').eq('booking_id',bookingId).eq('content_hash',hash).is('deleted_at',null).maybeSingle();
+  if(dup)return;
+  const path=`dashboard-upload/${bookingId}/${Date.now()}-${slot}.jpg`;
+  const {error:upErr}=await sb.storage.from('id-fotos').upload(path,bytes,{contentType:'image/jpeg',upsert:true});
+  if(upErr)return;
+  await sb.from('booking_documents').insert({booking_id:bookingId,slot_index:slot,storage_path:path,media_type:'image/jpeg',file_size:bytes.length,content_hash:hash,status:'documenten_ontvangen'});
+}
+
 /* ═══════════ ADD BOOKING ═══════════ */
 async function addBooking(asConcept=false){
   const naam=document.getElementById('fNaam').value.trim();
@@ -1502,6 +1560,7 @@ async function addBooking(asConcept=false){
     client:{naam,nummerplaten:plaat,email:clientEmail},
     booking:{aankomst,vertrek,tenten:dbTenten,campers,verblijfstype,volwassenen,kinderen,baby,honden,autos,elektriciteit,bron,bedrag_totaal:bedrag,nota,status:'aanvraag'},
     gasten:(nbGastenData||[]).filter(g=>g.naam.trim()).map((g,i)=>({naam:g.naam.trim(),geboortedatum:g.geboortedatum||null,nationaliteit:null,id_nummer:null,is_hoofdgast:i===0})),
+    idFotos:nbIdFotos.map(f=>f.dataUrl),
   };
 
   // Geen verbinding? → als concept bewaren en later doorvoeren.
@@ -1534,6 +1593,9 @@ async function insertBookingPayload(p){
     if(bk && p.gasten && p.gasten.length){
       await sb.from('gasten').insert(p.gasten.map(g=>({...g,booking_id:bk.id})));
     }
+    if(bk && p.idFotos && p.idFotos.length){
+      for(let i=0;i<p.idFotos.length;i++){ await uploadDashboardIdFoto(bk.id,p.idFotos[i],i); }
+    }
     return {ok:true};
   }catch(e){return {ok:false,error:e};}
 }
@@ -1563,6 +1625,7 @@ function updateConceptBadge(){
 }
 function resetNBForm(){
   nbGastenData=[];
+  nbIdFotos=[];renderNbIdFotos();
   ['fNaam','fEmail','fPlaat','fAankomst','fVertrek','fBedrag','fNota','fID'].forEach(f=>document.getElementById(f)&&(document.getElementById(f).value=''));
   document.getElementById('fVolwassenen').value=2;
   document.getElementById('fKinderen').value=0;
