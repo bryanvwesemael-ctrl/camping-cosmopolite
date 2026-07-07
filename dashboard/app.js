@@ -93,7 +93,7 @@ async function applyRoleVisibility(session){
     currentUserRole=roleRow?.role||'staff';
   }catch(e){currentUserRole='staff';}
   const isAdmin=currentUserRole==='admin';
-  ['nav-analytics','tab-analytics'].forEach(id=>{
+  ['nav-analytics','tab-analytics','nav-idarchief','tab-idarchief'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.style.display=isAdmin?'':'none';
   });
@@ -349,6 +349,7 @@ function showView(id,dtEl){
   if(id==='wieiser')renderWieIsEr();
   if(id==='register'){const rd=document.getElementById('registerDate');if(!rd.value)rd.value=TODAY;renderRegister(rd.value)}
   if(id==='instellingen'){loadSettings();loadClubSettings();switchSettingsPage(_lastSettingsPage||'mail');}
+  if(id==='idarchief'){loadIdArchief();auditLog('id_archief_geopend',null,null,null);}
 }
 let _lastSettingsPage='mail';
 
@@ -2649,6 +2650,65 @@ async function convertBezoekerToBooking(id){
   const naamEl=document.getElementById('fNaam');if(naamEl)naamEl.value=bz.naam||'';
   toast('👤 Naam overgenomen — vul de boeking verder aan');
   renderBezoekers();
+}
+
+/* ═══════════ ID-ARCHIEF — doorzoekbaar op naam + datum (punt 4) ═══════════ */
+let idaFilterMode='scan'; // 'scan' = scandatum, 'verblijf' = verblijfsperiode
+let _idaCache=null;
+function setIdaFilterMode(mode){ idaFilterMode=mode; renderIdaFilterButtons(); renderIdArchief(); }
+function renderIdaFilterButtons(){
+  const scanBtn=document.getElementById('idaFilterScan'), stayBtn=document.getElementById('idaFilterStay');
+  const onStyle='flex:1;background:var(--green);color:#fff;border-color:var(--green);';
+  if(scanBtn)scanBtn.style.cssText=(idaFilterMode==='scan'?onStyle:'flex:1;');
+  if(stayBtn)stayBtn.style.cssText=(idaFilterMode==='verblijf'?onStyle:'flex:1;');
+}
+// Verzamelt gasten + bezoekers in één doorzoekbare, platte lijst. Klein
+// dataset voor één camping — client-side zoeken/filteren houdt dit simpel.
+async function loadIdArchief(){
+  const [{data:gastenData},{data:bezoekersData}]=await Promise.all([
+    sb.from('gasten').select('*').neq('naam',CampingGuests.PENDING_MARKER).is('deleted_at',null),
+    sb.from('bezoekers').select('*'),
+  ]);
+  const gastenRows=(gastenData||[]).map(g=>{
+    const b=bookings.find(x=>x.id===g.booking_id);
+    return {soort:'gast', naam:g.naam, geboortedatum:g.geboortedatum, nationaliteit:g.nationaliteit,
+      documenttype:g.documenttype, id_nummer:g.id_nummer, scandatum:g.created_at,
+      booking_id:g.booking_id, volgnummer:b?.volgnummer, aankomst:b?.aankomst, vertrek:b?.vertrek};
+  });
+  const bezoekerRows=(bezoekersData||[]).map(bz=>({soort:'bezoeker', naam:bz.naam, geboortedatum:null,
+    nationaliteit:null, documenttype:bz.foto_storage_path?'ID-foto':null, id_nummer:null,
+    scandatum:bz.ingecheckt_at, booking_id:null, volgnummer:null, aankomst:null, vertrek:null}));
+  _idaCache=[...gastenRows,...bezoekerRows].sort((a,b)=>(b.scandatum||'').localeCompare(a.scandatum||''));
+  renderIdaFilterButtons();
+  renderIdArchief();
+}
+function renderIdArchief(){
+  const el=document.getElementById('idaResults');if(!el||!_idaCache)return;
+  const q=(document.getElementById('idaSearch')?.value||'').trim().toLowerCase();
+  const van=document.getElementById('idaVan')?.value||'';
+  const tot=document.getElementById('idaTot')?.value||'';
+  let rows=_idaCache;
+  if(q) rows=rows.filter(r=>(r.naam||'').toLowerCase().includes(q));
+  if(idaFilterMode==='scan'){
+    if(van) rows=rows.filter(r=>r.scandatum && r.scandatum.slice(0,10)>=van);
+    if(tot) rows=rows.filter(r=>r.scandatum && r.scandatum.slice(0,10)<=tot);
+  }else{
+    // Verblijfsperiode geldt enkel voor gasten (bezoekers hebben geen verblijf).
+    rows=rows.filter(r=>r.soort==='gast');
+    if(van) rows=rows.filter(r=>r.vertrek && r.vertrek>=van);
+    if(tot) rows=rows.filter(r=>r.aankomst && r.aankomst<=tot);
+  }
+  if(!rows.length){el.innerHTML='<div class="oc-none" style="padding:16px 0;">Geen resultaten</div>';return;}
+  el.innerHTML=`<div style="font-size:11px;color:var(--lbl4);margin-bottom:8px;">${rows.length} resulta${rows.length===1?'at':'ten'}</div>`+
+    rows.map(r=>`
+    <div ${r.booking_id?`onclick="openBookingDetail('${r.booking_id}')" style="cursor:pointer;"`:''} style="padding:10px 0;border-top:1px solid var(--sep2);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+        <span style="font-weight:700;font-size:13.5px;color:var(--lbl1);">${escHtml(r.naam||'—')}</span>
+        <span style="font-size:10px;padding:2px 7px;border-radius:20px;flex-shrink:0;background:${r.soort==='gast'?'rgba(0,122,255,.1)':'rgba(88,86,214,.1)'};color:${r.soort==='gast'?'#007AFF':'#5856D6'};font-weight:700;">${r.soort==='gast'?'🏕️ Gast':'🧍 Bezoeker'}</span>
+      </div>
+      <div style="font-size:11.5px;color:var(--lbl3);margin-top:2px;">${[r.geboortedatum?fmtDateLong(r.geboortedatum):'',r.nationaliteit,r.documenttype,r.id_nummer].filter(Boolean).join(' · ')||'—'}</div>
+      <div style="font-size:11px;color:var(--lbl4);margin-top:2px;">${r.volgnummer?`Boeking #${r.volgnummer} · ${fmtDate(r.aankomst)}→${fmtDate(r.vertrek)} · `:''}gescand ${r.scandatum?fmtDateLong(r.scandatum.slice(0,10)):'—'}</div>
+    </div>`).join('');
 }
 
 async function printRegister(){
