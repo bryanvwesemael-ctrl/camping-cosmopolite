@@ -426,7 +426,7 @@ function renderDashboard(){
       return`<div class="oc" onclick="openBookingDetail('${b.id}')">
         <div class="oc-header" style="background:${c.bg};"><span>${vi2}</span><div class="oc-pulse"></div></div>
         <div class="oc-body">
-          <div class="oc-name">${b.naam.split(' ')[0]}</div>
+          <div class="oc-name">${b.naam.split(' ')[0]}${b.plaat?` <span style="font-weight:600;font-size:11px;color:var(--lbl3);">🚗 ${escHtml(b.plaat)}</span>`:''}</div>
           <div class="oc-meta">${b.personen} pers · ${nights} nachten<br>${fmtDate(b.aankomst)} → ${fmtDate(b.vertrek)}</div>
           <span class="oc-badge oc-badge-in">✓ Aanwezig</span>
         </div>
@@ -2223,40 +2223,60 @@ async function renderWieIsEr(date){
   });
   if(!ingecheckt.length&&!verwacht.length){el.innerHTML='<div class="oc-none" style="padding:20px 0;">Niemand verwacht of aanwezig op deze datum</div>';return}
 
-  // Eén query: tel bevestigde gasten per boeking (voor de ID-status).
+  // Eén query: haal de volledige, bevestigde gastenlijst per boeking op (voor
+  // het altijd-uitgeklapte overzicht — geen aparte klik/query meer nodig).
   const ids=[...ingecheckt,...verwacht].map(b=>b.id);
-  const counts={};
+  const gastenByBooking={};
   if(ids.length){
-    const {data}=await sb.from('gasten').select('booking_id').in('booking_id',ids).neq('naam',CampingGuests.PENDING_MARKER).is('deleted_at',null);
-    (data||[]).forEach(g=>{counts[g.booking_id]=(counts[g.booking_id]||0)+1});
+    const {data}=await sb.from('gasten').select('*').in('booking_id',ids)
+      .neq('naam',CampingGuests.PENDING_MARKER).is('deleted_at',null)
+      .order('is_hoofdgast',{ascending:false}).order('created_at');
+    (data||[]).forEach(g=>{(gastenByBooking[g.booking_id]=gastenByBooking[g.booking_id]||[]).push(g);});
   }
   el.innerHTML=
-    (ingecheckt.length?wieGroupHtml('🏕️ Ingecheckt',ingecheckt,counts,'ingecheckt'):'')+
-    (verwacht.length?wieGroupHtml('🕓 Verwacht',verwacht,counts,'verwacht'):'');
+    (ingecheckt.length?wieGroupHtml('🏕️ Ingecheckt',ingecheckt,gastenByBooking,'ingecheckt'):'')+
+    (verwacht.length?wieGroupHtml('🕓 Verwacht',verwacht,gastenByBooking,'verwacht'):'');
 }
-function wieGroupHtml(titel,list,counts,cat){
+function wieGroupHtml(titel,list,gastenByBooking,cat){
   return`<div style="padding:10px 16px 4px;font-size:11px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;">${titel} (${list.length})</div>`+
-    list.map(b=>wieCard(b,counts[b.id]||0,cat)).join('');
+    list.map(b=>wieCard(b,gastenByBooking[b.id]||[],cat)).join('');
 }
-function wieCard(b,have,cat){
+// Altijd volledig uitgeklapt: hoofdboeker + nummerplaat + duur/personen, en
+// daaronder alle individuele gasten met naam. Herlaadt automatisch mee met
+// elke loadData() (dus ook via de realtime-refresh bij wijzigingen).
+function wieCard(b,gasten,cat){
   const fotoHtml=`<div style="width:44px;height:44px;border-radius:12px;background:${avColor(b.id).bg};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:${avColor(b.id).fg};flex-shrink:0;">${(b.naam||'?')[0].toUpperCase()}</div>`;
   const verblijf=[(b.tenten||0)>0?`${b.tenten}⛺`:'',(b.campers||0)>0?`${b.campers}🚐`:''].filter(Boolean).join(' ')||(b.type||'');
   const nights=nightCount(b.aankomst,b.vertrek);
   const n=b.personen||0;
+  const have=gasten.length;
   const idCompleet=have>=n&&n>0;
   const idBadge=`<span style="font-size:10px;padding:3px 7px;border-radius:20px;background:${idCompleet?'rgba(52,199,89,.14)':'rgba(255,149,0,.14)'};color:${idCompleet?'#1A7A35':'#CC7700'};font-weight:700;">${idCompleet?'✓ ID '+have+'/'+n:'ID '+have+'/'+n}</span>`;
   const statBadge=`<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:${cat==='ingecheckt'?'rgba(0,122,255,.1)':'rgba(88,86,214,.1)'};color:${cat==='ingecheckt'?'#007AFF':'#5856D6'};font-weight:700;">${cat==='ingecheckt'?'🏕️ Aanwezig':'🕓 Verwacht'}</span>`;
-  return`<div style="border-bottom:1px solid var(--sep);">
-    <div onclick="openWieIsErDetail('${b.id}')" style="cursor:pointer;display:flex;align-items:flex-start;gap:12px;padding:12px 16px;">
+
+  // Individuele gasten: bevestigde 'gasten'-rijen, of bij ontstentenis daarvan
+  // de hoofdboeker-contactgegevens als voorlopige eerste rij.
+  const rows=have?gasten.map(g=>({naam:g.naam,geboortedatum:g.geboortedatum,nationaliteit:g.nationaliteit,idnr:g.id_nummer,hoofdgast:g.is_hoofdgast}))
+    :[{naam:b.naam,geboortedatum:b.geboortedatum,nationaliteit:b.nationaliteit,idnr:b.idnr,hoofdgast:true,voorlopig:true}];
+  const gastenHtml=rows.map(g=>`
+    <div style="display:flex;align-items:baseline;gap:6px;padding:5px 0;border-top:1px solid var(--sep2);font-size:12.5px;">
+      <span style="flex-shrink:0;">${g.hoofdgast?'👑':'👤'}</span>
+      <span style="font-weight:700;color:var(--lbl1);">${escHtml(g.naam||'—')}</span>
+      ${g.voorlopig?'<span style="font-size:10px;color:var(--lbl4);">(nog te bevestigen)</span>':''}
+      <span style="color:var(--lbl4);font-size:11.5px;margin-left:auto;text-align:right;">${[g.geboortedatum?fmtDateLong(g.geboortedatum):'',g.nationaliteit,g.idnr].filter(Boolean).join(' · ')}</span>
+    </div>`).join('');
+  const warnHtml=have<n?`<div style="font-size:11px;color:#CC7700;font-weight:700;margin-top:4px;">⚠️ ${n-have} ${n-have===1?'persoon':'personen'} nog niet geregistreerd</div>`:'';
+
+  return`<div onclick="openBookingDetail('${b.id}')" style="cursor:pointer;padding:12px 16px;border-bottom:1px solid var(--sep);">
+    <div style="display:flex;align-items:flex-start;gap:12px;">
       ${fotoHtml}
       <div style="flex:1;min-width:0;">
-        <div style="font-size:15px;font-weight:700;color:var(--lbl1);">${escHtml(b.naam)} <span style="color:var(--lbl4);font-weight:400;font-size:12px;">#${b.volgnummer??'—'}</span></div>
+        <div style="font-size:15px;font-weight:700;color:var(--lbl1);">${escHtml(b.naam)} <span style="color:var(--lbl4);font-weight:400;font-size:12px;">#${b.volgnummer??'—'}</span>${b.plaat?` <span style="color:var(--lbl3);font-weight:600;font-size:12.5px;">🚗 ${escHtml(b.plaat)}</span>`:''}</div>
         <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">${n}p · ${verblijf} · ${nights}n · ${fmtDate(b.aankomst)}→${fmtDate(b.vertrek)}</div>
         <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap;">${statBadge}${idBadge}</div>
-        ${b.plaat?`<div style="font-size:11px;color:var(--lbl4);margin-top:3px;">🚗 ${escHtml(b.plaat)}</div>`:''}
       </div>
     </div>
-    <div id="wie-gasten-${b.id}" style="display:none;padding:0 16px 12px;"></div>
+    <div style="margin-top:4px;">${gastenHtml}${warnHtml}</div>
   </div>`;
 }
 
