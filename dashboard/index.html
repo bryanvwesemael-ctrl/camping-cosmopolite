@@ -69,6 +69,7 @@
     <button class="dt"     onclick="showView('nieuw',this)">➕ Nieuwe boeking</button>
     <button class="dt"     onclick="showView('kalender',this)">📅 Kalender</button>
     <button class="dt" id="nav-analytics" style="display:none;" onclick="showView('analytics',this)">📈 Analytics</button>
+    <button class="dt" id="nav-idarchief" style="display:none;" onclick="showView('idarchief',this)">🪪 ID-archief</button>
     <button class="dt"     onclick="showView('mail',this)">✉️ Mail</button>
   </div>
 </header>
@@ -212,6 +213,28 @@
         <button class="card-action" style="flex:1;" onclick="exportToeristentaksReport()">📊 Taksrapport export</button>
       </div>
       <div id="registerTableWrap" style="padding:0 16px 16px;overflow-x:auto;"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ ID-ARCHIEF (punt 4) ══ -->
+<section class="view" id="view-idarchief">
+  <div class="section-wrap mt16">
+    <div class="card">
+      <div class="card-hd"><span class="card-title">🪪 ID-archief</span></div>
+      <div style="padding:0 16px 10px;font-size:12.5px;color:var(--lbl3);line-height:1.5;">Doorzoek alle ooit geregistreerde identiteitsdocumenten (gasten en bezoekers) op naam en datum.</div>
+      <div style="padding:0 16px 10px;">
+        <div class="cell" style="margin:0 0 8px;"><div class="cell-icon ci-blue">🔍</div><div class="cell-body"><div class="cell-lbl">Zoek op naam</div><input type="text" id="idaSearch" placeholder="bv. Janssens" oninput="renderIdArchief()"></div></div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <button id="idaFilterScan" class="card-action" style="flex:1;" onclick="setIdaFilterMode('scan')">📅 Scandatum</button>
+          <button id="idaFilterStay" class="card-action" style="flex:1;" onclick="setIdaFilterMode('verblijf')">🏕️ Verblijfsperiode</button>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <div class="cell" style="margin:0;flex:1;"><div class="cell-icon ci-green">📅</div><div class="cell-body"><div class="cell-lbl">Van</div><input type="date" id="idaVan" onchange="renderIdArchief()"></div></div>
+          <div class="cell" style="margin:0;flex:1;"><div class="cell-icon ci-orange">📅</div><div class="cell-body"><div class="cell-lbl">Tot</div><input type="date" id="idaTot" onchange="renderIdArchief()"></div></div>
+        </div>
+      </div>
+      <div id="idaResults" style="padding:0 16px 16px;"></div>
     </div>
   </div>
 </section>
@@ -433,6 +456,10 @@
   <div class="ti" id="tab-analytics" style="display:none;" onclick="showView('analytics',null)">
     <div class="ti-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18.7 8 13 13.7l-3-3L4 16"/></svg></div>
     <span class="ti-lbl">Analytics</span>
+  </div>
+  <div class="ti" id="tab-idarchief" style="display:none;" onclick="showView('idarchief',null)">
+    <div class="ti-icon"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2"/><line x1="14" y1="10" x2="18" y2="10"/><line x1="14" y1="14" x2="18" y2="14"/></svg></div>
+    <span class="ti-lbl">ID-archief</span>
   </div>
   <div class="ti" id="tab-mail" onclick="showView('mail',null)">
     <div class="ti-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
