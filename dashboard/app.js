@@ -405,7 +405,7 @@ function bookingRowHtml(b){
 function renderDashboard(){
   document.getElementById('tTotal').textContent=bookings.length;
   const onsite=bookings.filter(isOnsite);
-  document.getElementById('tOnsite').textContent=onsite.length;
+  document.getElementById('tOnsite').textContent=onsite.reduce((s,b)=>s+(b.personen||0),0);
   document.getElementById('tPending').textContent=bookings.filter(b=>b.status==='aanvraag').length;
   document.getElementById('tPaid').textContent=bookings.filter(b=>b.status==='betaald').length;
   document.getElementById('chMail').textContent=bookings.filter(b=>b.bron==='mail').length;
