@@ -496,6 +496,15 @@
         <div class="sg mt12"><div class="sg-lbl">Extra</div><div class="cells">
           <div class="cell"><div class="cell-icon ci-gray">📝</div><div class="cell-body"><div class="cell-lbl">Opmerkingen</div><textarea id="eNota" rows="3"></textarea></div></div>
         </div></div>
+        <div class="sg mt12"><div class="sg-lbl">Identiteitsdocumenten</div><div class="cells">
+          <div class="cell" style="flex-direction:column;align-items:stretch;">
+            <label style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1.5px solid var(--green);border-radius:10px;color:var(--green);font-size:13px;font-weight:800;cursor:pointer;background:#fff;">
+              📷 Foto's van ID toevoegen
+              <input type="file" accept="image/*" multiple style="display:none;" onchange="addDocsToBooking(editingId,this)">
+            </label>
+            <div style="font-size:11px;color:var(--lbl4);margin-top:6px;">Meerdere mogelijk. Ga naar tab "Gasten & ID" in de boeking om ze te bekijken of te scannen.</div>
+          </div>
+        </div></div>
         <button class="btn-full btn-primary" style="width:100%;margin:0;" onclick="saveEdit()">✓ Wijzigingen opslaan</button>
         <div style="height:8px;"></div>
       </div>
