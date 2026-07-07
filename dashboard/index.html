@@ -615,6 +615,20 @@
   </div>
 </div>
 
+<!-- Betaal-QR (SEPA overschrijving) -->
+<div class="sh-overlay" id="shPaymentQR" onclick="closeSheetOnOverlay(event,'shPaymentQR')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-hd"><span class="sh-title">🧾 Betaal-QR (overschrijving)</span><button class="sh-close" onclick="closeSheet('shPaymentQR')">✕</button></div>
+    <div class="sh-body" style="padding:0 20px 28px;text-align:center;">
+      <div style="font-size:13px;color:var(--lbl3);margin-bottom:16px;">Laat de klant dit scannen met zijn eigen bankapp — IBAN, bedrag en mededeling worden automatisch ingevuld. Werkt ook zonder wifi op de camping (de klant gebruikt zijn eigen data).</div>
+      <div id="payQrCanvas" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
+      <div id="payQrDetails" style="text-align:left;background:var(--bg);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--lbl2);line-height:1.8;margin-bottom:14px;"></div>
+      <div style="font-size:11px;color:var(--lbl4);">Zodra je het bedrag op de rekening ziet toekomen, registreer de betaling bij de boeking als "Overschrijving ontvangen".</div>
+    </div>
+  </div>
+</div>
+
 <!-- Mail Template Preview Modal -->
 <div id="tplPreviewModal" onclick="this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;">
   <div onclick="event.stopPropagation()" style="background:var(--card);border-radius:18px;max-width:480px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);">
@@ -1069,6 +1083,17 @@
           <div class="cfg-sep"></div>
           <div class="cfg-row"><span class="cfg-row-lbl">Gemeente (toeristentaks)</span><input class="cfg-row-input" id="cfgGemeente" placeholder="bv. Geel" oninput="debounceSave('gemeente',this.value)"></div>
         </div>
+
+        <div class="cfg-section-label">🏦 Bankgegevens (voor betaal-QR)</div>
+        <div class="cfg-card" style="margin-bottom:4px;">
+          <div class="cfg-row"><span class="cfg-row-lbl">IBAN</span><input class="cfg-row-input" id="cfgIban" placeholder="BE00 0000 0000 0000" oninput="onIbanInput(this.value)" style="font-family:monospace;"></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">Rekeninghouder</span><input class="cfg-row-input" id="cfgRekeninghouder" placeholder="bv. Club Cosmopolite VZW" oninput="debounceSaveClub('rekeninghouder',this.value)"></div>
+          <div class="cfg-sep"></div>
+          <div class="cfg-row"><span class="cfg-row-lbl">BIC <span style="font-weight:400;color:var(--lbl4);">(optioneel)</span></span><input class="cfg-row-input" id="cfgBic" placeholder="niet verplicht binnen SEPA" oninput="debounceSaveClub('bic',this.value)" style="font-family:monospace;"></div>
+        </div>
+        <div id="ibanFeedback" style="font-size:11.5px;margin:0 0 16px;padding:0 2px;"></div>
+
         <div class="cfg-section-label">📋 Annuleringsbeleid</div>
         <div class="cfg-card" style="margin-bottom:16px;">
           <div style="font-size:12px;color:var(--lbl3);margin-bottom:8px;line-height:1.5;">Dit beleid wordt getoond in bevestigingsmails en op de website (WER Boek VI). Herroepingsrecht geldt niet voor logies.</div>
@@ -1346,8 +1371,10 @@
 </div><!-- /appRoot -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="../shared/pricing.js"></script>
 <script src="../shared/guests.js"></script>
+<script src="../shared/payment.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

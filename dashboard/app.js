@@ -347,7 +347,7 @@ function showView(id,dtEl){
   if(id==='analytics')renderAnalytics();
   if(id==='wieiser')renderWieIsEr();
   if(id==='register'){const rd=document.getElementById('registerDate');if(!rd.value)rd.value=TODAY;renderRegister(rd.value)}
-  if(id==='instellingen'){loadSettings();switchSettingsPage(_lastSettingsPage||'mail');}
+  if(id==='instellingen'){loadSettings();loadClubSettings();switchSettingsPage(_lastSettingsPage||'mail');}
 }
 let _lastSettingsPage='mail';
 
@@ -670,32 +670,36 @@ async function loadPaymentInfo(bookingId){
       <!-- Betalingshistoriek -->
       ${betaaldRows.length?`<div style="margin-bottom:10px;">${betaaldRows.map(p=>`
         <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--lbl3);padding:3px 0;">
-          <span>${p.methode==='cash'?'💵 Cash':'💳 Mollie'} — ${new Date(p.created_at).toLocaleDateString('nl-BE',{day:'numeric',month:'short'})}</span>
+          <span>${p.methode==='cash'?'💵 Cash':p.methode==='overschrijving'?'🏦 Overschrijving':'💳 Mollie'} — ${new Date(p.created_at).toLocaleDateString('nl-BE',{day:'numeric',month:'short'})}</span>
           <span style="color:var(--green);font-weight:700;">+€${Number(p.bedrag).toFixed(2)}</span>
         </div>`).join('')}</div>`:''}
       <!-- Actieknoppen -->
       ${!volledig
         ?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <button onclick="stuurBetaallink('${bookingId}')" style="padding:11px;background:linear-gradient(135deg,#5856D6,#7C3AED);color:#fff;border:none;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;">💳 ${betaald>0?'Bijbetaling':'Betaallink'}</button>
-            <button onclick="registerCashPayment('${bookingId}',${Math.max(0,open).toFixed(2)})" style="padding:11px;background:rgba(27,138,91,.1);color:var(--green);border:1.5px solid var(--green);border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;">💵 Cash betaald</button>
+            <button onclick="showPaymentQR('${bookingId}')" style="padding:11px;background:rgba(0,122,255,.1);color:#007AFF;border:1.5px solid #007AFF;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;">🧾 Betaal-QR</button>
+            <button onclick="registerManualPayment('${bookingId}',${Math.max(0,open).toFixed(2)},'cash')" style="padding:11px;background:rgba(27,138,91,.1);color:var(--green);border:1.5px solid var(--green);border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;">💵 Cash betaald</button>
+            <button onclick="registerManualPayment('${bookingId}',${Math.max(0,open).toFixed(2)},'overschrijving')" style="padding:11px;background:rgba(0,122,255,.1);color:#007AFF;border:1.5px solid #007AFF;border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer;">🏦 Overschr. ontvangen</button>
           </div>
           <div style="font-size:11px;color:var(--lbl4);text-align:center;margin-top:6px;">Openstaand: €${Math.max(0,open).toFixed(2)}</div>`
         :`<div style="text-align:center;font-size:13px;color:var(--green);font-weight:700;padding:6px 0;">✅ Volledig betaald — geen openstaand saldo</div>`}
     </div>`;
 }
 
-// Registreert een contant betaald bedrag. Standaard het openstaande saldo; je
-// kan een ander bedrag ingeven (deelbetaling). Werkt naast Mollie.
-async function registerCashPayment(bookingId, openstaand){
-  const inp=prompt(`Cash ontvangen bedrag (€):`, String(openstaand||''));
+// Registreert een handmatig ontvangen bedrag (cash of overschrijving). Standaard
+// het openstaande saldo; je kan een ander bedrag ingeven (deelbetaling). Werkt
+// naast Mollie — er is geen automatische bevestiging voor deze twee methodes.
+async function registerManualPayment(bookingId, openstaand, methode){
+  const methodeLabel=methode==='overschrijving'?'Overschrijving ontvangen':'Cash ontvangen';
+  const inp=prompt(`${methodeLabel} bedrag (€):`, String(openstaand||''));
   if(inp===null)return;
   const bedrag=Math.round(parseFloat(String(inp).replace(',','.'))*100)/100;
   if(!(bedrag>0)){toast('⚠️ Geef een geldig bedrag in');return;}
   const {error}=await sb.from('payments').insert({
-    booking_id:bookingId, bedrag, status:'paid', methode:'cash', betaald_at:new Date().toISOString()
+    booking_id:bookingId, bedrag, status:'paid', methode, betaald_at:new Date().toISOString()
   });
   if(error){toast('⚠️ Opslaan mislukt: '+error.message);return;}
-  await auditLog('cash_betaling_geregistreerd','booking',bookingId,bookingId,{nieuwe_waarde:{bedrag}});
+  await auditLog(methode+'_betaling_geregistreerd','booking',bookingId,bookingId,{nieuwe_waarde:{bedrag}});
 
   // Betaalstatus afleiden uit som van betaalde betalingen vs totaal.
   const b=bookings.find(x=>x.id===bookingId);
@@ -705,10 +709,86 @@ async function registerCashPayment(bookingId, openstaand){
   if(totaal>0 && reedsBetaald+0.005>=totaal && b?.status!=='ingecheckt' && b?.status!=='geannuleerd'){
     await casUpdateBooking(bookingId,{status:'betaald'},b?.version);
   }
-  toast(`✅ €${bedrag.toFixed(2)} cash geregistreerd`);
+  toast(`✅ €${bedrag.toFixed(2)} ${methode==='overschrijving'?'overschrijving':'cash'} geregistreerd`);
   await loadData();
   loadPaymentInfo(bookingId);
 }
+
+/* ═══════════ BETAAL-QR (SEPA/EPC — Punt 2) ═══════════ */
+async function loadClubSettings(){
+  const {data}=await sb.from('club_settings').select('key,value');
+  const cfg={};(data||[]).forEach(s=>cfg[s.key]=s.value);
+  const ibanEl=document.getElementById('cfgIban');if(ibanEl)ibanEl.value=cfg.iban?CampingPayment.formatIban(cfg.iban):'';
+  const rekEl=document.getElementById('cfgRekeninghouder');if(rekEl)rekEl.value=cfg.rekeninghouder||'';
+  const bicEl=document.getElementById('cfgBic');if(bicEl)bicEl.value=cfg.bic||'';
+  renderIbanFeedback(cfg.iban||'');
+}
+let _clubSaveDebounce={};
+function debounceSaveClub(key,value){
+  clearTimeout(_clubSaveDebounce[key]);
+  _clubSaveDebounce[key]=setTimeout(()=>saveClubSetting(key,value),800);
+}
+async function saveClubSetting(key,value){
+  const {data:{user}}=await sb.auth.getUser();
+  await sb.from('club_settings').upsert({key,value,updated_by:user?.id||null,updated_at:new Date().toISOString()},{onConflict:'key'});
+}
+function onIbanInput(v){
+  const clean=String(v||'').replace(/\s+/g,'').toUpperCase();
+  debounceSaveClub('iban',clean);
+  renderIbanFeedback(clean);
+}
+function renderIbanFeedback(v){
+  const el=document.getElementById('ibanFeedback');if(!el)return;
+  const clean=(v||'').trim();
+  if(!clean){el.innerHTML='';return;}
+  const valid=CampingPayment.isValidIban(clean);
+  el.innerHTML=valid
+    ?'<span style="color:var(--green);font-weight:700;">✅ Geldig IBAN</span>'
+    :'<span style="color:var(--red);font-weight:700;">⚠️ Dit IBAN-nummer lijkt niet correct — controleer de cijfers</span>';
+}
+
+// Toont een SEPA/EPC-betaal-QR voor het openstaande saldo van een boeking.
+// Genereert de QR-afbeelding volledig in de browser (geen externe dienst
+// nodig per keer) — werkt dus ook bij slecht wifi-bereik op de camping.
+async function showPaymentQR(bookingId){
+  const b=bookings.find(x=>x.id===bookingId);if(!b)return;
+  const {data}=await sb.from('club_settings').select('key,value');
+  const cfg={};(data||[]).forEach(s=>cfg[s.key]=s.value);
+  if(!cfg.iban || !CampingPayment.isValidIban(cfg.iban)){
+    toast('⚠️ Vul eerst een geldig IBAN in bij Instellingen → Juridisch → Bankgegevens');
+    return;
+  }
+  const totaal=Number(b.bedrag||0);
+  const {data:paidRows}=await sb.from('payments').select('bedrag').eq('booking_id',bookingId).eq('status','paid');
+  const betaald=(paidRows||[]).reduce((s,p)=>s+Number(p.bedrag||0),0);
+  const openstaand=Math.max(0,Math.round((totaal-betaald)*100)/100);
+  if(!(openstaand>0)){toast('✅ Deze boeking is al volledig betaald');return;}
+
+  const ref=CampingPayment.belgianOgm(b.volgnummer);
+  const naam=cfg.rekeninghouder||'Club Cosmopolite VZW';
+  const payload=CampingPayment.buildEpcQrPayload({iban:cfg.iban,name:naam,bic:cfg.bic,amount:openstaand,reference:ref});
+
+  const canvas=document.getElementById('payQrCanvas');
+  if(canvas){
+    canvas.innerHTML='';
+    if(window.qrcode){
+      const qr=qrcode(0,'M');
+      qr.addData(payload);
+      qr.make();
+      canvas.innerHTML=qr.createSvgTag({cellSize:5,margin:2});
+    }else{
+      canvas.innerHTML='<div style="color:var(--red);font-size:12px;">QR-bibliotheek kon niet laden</div>';
+    }
+  }
+  const det=document.getElementById('payQrDetails');
+  if(det)det.innerHTML=`
+    <div><b>Begunstigde:</b> ${escHtml(naam)}</div>
+    <div><b>IBAN:</b> ${CampingPayment.formatIban(cfg.iban)}</div>
+    <div><b>Bedrag:</b> €${openstaand.toFixed(2)}</div>
+    <div><b>Mededeling:</b> ${escHtml(ref)}</div>`;
+  openSheet('shPaymentQR');
+}
+
 function switchDetailTab(tab){
   ['info','gasten','mail'].forEach(t=>{
     document.getElementById('dtab-content-'+t).style.display=t===tab?'block':'none';
