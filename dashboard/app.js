@@ -150,6 +150,7 @@ sb.channel('bookings-live')
   .on('postgres_changes',{event:'DELETE',schema:'public',table:'bookings'},()=>scheduleRealtimeRefresh())
   .on('postgres_changes',{event:'*',schema:'public',table:'gasten'},()=>scheduleRealtimeRefresh())
   .on('postgres_changes',{event:'*',schema:'public',table:'booking_documents'},()=>scheduleRealtimeRefresh())
+  .on('postgres_changes',{event:'*',schema:'public',table:'bezoekers'},()=>scheduleRealtimeRefresh())
   .subscribe();
 
 // Optimistic locking via compare-and-swap op het version-veld. Als de version
@@ -304,7 +305,7 @@ async function loadData(){
       if(img){img.src=s.signedUrl;img.classList.add('show')}
     }
   });
-  renderDashboard();renderBookingList();renderWieIsEr();
+  renderDashboard();renderBookingList();renderWieIsEr();renderBezoekers();
   if(document.getElementById('view-kalender').classList.contains('on')){if(calViewMode==='maand')renderCalendar_monthView();else renderCalendar();}
   if(document.getElementById('view-analytics').classList.contains('on'))renderAnalytics();
   if(document.getElementById('view-mail').classList.contains('on'))loadMailView();
@@ -2568,6 +2569,86 @@ async function openCalamiteiten(){
   <button class="no-print" onclick="window.print()" style="margin-top:16px;padding:10px 18px;background:#FF3B30;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨 Afdrukken / PDF</button>
   </body></html>`);
   win.document.close();
+}
+
+/* ═══════════ BEZOEKERS (dagbezoekers — apart van overnachtende gasten, punt 3) ═══════════ */
+let bzFotoData=null;
+function openBezoekerCheckin(){
+  const n=document.getElementById('bzNaam');if(n)n.value='';
+  const nt=document.getElementById('bzNotitie');if(nt)nt.value='';
+  const p=document.getElementById('bzFotoPreview');if(p){p.style.display='none';p.src='';}
+  bzFotoData=null;
+  openSheet('shBezoekerCheckin');
+}
+function previewBezoekerFoto(input){
+  const f=input.files?.[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{bzFotoData=e.target.result;const img=document.getElementById('bzFotoPreview');if(img){img.src=bzFotoData;img.style.display='block';}};
+  r.readAsDataURL(f);
+}
+async function checkinBezoeker(){
+  const naam=document.getElementById('bzNaam')?.value.trim()||null;
+  const notitie=document.getElementById('bzNotitie')?.value.trim()||null;
+  const {data:{user}}=await sb.auth.getUser();
+  const {data:ins,error}=await sb.from('bezoekers').insert({naam,notitie,created_by:user?.id||null}).select('id').single();
+  if(error){toast('⚠️ Inchecken mislukt: '+error.message);return;}
+  if(bzFotoData&&ins){
+    try{
+      const compressed=await _compressToDataUrl(await (await fetch(bzFotoData)).blob());
+      const bytes=Uint8Array.from(atob(compressed.split(',')[1]),c=>c.charCodeAt(0));
+      const path=`bezoeker-upload/${ins.id}/${Date.now()}.jpg`;
+      await sb.storage.from('id-fotos').upload(path,bytes,{contentType:'image/jpeg'});
+      await sb.from('bezoekers').update({foto_storage_path:path}).eq('id',ins.id);
+    }catch(_e){/* foto is optioneel — inchecken mag hier niet op falen */}
+  }
+  await auditLog('bezoeker_ingecheckt','bezoeker',ins?.id,null,{nieuwe_waarde:{naam}});
+  closeSheet('shBezoekerCheckin');
+  toast(`✅ ${naam||'Bezoeker'} ingecheckt`);
+  renderBezoekers();
+}
+async function renderBezoekers(){
+  const el=document.getElementById('bezoekersList');if(!el)return;
+  const {data,error}=await sb.from('bezoekers').select('*').is('uitgecheckt_at',null).order('ingecheckt_at',{ascending:false});
+  const list=error?[]:(data||[]);
+  const titleEl=document.getElementById('bezoekersTitle');
+  if(titleEl)titleEl.textContent=`🧍 Bezoekers vandaag (${list.length})`;
+  if(!list.length){el.innerHTML='<div class="oc-none" style="padding:12px 0;">Geen bezoekers ingecheckt</div>';return;}
+  el.innerHTML=list.map(b=>{
+    const sinds=new Date(b.ingecheckt_at);
+    const tijd=`${String(sinds.getHours()).padStart(2,'0')}:${String(sinds.getMinutes()).padStart(2,'0')}`;
+    return`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--sep2);">
+      <div style="width:36px;height:36px;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">🧍</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13.5px;font-weight:700;color:var(--lbl1);">${escHtml(b.naam||'Bezoeker (naam niet ingevuld)')}</div>
+        <div style="font-size:11px;color:var(--lbl4);">sinds ${tijd}${b.notitie?' · '+escHtml(b.notitie):''}</div>
+      </div>
+      ${b.foto_storage_path?`<button onclick="openBezoekerFoto('${b.id}','${b.foto_storage_path}')" title="ID-foto bekijken" style="padding:7px 9px;background:var(--bg2);border:1px solid var(--sep);border-radius:8px;cursor:pointer;font-size:13px;">📷</button>`:''}
+      <button onclick="convertBezoekerToBooking('${b.id}')" style="padding:7px 10px;background:rgba(88,86,214,.1);color:#5856D6;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">→ Boeking</button>
+      <button onclick="checkoutBezoeker('${b.id}')" style="padding:7px 10px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">Uitchecken</button>
+    </div>`;
+  }).join('');
+}
+async function checkoutBezoeker(id){
+  await sb.from('bezoekers').update({uitgecheckt_at:new Date().toISOString()}).eq('id',id);
+  await auditLog('bezoeker_uitgecheckt','bezoeker',id,null);
+  renderBezoekers();
+}
+async function openBezoekerFoto(id,path){
+  const {data}=await sb.storage.from('id-fotos').createSignedUrl(path,120);
+  if(!data?.signedUrl){toast('⚠️ Kon foto niet openen');return;}
+  await auditLog('bezoeker_foto_geopend','bezoeker',id,null);
+  window.open(data.signedUrl,'_blank');
+}
+async function convertBezoekerToBooking(id){
+  const {data:bz}=await sb.from('bezoekers').select('*').eq('id',id).single();
+  if(!bz)return;
+  if(!confirm(`${bz.naam||'Deze bezoeker'} omzetten naar een volledige boeking (overnachten)? De bezoeker wordt uitgecheckt uit de bezoekerslijst.`))return;
+  await sb.from('bezoekers').update({uitgecheckt_at:new Date().toISOString()}).eq('id',id);
+  await auditLog('bezoeker_omgezet_naar_boeking','bezoeker',id,null,{nieuwe_waarde:{naam:bz.naam}});
+  showView('nieuw',null);
+  const naamEl=document.getElementById('fNaam');if(naamEl)naamEl.value=bz.naam||'';
+  toast('👤 Naam overgenomen — vul de boeking verder aan');
+  renderBezoekers();
 }
 
 async function printRegister(){

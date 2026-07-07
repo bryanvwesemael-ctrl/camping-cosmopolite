@@ -179,6 +179,16 @@
       </div>
       <div class="plist-wrap" id="wieIsErList"></div>
     </div>
+
+    <!-- Bezoekers (dagbezoekers — apart van overnachtende gasten) -->
+    <div class="card" style="margin-top:12px;">
+      <div class="card-hd">
+        <span class="card-title" id="bezoekersTitle">🧍 Bezoekers vandaag (0)</span>
+        <button class="card-action" onclick="openBezoekerCheckin()">+ Inchecken</button>
+      </div>
+      <div style="padding:0 16px 10px;font-size:12px;color:var(--lbl3);line-height:1.5;">Los van overnachtende gasten — bv. bezoek dat komt picknicken.</div>
+      <div id="bezoekersList" style="padding:0 16px 12px;"></div>
+    </div>
   </div>
 </section>
 
@@ -625,6 +635,30 @@
       <div id="payQrCanvas" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
       <div id="payQrDetails" style="text-align:left;background:var(--bg);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--lbl2);line-height:1.8;margin-bottom:14px;"></div>
       <div style="font-size:11px;color:var(--lbl4);">Zodra je het bedrag op de rekening ziet toekomen, registreer de betaling bij de boeking als "Overschrijving ontvangen".</div>
+    </div>
+  </div>
+</div>
+
+<!-- Bezoeker inchecken -->
+<div class="sh-overlay" id="shBezoekerCheckin" onclick="closeSheetOnOverlay(event,'shBezoekerCheckin')">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-hd"><span class="sh-title">🧍 Bezoeker inchecken</span><button class="sh-close" onclick="closeSheet('shBezoekerCheckin')">✕</button></div>
+    <div class="sh-body">
+      <div style="padding:0 16px 16px;">
+        <div class="cells">
+          <div class="cell"><div class="cell-icon ci-green">👤</div><div class="cell-body"><div class="cell-lbl">Naam <span style="font-weight:400;color:var(--lbl4);">(optioneel)</span></div><input type="text" id="bzNaam" placeholder="bv. Piet Peeters"></div></div>
+          <div class="cell"><div class="cell-icon ci-gray">📝</div><div class="cell-body"><div class="cell-lbl">Notitie <span style="font-weight:400;color:var(--lbl4);">(optioneel)</span></div><input type="text" id="bzNotitie" placeholder="bv. op bezoek bij boeking #1234"></div></div>
+        </div>
+        <div style="margin-top:12px;">
+          <label style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;padding:11px;border:1.5px solid var(--green);border-radius:10px;color:var(--green);font-size:13px;font-weight:800;cursor:pointer;background:#fff;">
+            📷 Foto van ID <span style="font-weight:400;color:var(--lbl4);font-size:11.5px;">(optioneel)</span>
+            <input type="file" id="bzFotoInput" accept="image/*" style="display:none;" onchange="previewBezoekerFoto(this)">
+          </label>
+          <img id="bzFotoPreview" style="display:none;max-width:100%;border-radius:10px;margin-top:8px;">
+        </div>
+        <button class="btn-full btn-primary" style="width:100%;margin-top:14px;" onclick="checkinBezoeker()">✅ Inchecken</button>
+      </div>
     </div>
   </div>
 </div>
