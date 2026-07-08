@@ -64,13 +64,10 @@
   <div class="desk-tabs">
     <button class="dt on"  onclick="showView('overzicht',this)">📊 Overzicht</button>
     <button class="dt"     onclick="showView('boekingen',this)">📋 Boekingen</button>
-    <button class="dt"     onclick="showView('wieiser',this)">🪪 Wie is er</button>
-    <button class="dt"     onclick="showView('register',this)">🛂 Register</button>
-    <button class="dt"     onclick="showView('bezoekers',this)">🧍 Bezoekers</button>
+    <button class="dt"     onclick="showView('gasten',this)">🧍 Gasten</button>
     <button class="dt"     onclick="showView('nieuw',this)">➕ Nieuwe boeking</button>
     <button class="dt"     onclick="showView('kalender',this)">📅 Kalender</button>
     <button class="dt" id="nav-analytics" style="display:none;" onclick="showView('analytics',this)">📈 Analytics</button>
-    <button class="dt" id="nav-idarchief" style="display:none;" onclick="showView('idarchief',this)">🪪 ID-archief</button>
     <button class="dt"     onclick="showView('mail',this)">✉️ Mail</button>
   </div>
 </header>
@@ -164,83 +161,92 @@
   <div class="card" style="margin:0 16px;"><div id="bkList"></div></div>
 </section>
 
-<!-- ══ WIE IS ER ══ -->
-<section class="view" id="view-wieiser">
-  <div class="section-wrap mt16">
-    <div class="card">
-      <div class="card-hd">
-        <span class="card-title" id="wieIsErTitle">🪪 Wie is er?</span>
-        <button class="card-action" onclick="printPresence()">🖨 Afdrukken</button>
-      </div>
-      <div style="padding:0 16px 10px;">
-        <div style="font-size:12.5px;color:var(--lbl3);line-height:1.5;margin-bottom:10px;">Verwacht en ingecheckt op de gekozen datum. Klik op een gast voor het volledige overzicht.</div>
-        <div class="cell" style="margin:0;"><div class="cell-icon ci-blue">📅</div><div class="cell-body"><div class="cell-lbl">Datum</div><input type="date" id="wieDate" onchange="renderWieIsEr(this.value)"></div></div>
-      </div>
-      <div style="padding:0 16px 12px;">
-        <button class="card-action" style="width:100%;background:rgba(255,59,48,.1);color:var(--red);border-color:rgba(255,59,48,.3);" onclick="openCalamiteiten()">🚨 Calamiteitenlijst nu</button>
-      </div>
-      <div class="plist-wrap" id="wieIsErList"></div>
-    </div>
+<!-- ══ GASTEN (Wie is er / Register / Bezoekers / ID-archief gebundeld) ══ -->
+<section class="view" id="view-gasten">
+  <div style="display:flex;padding:10px 16px;gap:8px;border-bottom:1.5px solid var(--sep);flex-wrap:wrap;">
+    <button id="gs-wieiser" onclick="switchGastenSeg('wieiser')" style="flex:1;min-width:110px;padding:8px;border-radius:10px;border:1.5px solid var(--green);background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">🪪 Wie is er</button>
+    <button id="gs-register" onclick="switchGastenSeg('register')" style="flex:1;min-width:110px;padding:8px;border-radius:10px;border:1.5px solid var(--sep);background:transparent;color:var(--lbl2);font-size:13px;font-weight:700;cursor:pointer;">🛂 Register</button>
+    <button id="gs-bezoekers" onclick="switchGastenSeg('bezoekers')" style="flex:1;min-width:110px;padding:8px;border-radius:10px;border:1.5px solid var(--sep);background:transparent;color:var(--lbl2);font-size:13px;font-weight:700;cursor:pointer;">🧍 Bezoekers</button>
+    <button id="gs-idarchief" style="display:none;flex:1;min-width:110px;padding:8px;border-radius:10px;border:1.5px solid var(--sep);background:transparent;color:var(--lbl2);font-size:13px;font-weight:700;cursor:pointer;" onclick="switchGastenSeg('idarchief')">🪪 ID-archief</button>
   </div>
-</section>
 
-<!-- ══ BEZOEKERS ══ (eigen tabblad — losstaand van Wie is er, zodat het bij
-     veel overnachtende gasten niet helemaal onderaan wegzakt) -->
-<section class="view" id="view-bezoekers">
-  <div class="section-wrap mt16">
-    <div class="card">
-      <div class="card-hd">
-        <span class="card-title" id="bezoekersTitle">🧍 Bezoekers vandaag (0)</span>
-        <button class="card-action" onclick="openBezoekerCheckin()">+ Inchecken</button>
-      </div>
-      <div style="padding:0 16px 10px;font-size:12.5px;color:var(--lbl3);line-height:1.5;">Los van overnachtende gasten — bv. bezoek dat komt picknicken.</div>
-      <div id="bezoekersList" style="padding:0 16px 12px;"></div>
-    </div>
-  </div>
-</section>
-
-<!-- ══ POLITIEREGISTER ══ -->
-<section class="view" id="view-register">
-  <div class="section-wrap mt16">
-    <div class="card">
-      <div class="card-hd">
-        <span class="card-title">🛂 Register toeristenverblijf</span>
-      </div>
-      <div style="padding:0 16px 12px;">
-        <div style="font-size:12.5px;color:var(--lbl3);line-height:1.5;margin-bottom:10px;">Wettelijk verplichte dagregistratie van alle aanwezige gasten (naam, voornaam, geboortedatum, nationaliteit, ID-nummer, woonplaats, aankomst/vertrek). Kies een datum om de lijst van die dag te bekijken.</div>
-        <div class="cell" style="margin:0;"><div class="cell-icon ci-blue">📅</div><div class="cell-body"><div class="cell-lbl">Datum</div><input type="date" id="registerDate" onchange="renderRegister(this.value)"></div></div>
-      </div>
-      <div style="padding:0 16px 12px;display:flex;gap:8px;">
-        <button class="card-action" style="flex:1;" onclick="printRegister()">🖨 Afdrukken</button>
-        <button class="card-action" style="flex:1;" onclick="exportRegisterCSV()">⬇️ CSV export</button>
-      </div>
-      <div style="padding:0 16px 12px;display:flex;gap:8px;align-items:center;">
-        <input type="month" id="taksMonth" style="flex:1;padding:8px 10px;border-radius:var(--r-sm);border:1.5px solid var(--sep);font-size:13px;background:var(--bg);" value="">
-        <button class="card-action" style="flex:1;" onclick="exportToeristentaksReport()">📊 Taksrapport export</button>
-      </div>
-      <div id="registerTableWrap" style="padding:0 16px 16px;overflow-x:auto;"></div>
-    </div>
-  </div>
-</section>
-
-<!-- ══ ID-ARCHIEF (punt 4) ══ -->
-<section class="view" id="view-idarchief">
-  <div class="section-wrap mt16">
-    <div class="card">
-      <div class="card-hd"><span class="card-title">🪪 ID-archief</span></div>
-      <div style="padding:0 16px 10px;font-size:12.5px;color:var(--lbl3);line-height:1.5;">Doorzoek alle ooit geregistreerde identiteitsdocumenten (gasten en bezoekers) op naam en datum.</div>
-      <div style="padding:0 16px 10px;">
-        <div class="cell" style="margin:0 0 8px;"><div class="cell-icon ci-blue">🔍</div><div class="cell-body"><div class="cell-lbl">Zoek op naam</div><input type="text" id="idaSearch" placeholder="bv. Janssens" oninput="renderIdArchief()"></div></div>
-        <div style="display:flex;gap:6px;margin-bottom:8px;">
-          <button id="idaFilterScan" class="card-action" style="flex:1;" onclick="setIdaFilterMode('scan')">📅 Scandatum</button>
-          <button id="idaFilterStay" class="card-action" style="flex:1;" onclick="setIdaFilterMode('verblijf')">🏕️ Verblijfsperiode</button>
+  <!-- Wie is er -->
+  <div id="gseg-wieiser">
+    <div class="section-wrap mt16">
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title" id="wieIsErTitle">🪪 Wie is er?</span>
+          <button class="card-action" onclick="printPresence()">🖨 Afdrukken</button>
         </div>
-        <div style="display:flex;gap:8px;">
-          <div class="cell" style="margin:0;flex:1;"><div class="cell-icon ci-green">📅</div><div class="cell-body"><div class="cell-lbl">Van</div><input type="date" id="idaVan" onchange="renderIdArchief()"></div></div>
-          <div class="cell" style="margin:0;flex:1;"><div class="cell-icon ci-orange">📅</div><div class="cell-body"><div class="cell-lbl">Tot</div><input type="date" id="idaTot" onchange="renderIdArchief()"></div></div>
+        <div style="padding:0 16px 10px;">
+          <div style="font-size:12.5px;color:var(--lbl3);line-height:1.5;margin-bottom:10px;">Verwacht en ingecheckt op de gekozen datum. Klik op een gast voor het volledige overzicht.</div>
+          <div class="cell" style="margin:0;"><div class="cell-icon ci-blue">📅</div><div class="cell-body"><div class="cell-lbl">Datum</div><input type="date" id="wieDate" onchange="renderWieIsEr(this.value)"></div></div>
         </div>
+        <div style="padding:0 16px 12px;">
+          <button class="card-action" style="width:100%;background:rgba(255,59,48,.1);color:var(--red);border-color:rgba(255,59,48,.3);" onclick="openCalamiteiten()">🚨 Calamiteitenlijst nu</button>
+        </div>
+        <div class="plist-wrap" id="wieIsErList"></div>
       </div>
-      <div id="idaResults" style="padding:0 16px 16px;"></div>
+    </div>
+  </div>
+
+  <!-- Register -->
+  <div id="gseg-register" style="display:none;">
+    <div class="section-wrap mt16">
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title">🛂 Register toeristenverblijf</span>
+        </div>
+        <div style="padding:0 16px 12px;">
+          <div style="font-size:12.5px;color:var(--lbl3);line-height:1.5;margin-bottom:10px;">Wettelijk verplichte dagregistratie van alle aanwezige gasten (naam, voornaam, geboortedatum, nationaliteit, ID-nummer, woonplaats, aankomst/vertrek). Kies een datum om de lijst van die dag te bekijken.</div>
+          <div class="cell" style="margin:0;"><div class="cell-icon ci-blue">📅</div><div class="cell-body"><div class="cell-lbl">Datum</div><input type="date" id="registerDate" onchange="renderRegister(this.value)"></div></div>
+        </div>
+        <div style="padding:0 16px 12px;display:flex;gap:8px;">
+          <button class="card-action" style="flex:1;" onclick="printRegister()">🖨 Afdrukken</button>
+          <button class="card-action" style="flex:1;" onclick="exportRegisterCSV()">⬇️ CSV export</button>
+        </div>
+        <div style="padding:0 16px 12px;display:flex;gap:8px;align-items:center;">
+          <input type="month" id="taksMonth" style="flex:1;padding:8px 10px;border-radius:var(--r-sm);border:1.5px solid var(--sep);font-size:13px;background:var(--bg);" value="">
+          <button class="card-action" style="flex:1;" onclick="exportToeristentaksReport()">📊 Taksrapport export</button>
+        </div>
+        <div id="registerTableWrap" style="padding:0 16px 16px;overflow-x:auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bezoekers -->
+  <div id="gseg-bezoekers" style="display:none;">
+    <div class="section-wrap mt16">
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title" id="bezoekersTitle">🧍 Bezoekers vandaag (0)</span>
+          <button class="card-action" onclick="openBezoekerCheckin()">+ Inchecken</button>
+        </div>
+        <div style="padding:0 16px 10px;font-size:12.5px;color:var(--lbl3);line-height:1.5;">Los van overnachtende gasten — bv. bezoek dat komt picknicken.</div>
+        <div id="bezoekersList" style="padding:0 16px 12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ID-archief (punt 4, admin) -->
+  <div id="gseg-idarchief" style="display:none;">
+    <div class="section-wrap mt16">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">🪪 ID-archief</span></div>
+        <div style="padding:0 16px 10px;font-size:12.5px;color:var(--lbl3);line-height:1.5;">Doorzoek alle ooit geregistreerde identiteitsdocumenten (gasten en bezoekers) op naam en datum.</div>
+        <div style="padding:0 16px 10px;">
+          <div class="cell" style="margin:0 0 8px;"><div class="cell-icon ci-blue">🔍</div><div class="cell-body"><div class="cell-lbl">Zoek op naam</div><input type="text" id="idaSearch" placeholder="bv. Janssens" oninput="renderIdArchief()"></div></div>
+          <div style="display:flex;gap:6px;margin-bottom:8px;">
+            <button id="idaFilterScan" class="card-action" style="flex:1;" onclick="setIdaFilterMode('scan')">📅 Scandatum</button>
+            <button id="idaFilterStay" class="card-action" style="flex:1;" onclick="setIdaFilterMode('verblijf')">🏕️ Verblijfsperiode</button>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <div class="cell" style="margin:0;flex:1;"><div class="cell-icon ci-green">📅</div><div class="cell-body"><div class="cell-lbl">Van</div><input type="date" id="idaVan" onchange="renderIdArchief()"></div></div>
+            <div class="cell" style="margin:0;flex:1;"><div class="cell-icon ci-orange">📅</div><div class="cell-body"><div class="cell-lbl">Tot</div><input type="date" id="idaTot" onchange="renderIdArchief()"></div></div>
+          </div>
+        </div>
+        <div id="idaResults" style="padding:0 16px 16px;"></div>
+      </div>
     </div>
   </div>
 </section>
@@ -443,17 +449,9 @@
     <div class="ti-icon"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></div>
     <span class="ti-lbl">Boekingen</span>
   </div>
-  <div class="ti" id="tab-wieiser" onclick="showView('wieiser',null)">
+  <div class="ti" id="tab-gasten" onclick="showView('gasten',null)">
     <div class="ti-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-    <span class="ti-lbl">Wie is er</span>
-  </div>
-  <div class="ti" id="tab-register" onclick="showView('register',null)">
-    <div class="ti-icon"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
-    <span class="ti-lbl">Register</span>
-  </div>
-  <div class="ti" id="tab-bezoekers" onclick="showView('bezoekers',null)">
-    <div class="ti-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/></svg></div>
-    <span class="ti-lbl">Bezoekers</span>
+    <span class="ti-lbl">Gasten</span>
   </div>
   <div class="ti-plus" onclick="showView('nieuw',null)">
     <div class="ti-plus-btn"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
@@ -466,10 +464,6 @@
   <div class="ti" id="tab-analytics" style="display:none;" onclick="showView('analytics',null)">
     <div class="ti-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18.7 8 13 13.7l-3-3L4 16"/></svg></div>
     <span class="ti-lbl">Analytics</span>
-  </div>
-  <div class="ti" id="tab-idarchief" style="display:none;" onclick="showView('idarchief',null)">
-    <div class="ti-icon"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2"/><line x1="14" y1="10" x2="18" y2="10"/><line x1="14" y1="14" x2="18" y2="14"/></svg></div>
-    <span class="ti-lbl">ID-archief</span>
   </div>
   <div class="ti" id="tab-mail" onclick="showView('mail',null)">
     <div class="ti-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
@@ -1440,10 +1434,10 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <!-- ?v=... = cache-busting: verhoog bij elke wijziging aan deze bestanden,
      anders houden browsers soms een oude versie vast na een update. -->
-<script src="../shared/pricing.js?v=20260708"></script>
-<script src="../shared/guests.js?v=20260708"></script>
-<script src="../shared/payment.js?v=20260708"></script>
-<script src="app.js?v=20260708"></script>
+<script src="../shared/pricing.js?v=20260708b"></script>
+<script src="../shared/guests.js?v=20260708b"></script>
+<script src="../shared/payment.js?v=20260708b"></script>
+<script src="app.js?v=20260708b"></script>
 </body>
 </html>
 
