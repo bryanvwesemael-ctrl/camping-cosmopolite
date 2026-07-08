@@ -2721,24 +2721,34 @@ function renderIdaFilterButtons(){
 // Verzamelt gasten + bezoekers in één doorzoekbare, platte lijst. Klein
 // dataset voor één camping — client-side zoeken/filteren houdt dit simpel.
 async function loadIdArchief(){
-  const [{data:gastenData},{data:bezoekersData}]=await Promise.all([
+  const [{data:gastenData},{data:bezoekersData},{data:docsData}]=await Promise.all([
     sb.from('gasten').select('*').neq('naam',CampingGuests.PENDING_MARKER).is('deleted_at',null),
     sb.from('bezoekers').select('*'),
+    sb.from('booking_documents').select('gast_id,storage_path,media_type').not('gast_id','is',null).is('deleted_at',null),
   ]);
+  // Eén document per gast (recentste als er per ongeluk meerdere gekoppeld zijn).
+  const docByGast={};
+  (docsData||[]).forEach(d=>{docByGast[d.gast_id]=d;});
+
   const gastenRows=(gastenData||[]).map(g=>{
     const b=bookings.find(x=>x.id===g.booking_id);
+    const doc=docByGast[g.id];
     return {soort:'gast', naam:g.naam, geboortedatum:g.geboortedatum, nationaliteit:g.nationaliteit,
       documenttype:g.documenttype, id_nummer:g.id_nummer, scandatum:g.created_at,
-      booking_id:g.booking_id, volgnummer:b?.volgnummer, aankomst:b?.aankomst, vertrek:b?.vertrek};
+      booking_id:g.booking_id, volgnummer:b?.volgnummer, aankomst:b?.aankomst, vertrek:b?.vertrek,
+      storage_path:doc?.storage_path||null, media_type:doc?.media_type||'image/jpeg'};
   });
   const bezoekerRows=(bezoekersData||[]).map(bz=>({soort:'bezoeker', naam:bz.naam, geboortedatum:null,
     nationaliteit:null, documenttype:bz.foto_storage_path?'ID-foto':null, id_nummer:null,
-    scandatum:bz.ingecheckt_at, booking_id:null, volgnummer:null, aankomst:null, vertrek:null}));
-  _idaCache=[...gastenRows,...bezoekerRows].sort((a,b)=>(b.scandatum||'').localeCompare(a.scandatum||''));
+    scandatum:bz.ingecheckt_at, booking_id:null, volgnummer:null, aankomst:null, vertrek:null,
+    storage_path:bz.foto_storage_path||null, media_type:'image/jpeg'}));
+  // Karen wil hier enkel personen zien MET een effectief opgeslagen ID-document
+  // (het is een documentenarchief, geen algemene gastenlijst — die zit al in Register).
+  _idaCache=[...gastenRows,...bezoekerRows].filter(r=>r.storage_path).sort((a,b)=>(b.scandatum||'').localeCompare(a.scandatum||''));
   renderIdaFilterButtons();
   renderIdArchief();
 }
-function renderIdArchief(){
+async function renderIdArchief(){
   const el=document.getElementById('idaResults');if(!el||!_idaCache)return;
   const q=(document.getElementById('idaSearch')?.value||'').trim().toLowerCase();
   const van=document.getElementById('idaVan')?.value||'';
@@ -2755,16 +2765,45 @@ function renderIdArchief(){
     if(tot) rows=rows.filter(r=>r.aankomst && r.aankomst<=tot);
   }
   if(!rows.length){el.innerHTML='<div class="oc-none" style="padding:16px 0;">Geen resultaten</div>';return;}
-  el.innerHTML=`<div style="font-size:11px;color:var(--lbl4);margin-bottom:8px;">${rows.length} resulta${rows.length===1?'at':'ten'}</div>`+
-    rows.map(r=>`
-    <div ${r.booking_id?`onclick="openBookingDetail('${r.booking_id}')" style="cursor:pointer;"`:''} style="padding:10px 0;border-top:1px solid var(--sep2);">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
-        <span style="font-weight:700;font-size:13.5px;color:var(--lbl1);">${escHtml(r.naam||'—')}</span>
-        <span style="font-size:10px;padding:2px 7px;border-radius:20px;flex-shrink:0;background:${r.soort==='gast'?'rgba(0,122,255,.1)':'rgba(88,86,214,.1)'};color:${r.soort==='gast'?'#007AFF':'#5856D6'};font-weight:700;">${r.soort==='gast'?'🏕️ Gast':'🧍 Bezoeker'}</span>
+  el.innerHTML=`<div style="font-size:11px;color:var(--lbl4);margin-bottom:8px;">${rows.length} resulta${rows.length===1?'at':'ten'} met ID-document</div>`+
+    rows.map((r,i)=>`<div id="ida-row-${i}" style="padding:10px 0;border-top:1px solid var(--sep2);">
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div id="ida-thumb-${i}" onclick="${r.booking_id?`openBookingDetail('${r.booking_id}')`:''}" style="width:48px;height:48px;border-radius:9px;background:#eef0f3;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--lbl3);cursor:${r.booking_id?'pointer':'default'};overflow:hidden;">···</div>
+        <div style="flex:1;min-width:0;${r.booking_id?'cursor:pointer;':''}" onclick="${r.booking_id?`openBookingDetail('${r.booking_id}')`:''}">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+            <span style="font-weight:700;font-size:13.5px;color:var(--lbl1);">${escHtml(r.naam||'—')}</span>
+            <span style="font-size:10px;padding:2px 7px;border-radius:20px;flex-shrink:0;background:${r.soort==='gast'?'rgba(0,122,255,.1)':'rgba(88,86,214,.1)'};color:${r.soort==='gast'?'#007AFF':'#5856D6'};font-weight:700;">${r.soort==='gast'?'🏕️ Gast':'🧍 Bezoeker'}</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--lbl3);margin-top:2px;">${[r.geboortedatum?fmtDateLong(r.geboortedatum):'',r.nationaliteit,r.documenttype,r.id_nummer].filter(Boolean).join(' · ')||'—'}</div>
+          <div style="font-size:11px;color:var(--lbl4);margin-top:2px;">${r.volgnummer?`Boeking #${r.volgnummer} · ${fmtDate(r.aankomst)}→${fmtDate(r.vertrek)} · `:''}gescand ${r.scandatum?fmtDateLong(r.scandatum.slice(0,10)):'—'}</div>
+        </div>
+        <button onclick="downloadIdDoc('${r.storage_path}','${escHtml(r.naam||'document').replace(/'/g,'')}','${r.media_type}')" title="Downloaden" style="flex-shrink:0;padding:8px 10px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">⬇️</button>
       </div>
-      <div style="font-size:11.5px;color:var(--lbl3);margin-top:2px;">${[r.geboortedatum?fmtDateLong(r.geboortedatum):'',r.nationaliteit,r.documenttype,r.id_nummer].filter(Boolean).join(' · ')||'—'}</div>
-      <div style="font-size:11px;color:var(--lbl4);margin-top:2px;">${r.volgnummer?`Boeking #${r.volgnummer} · ${fmtDate(r.aankomst)}→${fmtDate(r.vertrek)} · `:''}gescand ${r.scandatum?fmtDateLong(r.scandatum.slice(0,10)):'—'}</div>
     </div>`).join('');
+
+  // Thumbnails asynchroon inladen (signed URLs), zonder de lijst te blokkeren.
+  rows.forEach(async (r,i)=>{
+    const url=await _signedUrl(r.storage_path,300);
+    const thumbEl=document.getElementById(`ida-thumb-${i}`);
+    if(!thumbEl||!url)return;
+    if(r.media_type==='application/pdf'){thumbEl.textContent='PDF';}
+    else{thumbEl.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;">`;}
+  });
+}
+// Downloadt het ID-document rechtstreeks (i.p.v. enkel openen in een nieuw tabblad).
+async function downloadIdDoc(storagePath,naam,mediaType){
+  const url=await _signedUrl(storagePath,120);
+  if(!url){toast('⚠️ Kon document niet ophalen');return;}
+  await auditLog('id_document_gedownload','document',null,null,{nieuwe_waarde:{naam,storagePath}});
+  try{
+    const blob=await (await fetch(url)).blob();
+    const ext=mediaType==='application/pdf'?'pdf':'jpg';
+    const objUrl=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=objUrl;a.download=`ID-${naam.replace(/\s+/g,'_')}.${ext}`;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(objUrl),4000);
+  }catch(_e){window.open(url,'_blank');} // fallback: gewoon openen als download faalt
 }
 
 async function printRegister(){
