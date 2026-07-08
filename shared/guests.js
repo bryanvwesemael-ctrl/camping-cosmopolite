@@ -36,12 +36,19 @@
   }
 
   // "Wie is er?"-classificatie op een gekozen datum (sectie 15):
-  //  - 'ingecheckt' : verblijfsstatus ingecheckt én datum binnen verblijf
+  //  - 'ingecheckt' : ingecheckt_at is gezet én datum binnen verblijf
   //  - 'verwacht'   : bevestigd/aanvraag/betaald, datum binnen verblijf, nog niet ingecheckt
   //  - null         : niet aanwezig (geannuleerd, uitgecheckt, buiten periode)
+  //
+  // BELANGRIJK: dit kijkt naar 'ingecheckt_at' (een apart tijdstip-veld), NIET
+  // enkel naar 'status'. Reden: 'status' wordt ook gebruikt voor de betaalstatus
+  // ('betaald') — als een volledig betaalde gast zou herclassificeren op status
+  // alleen, zou "check-in" verdwijnen zodra iemand betaalt (bug: gast toonde
+  // dan als "Verwacht" i.p.v. "Aanwezig" na een cash/overschrijving-betaling).
+  // ingecheckt_at blijft dus staan tot een bewuste statuswijziging het wist.
   function presenceCategory(booking, dateStr) {
     if (!isPresentOn(booking, dateStr)) return null;
-    if (booking.status === 'ingecheckt') return 'ingecheckt';
+    if (booking.ingecheckt_at) return 'ingecheckt';
     // Enkel bevestigde/aangevraagde/betaalde boekingen tellen als 'verwacht'.
     // wachtlijst/geannuleerd/uitgecheckt → niet aanwezig.
     if (['aanvraag', 'bevestigd', 'betaald'].indexOf(booking.status) !== -1) return 'verwacht';
