@@ -4122,7 +4122,10 @@ async function deleteFoto(fotoId,bookingId){
 
 /* ═══════════ GMAIL OAUTH ═══════════ */
 const GOOGLE_CLIENT_ID='54730723430-j707rj00757gkh5f0hsfu9peh645tp32.apps.googleusercontent.com';
-const GMAIL_SCOPES='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email';
+// gmail.send toegevoegd zodat bevestigingsmails rechtstreeks via Gmail kunnen
+// (i.p.v. Resend). Bestaande koppelingen (van vóór deze wijziging) hebben deze
+// toestemming nog niet — Karen moet dan eenmalig opnieuw "Koppel Gmail account" klikken.
+const GMAIL_SCOPES='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email';
 const REDIRECT_URI=window.location.origin+window.location.pathname;
 
 function connectGmail(){
