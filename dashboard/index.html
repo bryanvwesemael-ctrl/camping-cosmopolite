@@ -66,6 +66,7 @@
     <button class="dt"     onclick="showView('boekingen',this)">📋 Boekingen</button>
     <button class="dt"     onclick="showView('wieiser',this)">🪪 Wie is er</button>
     <button class="dt"     onclick="showView('register',this)">🛂 Register</button>
+    <button class="dt"     onclick="showView('bezoekers',this)">🧍 Bezoekers</button>
     <button class="dt"     onclick="showView('nieuw',this)">➕ Nieuwe boeking</button>
     <button class="dt"     onclick="showView('kalender',this)">📅 Kalender</button>
     <button class="dt" id="nav-analytics" style="display:none;" onclick="showView('analytics',this)">📈 Analytics</button>
@@ -180,14 +181,19 @@
       </div>
       <div class="plist-wrap" id="wieIsErList"></div>
     </div>
+  </div>
+</section>
 
-    <!-- Bezoekers (dagbezoekers — apart van overnachtende gasten) -->
-    <div class="card" style="margin-top:12px;">
+<!-- ══ BEZOEKERS ══ (eigen tabblad — losstaand van Wie is er, zodat het bij
+     veel overnachtende gasten niet helemaal onderaan wegzakt) -->
+<section class="view" id="view-bezoekers">
+  <div class="section-wrap mt16">
+    <div class="card">
       <div class="card-hd">
         <span class="card-title" id="bezoekersTitle">🧍 Bezoekers vandaag (0)</span>
         <button class="card-action" onclick="openBezoekerCheckin()">+ Inchecken</button>
       </div>
-      <div style="padding:0 16px 10px;font-size:12px;color:var(--lbl3);line-height:1.5;">Los van overnachtende gasten — bv. bezoek dat komt picknicken.</div>
+      <div style="padding:0 16px 10px;font-size:12.5px;color:var(--lbl3);line-height:1.5;">Los van overnachtende gasten — bv. bezoek dat komt picknicken.</div>
       <div id="bezoekersList" style="padding:0 16px 12px;"></div>
     </div>
   </div>
@@ -444,6 +450,10 @@
   <div class="ti" id="tab-register" onclick="showView('register',null)">
     <div class="ti-icon"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
     <span class="ti-lbl">Register</span>
+  </div>
+  <div class="ti" id="tab-bezoekers" onclick="showView('bezoekers',null)">
+    <div class="ti-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/></svg></div>
+    <span class="ti-lbl">Bezoekers</span>
   </div>
   <div class="ti-plus" onclick="showView('nieuw',null)">
     <div class="ti-plus-btn"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>

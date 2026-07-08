@@ -347,6 +347,7 @@ function showView(id,dtEl){
   if(id==='kalender')renderCalendar();
   if(id==='analytics')renderAnalytics();
   if(id==='wieiser')renderWieIsEr();
+  if(id==='bezoekers')renderBezoekers();
   if(id==='register'){const rd=document.getElementById('registerDate');if(!rd.value)rd.value=TODAY;renderRegister(rd.value)}
   if(id==='instellingen'){loadSettings();loadClubSettings();switchSettingsPage(_lastSettingsPage||'mail');}
   if(id==='idarchief'){loadIdArchief();auditLog('id_archief_geopend',null,null,null);}
@@ -2365,24 +2366,36 @@ async function renderWieIsEr(date){
   // het altijd-uitgeklapte overzicht — geen aparte klik/query meer nodig).
   const ids=[...ingecheckt,...verwacht].map(b=>b.id);
   const gastenByBooking={};
+  const docByGast={};
   if(ids.length){
     const {data}=await sb.from('gasten').select('*').in('booking_id',ids)
       .neq('naam',CampingGuests.PENDING_MARKER).is('deleted_at',null)
       .order('is_hoofdgast',{ascending:false}).order('created_at');
     (data||[]).forEach(g=>{(gastenByBooking[g.booking_id]=gastenByBooking[g.booking_id]||[]).push(g);});
+    const gastIds=(data||[]).map(g=>g.id);
+    if(gastIds.length){
+      const {data:docs}=await sb.from('booking_documents').select('gast_id,storage_path,media_type').in('gast_id',gastIds).is('deleted_at',null);
+      (docs||[]).forEach(d=>{docByGast[d.gast_id]=d;});
+    }
   }
   el.innerHTML=
-    (ingecheckt.length?wieGroupHtml('🏕️ Ingecheckt',ingecheckt,gastenByBooking,'ingecheckt'):'')+
-    (verwacht.length?wieGroupHtml('🕓 Verwacht',verwacht,gastenByBooking,'verwacht'):'');
+    (ingecheckt.length?wieGroupHtml('🏕️ Ingecheckt',ingecheckt,gastenByBooking,docByGast,'ingecheckt'):'')+
+    (verwacht.length?wieGroupHtml('🕓 Verwacht',verwacht,gastenByBooking,docByGast,'verwacht'):'');
+  // ID-thumbnails asynchroon inladen (signed URLs), blokkeert de lijst niet.
+  document.querySelectorAll('[data-wie-thumb]').forEach(async(elm)=>{
+    const path=elm.getAttribute('data-wie-thumb');
+    const url=await _signedUrl(path,300);
+    if(url)elm.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;">`;
+  });
 }
-function wieGroupHtml(titel,list,gastenByBooking,cat){
+function wieGroupHtml(titel,list,gastenByBooking,docByGast,cat){
   return`<div style="padding:10px 16px 4px;font-size:11px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;">${titel} (${list.length})</div>`+
-    list.map(b=>wieCard(b,gastenByBooking[b.id]||[],cat)).join('');
+    list.map(b=>wieCard(b,gastenByBooking[b.id]||[],docByGast,cat)).join('');
 }
 // Altijd volledig uitgeklapt: hoofdboeker + nummerplaat + duur/personen, en
 // daaronder alle individuele gasten met naam. Herlaadt automatisch mee met
 // elke loadData() (dus ook via de realtime-refresh bij wijzigingen).
-function wieCard(b,gasten,cat){
+function wieCard(b,gasten,docByGast,cat){
   const fotoHtml=`<div style="width:44px;height:44px;border-radius:12px;background:${avColor(b.id).bg};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:${avColor(b.id).fg};flex-shrink:0;">${(b.naam||'?')[0].toUpperCase()}</div>`;
   const verblijf=[(b.tenten||0)>0?`${b.tenten}⛺`:'',(b.campers||0)>0?`${b.campers}🚐`:''].filter(Boolean).join(' ')||(b.type||'');
   const nights=nightCount(b.aankomst,b.vertrek);
@@ -2394,15 +2407,21 @@ function wieCard(b,gasten,cat){
 
   // Individuele gasten: bevestigde 'gasten'-rijen, of bij ontstentenis daarvan
   // de hoofdboeker-contactgegevens als voorlopige eerste rij.
-  const rows=have?gasten.map(g=>({naam:g.naam,geboortedatum:g.geboortedatum,nationaliteit:g.nationaliteit,idnr:g.id_nummer,hoofdgast:g.is_hoofdgast}))
+  const rows=have?gasten.map(g=>({naam:g.naam,geboortedatum:g.geboortedatum,nationaliteit:g.nationaliteit,idnr:g.id_nummer,hoofdgast:g.is_hoofdgast,doc:docByGast[g.id]}))
     :[{naam:b.naam,geboortedatum:b.geboortedatum,nationaliteit:b.nationaliteit,idnr:b.idnr,hoofdgast:true,voorlopig:true}];
-  const gastenHtml=rows.map(g=>`
-    <div style="display:flex;align-items:baseline;gap:6px;padding:5px 0;border-top:1px solid var(--sep2);font-size:12.5px;">
+  const gastenHtml=rows.map((g,gi)=>{
+    const thumbId=`wie-doc-${b.id}-${gi}`;
+    const thumbHtml=g.doc?`<div id="${thumbId}" data-wie-thumb="${g.doc.storage_path}" onclick="event.stopPropagation()" style="width:26px;height:26px;border-radius:7px;background:#eef0f3;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--lbl3);">···</div>
+      <button onclick="event.stopPropagation();downloadIdDoc('${g.doc.storage_path}','${escHtml(g.naam||'document').replace(/'/g,'')}','${g.doc.media_type||'image/jpeg'}')" title="ID downloaden" style="flex-shrink:0;padding:3px 6px;background:none;border:none;color:var(--green);font-size:12px;cursor:pointer;">⬇️</button>`:'';
+    return`
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-top:1px solid var(--sep2);font-size:12.5px;">
       <span style="flex-shrink:0;">${g.hoofdgast?'👑':'👤'}</span>
       <span style="font-weight:700;color:var(--lbl1);">${escHtml(g.naam||'—')}</span>
       ${g.voorlopig?'<span style="font-size:10px;color:var(--lbl4);">(nog te bevestigen)</span>':''}
       <span style="color:var(--lbl4);font-size:11.5px;margin-left:auto;text-align:right;">${[g.geboortedatum?fmtDateLong(g.geboortedatum):'',g.nationaliteit,g.idnr].filter(Boolean).join(' · ')}</span>
-    </div>`).join('');
+      ${thumbHtml}
+    </div>`;
+  }).join('');
   const warnHtml=have<n?`<div style="font-size:11px;color:#CC7700;font-weight:700;margin-top:4px;">⚠️ ${n-have} ${n-have===1?'persoon':'personen'} nog niet geregistreerd</div>`:'';
 
   return`<div onclick="openBookingDetail('${b.id}')" style="cursor:pointer;padding:12px 16px;border-bottom:1px solid var(--sep);">
