@@ -29,6 +29,39 @@ async function forgotPassword(){
 }
 async function doLogout(){await sb.auth.signOut();location.reload()}
 
+/* ═══ WACHTWOORD HERSTELLEN (link uit herstelmail) ═══ */
+// supabase-js detecteert de recovery-token in de URL (#access_token=...&type=recovery)
+// en vuurt dan dit event i.p.v. gewoon in te loggen — vang het apart op zodat de
+// gebruiker eerst een nieuw wachtwoord MOET instellen, i.p.v. rechtstreeks het
+// dashboard te zien (dat zou een "herstel" zijn zonder ooit een nieuw wachtwoord
+// te kiezen).
+function showPasswordRecoveryScreen(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appRoot').style.display='none';
+  document.getElementById('pwRecoveryScreen').style.display='flex';
+}
+async function submitPasswordRecovery(){
+  const pw1=document.getElementById('recoveryPw1').value;
+  const pw2=document.getElementById('recoveryPw2').value;
+  const msg=document.getElementById('recoveryMsg');
+  const btn=document.getElementById('recoverySubmitBtn');
+  if(!pw1||pw1.length<8){msg.textContent='⚠️ Minstens 8 tekens';msg.style.color='var(--red)';return}
+  if(pw1!==pw2){msg.textContent='⚠️ Wachtwoorden komen niet overeen';msg.style.color='var(--red)';return}
+  msg.style.color='var(--lbl3)';msg.textContent='';
+  btn.textContent='Bezig…';btn.disabled=true;
+  const {error}=await sb.auth.updateUser({password:pw1});
+  if(error){
+    msg.textContent='⚠️ '+error.message;msg.style.color='var(--red)';
+    btn.textContent='Wachtwoord instellen →';btn.disabled=false;
+    return;
+  }
+  msg.textContent='✅ Wachtwoord gewijzigd! Je wordt ingelogd…';msg.style.color='var(--green)';
+  setTimeout(()=>{
+    document.getElementById('pwRecoveryScreen').style.display='none';
+    checkSession();
+  },1200);
+}
+
 /* ═══════════ MELDINGEN NIEUWE BOEKING ═══════════ */
 let notifUnread=0;
 // AudioContext wordt één keer aangemaakt via een gebruikersklik (browserregel).
@@ -115,7 +148,10 @@ async function checkSession(){
     document.getElementById('appRoot').style.display='none';
   }
 }
-sb.auth.onAuthStateChange((_event,_session)=>{checkSession()});
+sb.auth.onAuthStateChange((event,_session)=>{
+  if(event==='PASSWORD_RECOVERY'){showPasswordRecoveryScreen();return}
+  checkSession();
+});
 
 /* ═══════════ REALTIME — live updates (meerdere medewerkers tegelijk) ═══════════ */
 // Gedebouncede reload: veel events vlak na elkaar → één reload.

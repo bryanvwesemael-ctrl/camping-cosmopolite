@@ -32,6 +32,28 @@
   </div>
 </div>
 
+<!-- ══ WACHTWOORD HERSTELLEN (landing na klik op link in herstelmail) ══ -->
+<div id="pwRecoveryScreen" style="display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,#0D4D33 0%,#1B8A5B 100%);">
+  <div style="max-width:360px;width:100%;text-align:center;">
+    <div style="width:72px;height:72px;background:rgba(255,255,255,.15);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 16px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);">🔑</div>
+    <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:4px;letter-spacing:-.4px;">Nieuw wachtwoord</div>
+    <div style="font-size:14px;color:rgba(255,255,255,.65);margin-bottom:32px;">Kies een nieuw wachtwoord voor je account.</div>
+    <div style="background:#fff;border-radius:20px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+      <div style="text-align:left;margin-bottom:16px;">
+        <label style="font-size:12px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Nieuw wachtwoord</label>
+        <input type="password" id="recoveryPw1" placeholder="Minstens 8 tekens" style="width:100%;padding:13px 14px;border-radius:12px;border:1.5px solid var(--sep);font-size:15px;outline:none;background:#F9F9FB;color:var(--lbl1);" onfocus="this.style.borderColor='#1B8A5B'" onblur="this.style.borderColor='var(--sep)'">
+      </div>
+      <div style="text-align:left;margin-bottom:20px;">
+        <label style="font-size:12px;font-weight:700;color:var(--lbl3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Herhaal wachtwoord</label>
+        <input type="password" id="recoveryPw2" placeholder="••••••••" style="width:100%;padding:13px 14px;border-radius:12px;border:1.5px solid var(--sep);font-size:15px;outline:none;background:#F9F9FB;color:var(--lbl1);" onfocus="this.style.borderColor='#1B8A5B'" onblur="this.style.borderColor='var(--sep)'" onkeydown="if(event.key==='Enter')submitPasswordRecovery()">
+      </div>
+      <button id="recoverySubmitBtn" style="width:100%;padding:15px;background:linear-gradient(135deg,#1B8A5B,#0D5035);color:#fff;border-radius:12px;font-size:16px;font-weight:700;border:none;cursor:pointer;letter-spacing:-.2px;" onclick="submitPasswordRecovery()">Wachtwoord instellen →</button>
+      <div id="recoveryMsg" style="font-size:13px;color:var(--red);margin-top:12px;min-height:16px;"></div>
+    </div>
+    <div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:20px;">Camping Cosmopolite · Reservatiebeheer</div>
+  </div>
+</div>
+
 <div id="appRoot" style="display:none;">
 
 <header class="app-hd">
@@ -1434,10 +1456,10 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <!-- ?v=... = cache-busting: verhoog bij elke wijziging aan deze bestanden,
      anders houden browsers soms een oude versie vast na een update. -->
-<script src="../shared/pricing.js?v=20260708b"></script>
-<script src="../shared/guests.js?v=20260708b"></script>
-<script src="../shared/payment.js?v=20260708b"></script>
-<script src="app.js?v=20260708b"></script>
+<script src="../shared/pricing.js?v=20260708c"></script>
+<script src="../shared/guests.js?v=20260708c"></script>
+<script src="../shared/payment.js?v=20260708c"></script>
+<script src="app.js?v=20260708c"></script>
 </body>
 </html>
 
