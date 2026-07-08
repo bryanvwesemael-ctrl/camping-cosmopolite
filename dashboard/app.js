@@ -213,11 +213,10 @@ function calcPrice(o){
   });
   const stdBasis=(o.tenten||0)*PRICES.tent+(o.campers||0)*PRICES.camper;
   const extraTypeBasis=extraTypeUnits.reduce((s,t)=>(t.count||0)*(t.prijs||0)+s,0);
-  // Dashboard toont "per nacht" zonder verbruik (afval/elek staan apart in de lijst)
-  return Object.assign({}, r, {
-    stdBasis, extraTypeBasis, extraTypeUnits,
-    perNacht:CampingPricing.round2(r.dienstenPerNachtExclVerbruik+r.taksPerNacht),
-  });
+  // r.perNacht (uit shared/pricing.js) is de volledige dagprijs incl. elektriciteit/afval/taks —
+  // exact dezelfde waarde als het publieke formulier. NIET overschrijven (deed vroeger
+  // dienstenPerNachtExclVerbruik, wat elektriciteit/afval liet ontbreken in "Subtotaal per dag").
+  return Object.assign({}, r, { stdBasis, extraTypeBasis, extraTypeUnits });
 }
 function genRef(idOrBooking){
   if(typeof idOrBooking==='object')return idOrBooking.ogm||(idOrBooking.volgnummer?`#${idOrBooking.volgnummer}`:'—');
@@ -291,6 +290,7 @@ async function loadData(){
       tenten:row.tenten||0, campers:row.campers||0,
       extraTypeUnits:(()=>{try{return typeof row.extra_type_units==='string'?JSON.parse(row.extra_type_units):(row.extra_type_units||[]);}catch(e){return[];}})(),
       status:row.status, bron:row.bron, bedrag:row.bedrag_totaal||0, version:row.version,
+      ingecheckt_at:row.ingecheckt_at,
       nota:row.nota||'', honden:row.honden||0, autos:row.autos||1,
       hond:(row.honden||0)>0, extraAuto:(row.autos||0)>1,
       elektriciteit:!!row.elektriciteit,
@@ -1284,9 +1284,14 @@ function openStatusSheet(id){
 function quickStatus(e,id){e.stopPropagation();openStatusSheet(id)}
 async function setStatus(st){
   const b=bookings.find(x=>x.id===activeBookingId);if(!b)return;
-  const {error}=await sb.from('bookings').update({status:st}).eq('id',b.id);
+  // ingecheckt_at is de bron van waarheid voor "fysiek aanwezig" (zie shared/guests.js
+  // presenceCategory) — onafhankelijk van latere betaalstatuswijzigingen. Bij een
+  // BEWUSTE handmatige statuswijziging via dit scherm respecteren we die keuze:
+  // naar 'ingecheckt' → stempelen, naar iets anders → wissen (correctie door Karen).
+  const ingecheckt_at = st==='ingecheckt' ? new Date().toISOString() : null;
+  const {error}=await sb.from('bookings').update({status:st,ingecheckt_at}).eq('id',b.id);
   if(error){toast('⚠️ Status opslaan mislukt: '+error.message);return}
-  b.status=st;closeSheet('shStatus');
+  b.status=st;b.ingecheckt_at=ingecheckt_at;closeSheet('shStatus');
   toast(`${STATUS_META[st].icon} Status → ${STATUS_META[st].label}`);
   renderDashboard();renderBookingList();renderWieIsEr();
   setTimeout(()=>{
@@ -1346,7 +1351,29 @@ function openEditSheet(id){
   // Render verblijfstype kaarten vanuit tarieven
   renderVerblijfTypesEdit(b.tenten,b.campers,b.extraTypeUnits||[]);
   updatePriceLiveEdit();
+  renderEditDocsPreview(id);
   closeSheet('shDetail');openSheet('shEdit');
+}
+// Toont reeds toegevoegde ID-documenten in het bewerk-scherm (voordien enkel
+// een upload-knop, waardoor bestaande foto's onzichtbaar "verdwenen" leken).
+async function renderEditDocsPreview(bookingId){
+  const wrap=document.getElementById('eDocsThumbs'),cnt=document.getElementById('eDocsCount');
+  if(!wrap)return;
+  wrap.innerHTML='<div style="font-size:11px;color:var(--lbl4);">Laden…</div>';
+  const {data}=await sb.from('booking_documents').select('*').eq('booking_id',bookingId).is('deleted_at',null).order('slot_index');
+  const docs=data||[];
+  if(cnt)cnt.textContent=docs.length?`(${docs.length} reeds toegevoegd)`:'';
+  if(!docs.length){wrap.innerHTML='<div style="font-size:11px;color:var(--lbl4);">Nog geen documenten toegevoegd</div>';return;}
+  const urls=await Promise.all(docs.map(d=>_signedUrl(d.storage_path,300)));
+  wrap.innerHTML=docs.map((d,i)=>{
+    const isPdf=d.media_type==='application/pdf';
+    const sm=DOC_STATUS_META[d.status]||{icon:'•',lbl:d.status};
+    return`<div style="width:60px;text-align:center;">
+      ${urls[i]&&!isPdf?`<img src="${urls[i]}" style="width:60px;height:60px;border-radius:9px;object-fit:cover;border:1.5px solid var(--sep);">`
+        :`<div style="width:60px;height:60px;border-radius:9px;background:#eef0f3;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--lbl3);border:1.5px solid var(--sep);">${isPdf?'PDF':'IMG'}</div>`}
+      <div style="font-size:9px;color:var(--lbl4);margin-top:2px;">${sm.icon}</div>
+    </div>`;
+  }).join('');
 }
 async function saveEdit(){
   const b=bookings.find(x=>x.id===editingId);if(!b)return;
@@ -1727,11 +1754,40 @@ window.addEventListener('offline',()=>updateConceptBadge());
 try{updateConceptBadge();}catch(_e){}
 
 /* ═══════════ DELETE ═══════════ */
+// Betalingen, ID-documenten (+ hun opgeslagen bestanden) en bezoekers-koppelingen
+// blokkeren een verwijdering (bewust geen CASCADE — voorkomt per ongeluk data
+// verliezen). Deze functie ruimt ze expliciet mee op, na een duidelijke
+// waarschuwing. Gasten/communicatie/foto's van de boeking zelf verdwijnen wel
+// automatisch mee (die hebben wél CASCADE).
 async function deleteBooking(id){
-  if(!confirm('Boeking verwijderen?'))return;
+  const b=bookings.find(x=>x.id===id);
+  const [{count:nPayments},{data:docs},{count:nGasten}]=await Promise.all([
+    sb.from('payments').select('id',{count:'exact',head:true}).eq('booking_id',id),
+    sb.from('booking_documents').select('id,storage_path').eq('booking_id',id),
+    sb.from('gasten').select('id',{count:'exact',head:true}).eq('booking_id',id).neq('naam',CampingGuests.PENDING_MARKER),
+  ]);
+  const nDocs=(docs||[]).length;
+  let msg=`Boeking van ${b?.naam||'deze gast'} verwijderen?`;
+  const details=[];
+  if(nPayments)details.push(`${nPayments} betaling${nPayments>1?'en':''}`);
+  if(nDocs)details.push(`${nDocs} ID-document${nDocs>1?'en':''}`);
+  if(details.length)msg+=`\n\nDit verwijdert ook ${details.join(' en ')} — dit kan niet ongedaan gemaakt worden.`;
+  if(nGasten>0)msg+=`\n\n⚠️ Er staan ${nGasten} bevestigde gast(en) geregistreerd. Overweeg "Annuleren" i.p.v. verwijderen als je de gegevens voor het reizigersregister wil bewaren.`;
+  if(!confirm(msg))return;
+
+  // Opgeslagen ID-foto's mee opruimen (best effort — een falende foto-cleanup
+  // mag de rest van het verwijderen niet blokkeren).
+  const paths=(docs||[]).map(d=>d.storage_path).filter(Boolean);
+  if(paths.length){ try{ await sb.storage.from('id-fotos').remove(paths); }catch(_e){} }
+
+  await sb.from('booking_documents').delete().eq('booking_id',id);
+  await sb.from('payments').delete().eq('booking_id',id);
+  await sb.from('bezoekers').update({omgezet_naar_booking_id:null}).eq('omgezet_naar_booking_id',id);
+
   const {error}=await sb.from('bookings').delete().eq('id',id);
   if(error){toast('⚠️ Verwijderen mislukt: '+error.message);return}
-  bookings=bookings.filter(b=>b.id!==id);
+  await auditLog('boeking_verwijderd','booking',id,id,{oude_waarde:{naam:b?.naam,nPayments,nDocs,nGasten}});
+  bookings=bookings.filter(x=>x.id!==id);
   closeSheet('shDetail');toast('🗑 Boeking verwijderd');
   renderDashboard();renderBookingList();renderWieIsEr()
 }

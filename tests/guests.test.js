@@ -38,14 +38,32 @@ test('arrival/departure markers', () => {
   assert.strictEqual(G.isDeparture(b, '2026-07-12'), false);
 });
 
-test('presenceCategory: verwacht vs ingecheckt', () => {
+test('presenceCategory: verwacht vs ingecheckt (op basis van ingecheckt_at)', () => {
   const datum = '2026-07-11';
   assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'bevestigd' }, datum), 'verwacht');
   assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'aanvraag' }, datum), 'verwacht');
   assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'betaald' }, datum), 'verwacht');
-  assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'ingecheckt' }, datum), 'ingecheckt');
+  assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'ingecheckt', ingecheckt_at: '2026-07-10T14:00:00Z' }, datum), 'ingecheckt');
   assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'uitgecheckt' }, datum), null);
   assert.strictEqual(G.presenceCategory({ aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'wachtlijst' }, datum), null);
+});
+
+test('regressie: volledige betaling mag een check-in niet ongedaan maken', () => {
+  // Reproduceert Karen's bug: gast wordt ingecheckt (ingecheckt_at gezet), daarna
+  // wordt de boeking automatisch op status='betaald' gezet zodra volledig betaald.
+  // "Wie is er" moet de gast BLIJVEN tonen als ingecheckt, niet terugvallen op "Verwacht".
+  const datum = '2026-07-11';
+  const b = { aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'ingecheckt', ingecheckt_at: '2026-07-10T14:00:00Z' };
+  assert.strictEqual(G.presenceCategory(b, datum), 'ingecheckt');
+  b.status = 'betaald'; // automatische bump na volledige betaling — ingecheckt_at blijft staan
+  assert.strictEqual(G.presenceCategory(b, datum), 'ingecheckt');
+});
+
+test('presenceCategory: status=ingecheckt zonder ingecheckt_at telt niet als aanwezig', () => {
+  // Bewaakt tegen een regressie in de andere richting: een kale status-waarde
+  // zonder het tijdstipveld mag niet als "aanwezig" tellen.
+  const b = { aankomst: '2026-07-10', vertrek: '2026-07-13', status: 'ingecheckt' };
+  assert.notStrictEqual(G.presenceCategory(b, '2026-07-11'), 'ingecheckt');
 });
 
 test('maskId toont enkel laatste 4 tekens', () => {
