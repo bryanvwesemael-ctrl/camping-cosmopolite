@@ -93,7 +93,7 @@ async function applyRoleVisibility(session){
     currentUserRole=roleRow?.role||'staff';
   }catch(e){currentUserRole='staff';}
   const isAdmin=currentUserRole==='admin';
-  ['nav-analytics','tab-analytics','nav-idarchief','tab-idarchief'].forEach(id=>{
+  ['nav-analytics','tab-analytics','gs-idarchief'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.style.display=isAdmin?'':'none';
   });
@@ -333,26 +333,43 @@ function avHtml(b,size=44,radius=14){
 }
 
 /* ═══════════ VIEW ═══════════ */
+const GASTEN_SEGS=['wieiser','register','bezoekers','idarchief'];
+let _lastGastenSeg='wieiser';
 function showView(id,dtEl){
+  const isGastenSub=GASTEN_SEGS.includes(id);
+  const viewId=isGastenSub?'gasten':id;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
-  document.getElementById('view-'+id).classList.add('on');
+  document.getElementById('view-'+viewId).classList.add('on');
   document.querySelectorAll('.ti[id^="tab-"]').forEach(t=>{t.classList.remove('on');t.querySelector('svg').style.stroke='#8E8E93'});
-  const tab=document.getElementById('tab-'+id);
+  const tab=document.getElementById('tab-'+viewId);
   if(tab){tab.classList.add('on');tab.querySelector('svg').style.stroke='var(--green)'}
   document.querySelectorAll('.dt').forEach(d=>d.classList.remove('on'));
   if(dtEl)dtEl.classList.add('on');
-  else document.querySelectorAll('.dt').forEach(d=>{if(d.textContent.toLowerCase().includes(id.substr(0,4)))d.classList.add('on')});
-  if(id==='overzicht')renderDashboard();
-  if(id==='boekingen')renderBookingList();
-  if(id==='kalender')renderCalendar();
-  if(id==='analytics')renderAnalytics();
-  if(id==='wieiser')renderWieIsEr();
-  if(id==='bezoekers')renderBezoekers();
-  if(id==='register'){const rd=document.getElementById('registerDate');if(!rd.value)rd.value=TODAY;renderRegister(rd.value)}
-  if(id==='instellingen'){loadSettings();loadClubSettings();switchSettingsPage(_lastSettingsPage||'mail');}
-  if(id==='idarchief'){loadIdArchief();auditLog('id_archief_geopend',null,null,null);}
+  else document.querySelectorAll('.dt').forEach(d=>{if(d.textContent.toLowerCase().includes(viewId.substr(0,4)))d.classList.add('on')});
+  if(viewId==='overzicht')renderDashboard();
+  if(viewId==='boekingen')renderBookingList();
+  if(viewId==='kalender')renderCalendar();
+  if(viewId==='analytics')renderAnalytics();
+  if(viewId==='instellingen'){loadSettings();loadClubSettings();switchSettingsPage(_lastSettingsPage||'mail');}
+  if(viewId==='gasten')switchGastenSeg(isGastenSub?id:_lastGastenSeg);
 }
 let _lastSettingsPage='mail';
+
+/* ═══ GASTEN SEGMENT (Wie is er / Register / Bezoekers / ID-archief) ═══ */
+function switchGastenSeg(seg){
+  _lastGastenSeg=seg;
+  GASTEN_SEGS.forEach(s=>{
+    const btn=document.getElementById('gs-'+s);
+    const wrap=document.getElementById('gseg-'+s);
+    const on=s===seg;
+    if(btn){btn.style.background=on?'var(--green)':'transparent';btn.style.color=on?'#fff':'var(--lbl2)';btn.style.borderColor=on?'var(--green)':'var(--sep)';}
+    if(wrap)wrap.style.display=on?'block':'none';
+  });
+  if(seg==='wieiser')renderWieIsEr();
+  if(seg==='bezoekers')renderBezoekers();
+  if(seg==='register'){const rd=document.getElementById('registerDate');if(!rd.value)rd.value=TODAY;renderRegister(rd.value)}
+  if(seg==='idarchief'){loadIdArchief();auditLog('id_archief_geopend',null,null,null);}
+}
 
 /* ═══════════ SHEETS ═══════════ */
 function openSheet(id){document.getElementById(id).classList.add('on')}
