@@ -2737,76 +2737,128 @@ function renderIdaFilterButtons(){
   if(scanBtn)scanBtn.style.cssText=(idaFilterMode==='scan'?onStyle:'flex:1;');
   if(stayBtn)stayBtn.style.cssText=(idaFilterMode==='verblijf'?onStyle:'flex:1;');
 }
-// Verzamelt gasten + bezoekers in één doorzoekbare, platte lijst. Klein
+// Gegroepeerd per boeking (kaart per boeking, alle personen — bevestigd én nog
+// niet bevestigd — eronder), plus een aparte sectie voor bezoekers. Klein
 // dataset voor één camping — client-side zoeken/filteren houdt dit simpel.
 async function loadIdArchief(){
-  const [{data:gastenData},{data:bezoekersData},{data:docsData}]=await Promise.all([
+  const [{data:docsData},{data:gastenData},{data:bezoekersData}]=await Promise.all([
+    sb.from('booking_documents').select('*').is('deleted_at',null).order('slot_index'),
     sb.from('gasten').select('*').neq('naam',CampingGuests.PENDING_MARKER).is('deleted_at',null),
     sb.from('bezoekers').select('*'),
-    sb.from('booking_documents').select('gast_id,storage_path,media_type').not('gast_id','is',null).is('deleted_at',null),
   ]);
-  // Eén document per gast (recentste als er per ongeluk meerdere gekoppeld zijn).
-  const docByGast={};
-  (docsData||[]).forEach(d=>{docByGast[d.gast_id]=d;});
+  const gastById={};(gastenData||[]).forEach(g=>{gastById[g.id]=g;});
 
-  const gastenRows=(gastenData||[]).map(g=>{
-    const b=bookings.find(x=>x.id===g.booking_id);
-    const doc=docByGast[g.id];
-    return {soort:'gast', naam:g.naam, geboortedatum:g.geboortedatum, nationaliteit:g.nationaliteit,
-      documenttype:g.documenttype, id_nummer:g.id_nummer, scandatum:g.created_at,
-      booking_id:g.booking_id, volgnummer:b?.volgnummer, aankomst:b?.aankomst, vertrek:b?.vertrek,
-      storage_path:doc?.storage_path||null, media_type:doc?.media_type||'image/jpeg'};
+  const groupsByBooking={};
+  (docsData||[]).forEach(d=>{
+    const b=bookings.find(x=>x.id===d.booking_id);
+    if(!b)return; // boeking niet (meer) in het geheugen — sla over
+    if(!groupsByBooking[d.booking_id])groupsByBooking[d.booking_id]={booking_id:d.booking_id,naam:b.naam,volgnummer:b.volgnummer,aankomst:b.aankomst,vertrek:b.vertrek,persons:[]};
+    const gast=d.gast_id?gastById[d.gast_id]:null;
+    const ai=d.ai_result||null;
+    let naam,geboortedatum=null,nationaliteit=null,documenttype=null,id_nummer=null,statusLabel,statusKleur;
+    if(gast){
+      naam=gast.naam;geboortedatum=gast.geboortedatum;nationaliteit=gast.nationaliteit;documenttype=gast.documenttype;id_nummer=gast.id_nummer;
+      statusLabel='✅ Bevestigd';statusKleur='var(--green)';
+    }else if(ai&&(ai.naam||ai.voornaam)){
+      naam=ai.naam||[ai.voornaam,ai.achternaam].filter(Boolean).join(' ');
+      geboortedatum=ai.geboortedatum||null;nationaliteit=ai.nationaliteit||null;documenttype=ai.documenttype||null;id_nummer=ai.documentnummer||null;
+      statusLabel='⏳ Nog te bevestigen';statusKleur='#CC7700';
+    }else{
+      naam=`Persoon ${(d.slot_index??0)+1}`;
+      const sm=DOC_STATUS_META[d.status]||{icon:'•',lbl:d.status};
+      statusLabel=`${sm.icon} ${sm.lbl}`;statusKleur='var(--lbl4)';
+    }
+    groupsByBooking[d.booking_id].persons.push({naam,geboortedatum,nationaliteit,documenttype,id_nummer,statusLabel,statusKleur,
+      scandatum:d.created_at,storage_path:d.storage_path,media_type:d.media_type||'image/jpeg'});
   });
-  const bezoekerRows=(bezoekersData||[]).map(bz=>({soort:'bezoeker', naam:bz.naam, geboortedatum:null,
-    nationaliteit:null, documenttype:bz.foto_storage_path?'ID-foto':null, id_nummer:null,
-    scandatum:bz.ingecheckt_at, booking_id:null, volgnummer:null, aankomst:null, vertrek:null,
-    storage_path:bz.foto_storage_path||null, media_type:'image/jpeg'}));
-  // Karen wil hier enkel personen zien MET een effectief opgeslagen ID-document
-  // (het is een documentenarchief, geen algemene gastenlijst — die zit al in Register).
-  _idaCache=[...gastenRows,...bezoekerRows].filter(r=>r.storage_path).sort((a,b)=>(b.scandatum||'').localeCompare(a.scandatum||''));
+  const bookingGroups=Object.values(groupsByBooking).sort((a,b)=>(b.aankomst||'').localeCompare(a.aankomst||''));
+
+  const bezoekerRows=(bezoekersData||[]).filter(bz=>bz.foto_storage_path).map(bz=>({
+    naam:bz.naam||'Bezoeker (naam niet ingevuld)', scandatum:bz.ingecheckt_at,
+    storage_path:bz.foto_storage_path, media_type:'image/jpeg', statusLabel:'🧍 Bezoeker', statusKleur:'#5856D6'}));
+
+  _idaCache={bookingGroups,bezoekerRows};
   renderIdaFilterButtons();
   renderIdArchief();
+}
+function idaPersonRowHtml(p,thumbId){
+  return`<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--sep2);">
+    <div id="${thumbId}" style="width:44px;height:44px;border-radius:9px;background:#eef0f3;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--lbl3);overflow:hidden;">···</div>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+        <span style="font-weight:700;font-size:13px;color:var(--lbl1);">${escHtml(p.naam||'—')}</span>
+        <span style="font-size:10.5px;font-weight:700;color:${p.statusKleur};flex-shrink:0;">${p.statusLabel}</span>
+      </div>
+      <div style="font-size:11px;color:var(--lbl3);margin-top:1px;">${[p.geboortedatum?fmtDateLong(p.geboortedatum):'',p.nationaliteit,p.documenttype,p.id_nummer].filter(Boolean).join(' · ')||'—'}</div>
+    </div>
+    <button onclick="downloadIdDoc('${p.storage_path}','${escHtml(p.naam||'document').replace(/'/g,'')}','${p.media_type}')" title="Downloaden" style="flex-shrink:0;padding:7px 9px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">⬇️</button>
+  </div>`;
 }
 async function renderIdArchief(){
   const el=document.getElementById('idaResults');if(!el||!_idaCache)return;
   const q=(document.getElementById('idaSearch')?.value||'').trim().toLowerCase();
   const van=document.getElementById('idaVan')?.value||'';
   const tot=document.getElementById('idaTot')?.value||'';
-  let rows=_idaCache;
-  if(q) rows=rows.filter(r=>(r.naam||'').toLowerCase().includes(q));
-  if(idaFilterMode==='scan'){
-    if(van) rows=rows.filter(r=>r.scandatum && r.scandatum.slice(0,10)>=van);
-    if(tot) rows=rows.filter(r=>r.scandatum && r.scandatum.slice(0,10)<=tot);
-  }else{
-    // Verblijfsperiode geldt enkel voor gasten (bezoekers hebben geen verblijf).
-    rows=rows.filter(r=>r.soort==='gast');
-    if(van) rows=rows.filter(r=>r.vertrek && r.vertrek>=van);
-    if(tot) rows=rows.filter(r=>r.aankomst && r.aankomst<=tot);
-  }
-  if(!rows.length){el.innerHTML='<div class="oc-none" style="padding:16px 0;">Geen resultaten</div>';return;}
-  el.innerHTML=`<div style="font-size:11px;color:var(--lbl4);margin-bottom:8px;">${rows.length} resulta${rows.length===1?'at':'ten'} met ID-document</div>`+
-    rows.map((r,i)=>`<div id="ida-row-${i}" style="padding:10px 0;border-top:1px solid var(--sep2);">
-      <div style="display:flex;gap:10px;align-items:center;">
-        <div id="ida-thumb-${i}" onclick="${r.booking_id?`openBookingDetail('${r.booking_id}')`:''}" style="width:48px;height:48px;border-radius:9px;background:#eef0f3;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--lbl3);cursor:${r.booking_id?'pointer':'default'};overflow:hidden;">···</div>
-        <div style="flex:1;min-width:0;${r.booking_id?'cursor:pointer;':''}" onclick="${r.booking_id?`openBookingDetail('${r.booking_id}')`:''}">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
-            <span style="font-weight:700;font-size:13.5px;color:var(--lbl1);">${escHtml(r.naam||'—')}</span>
-            <span style="font-size:10px;padding:2px 7px;border-radius:20px;flex-shrink:0;background:${r.soort==='gast'?'rgba(0,122,255,.1)':'rgba(88,86,214,.1)'};color:${r.soort==='gast'?'#007AFF':'#5856D6'};font-weight:700;">${r.soort==='gast'?'🏕️ Gast':'🧍 Bezoeker'}</span>
-          </div>
-          <div style="font-size:11.5px;color:var(--lbl3);margin-top:2px;">${[r.geboortedatum?fmtDateLong(r.geboortedatum):'',r.nationaliteit,r.documenttype,r.id_nummer].filter(Boolean).join(' · ')||'—'}</div>
-          <div style="font-size:11px;color:var(--lbl4);margin-top:2px;">${r.volgnummer?`Boeking #${r.volgnummer} · ${fmtDate(r.aankomst)}→${fmtDate(r.vertrek)} · `:''}gescand ${r.scandatum?fmtDateLong(r.scandatum.slice(0,10)):'—'}</div>
-        </div>
-        <button onclick="downloadIdDoc('${r.storage_path}','${escHtml(r.naam||'document').replace(/'/g,'')}','${r.media_type}')" title="Downloaden" style="flex-shrink:0;padding:8px 10px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">⬇️</button>
-      </div>
-    </div>`).join('');
 
-  // Thumbnails asynchroon inladen (signed URLs), zonder de lijst te blokkeren.
-  rows.forEach(async (r,i)=>{
-    const url=await _signedUrl(r.storage_path,300);
-    const thumbEl=document.getElementById(`ida-thumb-${i}`);
-    if(!thumbEl||!url)return;
-    if(r.media_type==='application/pdf'){thumbEl.textContent='PDF';}
-    else{thumbEl.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;">`;}
+  // Filter personen binnen elke boekingsgroep; behoud enkel groepen met >=1 match.
+  let groups=_idaCache.bookingGroups.map(g=>{
+    let persons=g.persons;
+    if(q)persons=persons.filter(p=>(p.naam||'').toLowerCase().includes(q));
+    if(idaFilterMode==='scan'){
+      if(van)persons=persons.filter(p=>p.scandatum&&p.scandatum.slice(0,10)>=van);
+      if(tot)persons=persons.filter(p=>p.scandatum&&p.scandatum.slice(0,10)<=tot);
+    }
+    return {...g,persons};
+  }).filter(g=>g.persons.length);
+  if(idaFilterMode==='verblijf'){
+    if(van)groups=groups.filter(g=>g.vertrek&&g.vertrek>=van);
+    if(tot)groups=groups.filter(g=>g.aankomst&&g.aankomst<=tot);
+  }
+
+  // Bezoekers hebben geen verblijfsperiode — enkel meetellen in scandatum-modus.
+  let bezoekers=idaFilterMode==='verblijf'?[]:_idaCache.bezoekerRows;
+  if(q)bezoekers=bezoekers.filter(b=>(b.naam||'').toLowerCase().includes(q));
+  if(idaFilterMode==='scan'){
+    if(van)bezoekers=bezoekers.filter(b=>b.scandatum&&b.scandatum.slice(0,10)>=van);
+    if(tot)bezoekers=bezoekers.filter(b=>b.scandatum&&b.scandatum.slice(0,10)<=tot);
+  }
+
+  const totalPersons=groups.reduce((s,g)=>s+g.persons.length,0)+bezoekers.length;
+  if(!totalPersons){el.innerHTML='<div class="oc-none" style="padding:16px 0;">Geen resultaten</div>';return;}
+
+  const thumbQueue=[];
+  let html=`<div style="font-size:11px;color:var(--lbl4);margin-bottom:8px;">${totalPersons} document${totalPersons===1?'':'en'}</div>`;
+  html+=groups.map(g=>{
+    const rowsHtml=g.persons.map((p,pi)=>{
+      const thumbId=`ida-thumb-${g.booking_id}-${pi}`;
+      thumbQueue.push({id:thumbId,storage_path:p.storage_path,media_type:p.media_type});
+      return idaPersonRowHtml(p,thumbId);
+    }).join('');
+    return`<div style="border:1.5px solid var(--sep);border-radius:12px;margin-bottom:12px;overflow:hidden;">
+      <div onclick="openBookingDetail('${g.booking_id}')" style="background:var(--bg);padding:10px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+        <span style="font-weight:800;font-size:13.5px;color:var(--lbl1);">${escHtml(g.naam)} <span style="color:var(--lbl4);font-weight:400;font-size:11.5px;">#${g.volgnummer??'—'}</span></span>
+        <span style="font-size:11px;color:var(--lbl3);flex-shrink:0;">${fmtDate(g.aankomst)}→${fmtDate(g.vertrek)}</span>
+      </div>
+      <div style="padding:2px 12px;">${rowsHtml}</div>
+    </div>`;
+  }).join('');
+
+  if(bezoekers.length){
+    html+=`<div style="padding:8px 0 4px;font-size:11px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.4px;">🧍 Bezoekers</div>`;
+    html+=bezoekers.map((p,pi)=>{
+      const thumbId=`ida-thumb-bz-${pi}`;
+      thumbQueue.push({id:thumbId,storage_path:p.storage_path,media_type:p.media_type});
+      return idaPersonRowHtml(p,thumbId);
+    }).join('');
+  }
+
+  el.innerHTML=html;
+  thumbQueue.forEach(async(t)=>{
+    const url=await _signedUrl(t.storage_path,300);
+    const elm=document.getElementById(t.id);
+    if(!elm||!url)return;
+    if(t.media_type==='application/pdf')elm.textContent='PDF';
+    else elm.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;">`;
   });
 }
 // Downloadt het ID-document rechtstreeks (i.p.v. enkel openen in een nieuw tabblad).
