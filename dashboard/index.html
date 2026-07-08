@@ -889,12 +889,15 @@
           <div id="gmailMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;min-height:14px;"></div>
         </div>
 
-        <!-- Afzender -->
-        <div class="cfg-section-label">✉️ Afzender</div>
+        <!-- Verzenden -->
+        <div class="cfg-section-label">✉️ Mail versturen</div>
         <div class="cfg-card" style="margin-bottom:16px;">
-          <div class="cfg-row"><span class="cfg-row-lbl">Naam</span><input class="cfg-row-input" id="cfgFromName" placeholder="Camping Cosmopolite" oninput="debounceSave('mail_from_name',this.value)"></div>
-          <div class="cfg-sep"></div>
-          <div class="cfg-row"><span class="cfg-row-lbl">E-mail</span><input class="cfg-row-input" id="cfgFromEmail" placeholder="info@campingcosmopolite.be" oninput="debounceSave('mail_from_email',this.value)"></div>
+          <div style="font-size:12.5px;color:var(--lbl2);line-height:1.6;">
+            Bevestigingsmails worden rechtstreeks verstuurd via het Gmail-account hierboven — geen aparte afzender of sleutel meer nodig.
+          </div>
+          <div style="font-size:11.5px;color:var(--lbl4);margin-top:8px;line-height:1.5;">
+            ⚠️ Werkte dit vroeger al met Gmail gekoppeld en lukt versturen toch niet? Klik hierboven opnieuw op <b>"Koppel Gmail account"</b> — er is een extra toestemming (verzendrechten) nodig die oudere koppelingen nog niet hebben.
+          </div>
         </div>
 
         <!-- Verwijzing naar booking detail -->
@@ -906,15 +909,6 @@
         <!-- Hidden element needed for slaMailTemplatesOp msg -->
         <div id="mailTemplateBlocks" style="display:none;"></div>
         <div id="mailTplMsg" style="font-size:12px;color:var(--lbl3);margin-top:4px;text-align:center;min-height:14px;"></div>
-
-        <!-- Resend key -->
-        <div class="cfg-section-label" style="margin-top:20px;">🔑 Resend API Key</div>
-        <div class="cfg-card" style="margin-bottom:8px;">
-          <input class="cfg-full-input" id="cfgResendKey" type="password" placeholder="re_••••••••" style="margin-bottom:6px;">
-          <div style="font-size:11px;color:var(--lbl4);">Gratis tot 3.000 mails/maand — <b>resend.com</b> → API Keys</div>
-        </div>
-        <button onclick="saveApiKeys()" style="width:100%;padding:12px;background:var(--green);color:#fff;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;" id="saveApiBtn">Opslaan</button>
-        <div id="apiSaveMsg" style="font-size:12px;color:var(--lbl3);margin-top:8px;text-align:center;min-height:16px;"></div>
       </div>
 
       <!-- PAGE: BETALING -->
