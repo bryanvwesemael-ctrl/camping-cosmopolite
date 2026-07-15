@@ -11,8 +11,21 @@
   to = "/dashboard/index.html"
   status = 200
 
+# Nieuw dashboard (preview) — draait naast het huidige, deelt dezelfde backend.
+[[redirects]]
+  from = "/dashboard-nieuw"
+  to = "/dashboard-nieuw/index.html"
+  status = 200
+
 [[headers]]
   for = "/dashboard/*"
+    [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/dashboard-nieuw/*"
     [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"

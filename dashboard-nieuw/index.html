@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Cosmopolite — Nieuw systeem (preview)</title>
+<style>
+  :root{
+    --bg:#EDEEF0; --card:#FFFFFF; --card-2:#F6F7F9;
+    --ink:#1B1C1E; --ink-2:#5B6470; --ink-3:#8A929C;
+    --sep:#E6E8EC; --sep-2:#EEF0F3;
+    --green:#1B8A5B; --green-deep:#0D5035; --green-soft:#E6F3EC;
+    --amber:#C77A11; --amber-soft:#FBEFD9;
+    --blue:#2E6FB0; --blue-soft:#E3EEF8;
+    --purple:#5A57C4; --purple-soft:#EAE9F7;
+    --red:#C24230; --red-soft:#F8E3DE;
+    --grey-soft:#EDEEF0;
+    --shadow:0 1px 2px rgba(20,25,30,.05), 0 6px 20px -10px rgba(20,25,30,.16);
+    --shadow-lg:0 14px 44px -16px rgba(20,25,30,.4);
+    --f: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --f-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0B0E0C; --card:#161917; --card-2:#1D211E;
+      --ink:#ECEEEC; --ink-2:#A3ABA5; --ink-3:#727A74;
+      --sep:#262A27; --sep-2:#1F231E;
+      --green:#3FB380; --green-deep:#2A8560; --green-soft:#16261E;
+      --amber:#E0A03E; --amber-soft:#29210E; --blue:#5D9AD8; --blue-soft:#122230;
+      --purple:#8B88E6; --purple-soft:#1a1932; --red:#E0765E; --red-soft:#291510;
+      --grey-soft:#1F231E;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+      --shadow-lg:0 18px 50px -16px rgba(0,0,0,.75);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#EDEEF0; --card:#FFFFFF; --card-2:#F6F7F9; --ink:#1B1C1E; --ink-2:#5B6470; --ink-3:#8A929C;
+    --sep:#E6E8EC; --sep-2:#EEF0F3; --green:#1B8A5B; --green-deep:#0D5035; --green-soft:#E6F3EC;
+    --amber:#C77A11; --amber-soft:#FBEFD9; --blue:#2E6FB0; --blue-soft:#E3EEF8;
+    --purple:#5A57C4; --purple-soft:#EAE9F7; --red:#C24230; --red-soft:#F8E3DE; --grey-soft:#EDEEF0;
+    --shadow:0 1px 2px rgba(20,25,30,.05), 0 6px 20px -10px rgba(20,25,30,.16);
+    --shadow-lg:0 14px 44px -16px rgba(20,25,30,.4);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0B0E0C; --card:#161917; --card-2:#1D211E; --ink:#ECEEEC; --ink-2:#A3ABA5; --ink-3:#727A74;
+    --sep:#262A27; --sep-2:#1F231E; --green:#3FB380; --green-deep:#2A8560; --green-soft:#16261E;
+    --amber:#E0A03E; --amber-soft:#29210E; --blue:#5D9AD8; --blue-soft:#122230;
+    --purple:#8B88E6; --purple-soft:#1a1932; --red:#E0765E; --red-soft:#291510; --grey-soft:#1F231E;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+    --shadow-lg:0 18px 50px -16px rgba(0,0,0,.75);
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  .stage{background:var(--bg); font-family:var(--f); color:var(--ink); min-height:100vh; padding:0 16px 40px; -webkit-font-smoothing:antialiased;}
+  .previewbar{max-width:960px; margin:0 auto; display:flex; align-items:center; gap:12px; padding:12px 4px 14px; flex-wrap:wrap;}
+  .previewbar .badge{font-size:11px; font-family:var(--f-mono); letter-spacing:.1em; text-transform:uppercase; color:#fff; background:var(--amber); padding:6px 11px; border-radius:8px; font-weight:700;}
+  .previewbar .txt{font-size:12.5px; color:var(--ink-2); flex:1; min-width:180px;}
+  .previewbar a{font-size:12.5px; font-weight:600; color:var(--green); text-decoration:none; border:1px solid var(--sep); padding:8px 13px; border-radius:9px; white-space:nowrap; background:var(--card);}
+  .intro{max-width:960px; margin:0 auto 14px; text-align:center;}
+  .intro .tt{font-size:12px; font-family:var(--f-mono); letter-spacing:.12em; text-transform:uppercase; color:var(--green); font-weight:600;}
+  .intro p{margin:8px 0 0; font-size:13px; color:var(--ink-2); line-height:1.5;}
+  .intro .hintwide{font-size:11.5px; color:var(--ink-3); margin-top:6px; font-family:var(--f-mono);}
+
+  /* ===== APP SHELL ===== */
+  .app{
+    max-width:960px; margin:0 auto; background:var(--card); border-radius:26px;
+    box-shadow:var(--shadow-lg); overflow:hidden; border:1px solid var(--sep);
+    position:relative; height:min(86vh, 880px); min-height:600px;
+    display:flex; flex-direction:column;
+  }
+
+  /* header */
+  .hd{background:linear-gradient(135deg,var(--green),var(--green-deep)); color:#fff; padding:15px 18px; display:flex; align-items:center; gap:12px; flex-shrink:0; z-index:5;}
+  .hd .logo{width:36px; height:36px; border-radius:11px; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; font-size:18px; border:1px solid rgba(255,255,255,.2);}
+  .hd .ht{flex:1; min-width:0;}
+  .hd .ht .n{font-weight:800; font-size:15.5px; letter-spacing:-.2px;}
+  .hd .ht .s{font-size:11.5px; color:rgba(255,255,255,.72);}
+  .hd .back{background:rgba(255,255,255,.16); border:none; color:#fff; width:34px; height:34px; border-radius:10px; font-size:17px; cursor:pointer; display:none; align-items:center; justify-content:center; flex-shrink:0;}
+  .hd .who{font-size:11px; font-family:var(--f-mono); background:rgba(255,255,255,.16); padding:6px 10px; border-radius:8px;}
+
+  /* main region = rail + content (desktop) / just content (mobile) */
+  .main{flex:1; display:flex; min-height:0;}
+  .rail{display:none; flex-direction:column; gap:4px; width:196px; flex-shrink:0; background:var(--card); border-right:1px solid var(--sep); padding:14px 10px;}
+  .rail .ri{display:flex; align-items:center; gap:11px; padding:11px 12px; border-radius:11px; border:none; background:none; cursor:pointer; font-family:var(--f); font-size:13.5px; font-weight:600; color:var(--ink-2); text-align:left; width:100%;}
+  .rail .ri .ic{font-size:17px;}
+  .rail .ri.on{background:var(--green-soft); color:var(--green);}
+  .rail .ri.plus{background:var(--green); color:#fff; margin-top:6px;}
+  .rail .spacer{flex:1;}
+
+  .content{flex:1; overflow-y:auto; background:var(--bg); padding:16px;}
+  .content::-webkit-scrollbar{width:8px;} .content::-webkit-scrollbar-thumb{background:var(--sep); border-radius:8px;}
+
+  /* bottom nav (mobile) */
+  .nav{flex-shrink:0; background:var(--card); border-top:1px solid var(--sep); display:flex; padding:7px 6px; justify-content:space-around; align-items:center;}
+  .nav .ni{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:none; cursor:pointer; padding:3px 2px; color:var(--ink-3); font-family:var(--f);}
+  .nav .ni .ic{font-size:18px; line-height:1;}
+  .nav .ni .lb{font-size:9.5px; font-weight:600;}
+  .nav .ni.on{color:var(--green);}
+  .nav .ni.plus .ic{width:38px; height:38px; background:var(--green); color:#fff; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:21px; box-shadow:0 6px 16px -6px var(--green);}
+
+  /* ===== shared ===== */
+  .card{background:var(--card); border-radius:15px; box-shadow:var(--shadow); border:1px solid var(--sep); overflow:hidden;}
+  .sec-lbl{font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-3); margin:16px 4px 8px;}
+  .pill{font-size:10px; font-weight:700; font-family:var(--f-mono); letter-spacing:.02em; padding:4px 7px; border-radius:7px; white-space:nowrap;}
+  .p-arr{background:var(--green-soft); color:var(--green);} .p-dep{background:var(--red-soft); color:var(--red);}
+  .p-pay{background:var(--amber-soft); color:var(--amber);} .p-req{background:var(--amber-soft); color:var(--amber);}
+  .p-conf{background:var(--green-soft); color:var(--green);} .p-in{background:var(--blue-soft); color:var(--blue);}
+  .p-out{background:var(--grey-soft); color:var(--ink-2);} .p-draft{background:var(--amber-soft); color:var(--amber);}
+
+  .screen{display:none;} .screen.on{display:block;}
+
+  /* dagbord */
+  .greet .g1{font-size:21px; font-weight:800; letter-spacing:-.4px;}
+  .greet .g2{font-size:13px; color:var(--ink-2); margin-top:2px;}
+  .kpis{display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-top:14px;}
+  .kpi{background:var(--card); border:1px solid var(--sep); border-radius:13px; padding:13px 12px; box-shadow:var(--shadow);}
+  .kpi .kv{font-size:25px; font-weight:800; letter-spacing:-.03em; line-height:1; font-variant-numeric:tabular-nums;}
+  .kpi .kk{font-size:10.5px; color:var(--ink-2); margin-top:6px;}
+  .kv.g{color:var(--green);} .kv.r{color:var(--red);} .kv.b{color:var(--blue);}
+  @media(min-width:560px){ .kpis{grid-template-columns:repeat(5,1fr);} }
+
+  .alert{display:flex; align-items:center; gap:11px; padding:13px 14px; background:var(--amber-soft); border:1px solid color-mix(in srgb,var(--amber) 30%, transparent); border-radius:14px; margin-top:12px; cursor:pointer;}
+  .alert .ai{font-size:19px;} .alert .at{flex:1;}
+  .alert .at .a1{font-weight:700; font-size:13.5px; color:var(--amber);}
+  .alert .at .a2{font-size:12px; color:var(--ink-2); margin-top:1px;}
+  .alert .ar{color:var(--amber); font-size:18px;}
+
+  .taskcard{padding:3px;}
+  .task{display:flex; align-items:center; gap:11px; padding:11px; cursor:pointer; border-radius:11px;}
+  .task:hover{background:var(--card-2);} .task+.task{border-top:1px solid var(--sep-2);}
+  .task.sel{background:var(--green-soft);}
+  .task .av{width:36px; height:36px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff;}
+  .task .tb{flex:1; min-width:0;}
+  .task .tb .tn{font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .task .tb .td{font-size:11.5px; color:var(--ink-2); margin-top:1px;}
+
+  /* reserveringen split */
+  .foldertabs{display:flex; gap:5px; background:var(--card-2); padding:5px; border-radius:13px; border:1px solid var(--sep); margin-bottom:13px; overflow-x:auto;}
+  .foldertabs .ft{flex:1; min-width:max-content; text-align:center; font-size:12.5px; font-weight:700; padding:9px 11px; border-radius:9px; cursor:pointer; color:var(--ink-2); border:none; background:none; font-family:var(--f); white-space:nowrap;}
+  .foldertabs .ft.on{background:var(--card); box-shadow:var(--shadow);}
+  .foldertabs .ft[data-folder="postvak"].on{color:var(--amber);}
+  .foldertabs .ft:not([data-folder="postvak"]).on{color:var(--green);}
+  .foldertabs .ft .ct{display:inline-block; margin-left:5px; font-size:10px; background:var(--grey-soft); color:var(--ink-2); padding:1px 6px; border-radius:20px; font-weight:700;}
+  .foldertabs .ft.on .ct{background:var(--green-soft); color:var(--green);}
+  .foldertabs .ft[data-folder="postvak"].on .ct{background:var(--amber-soft); color:var(--amber);}
+
+  .split{display:grid; gap:14px;}
+  .reserv-detail{display:none;}
+  .list-hint{font-size:11px; color:var(--ink-3); text-align:center; margin:12px 0 2px; font-family:var(--f-mono);}
+
+  /* fiche */
+  .draft-banner{display:none; align-items:center; gap:11px; padding:12px 14px; background:var(--amber-soft); border:1px solid color-mix(in srgb,var(--amber) 35%, transparent); border-radius:13px; margin-bottom:12px;}
+  .draft-banner .di{font-size:19px;}
+  .draft-banner .dt{flex:1; font-size:12.5px; color:var(--ink-2); line-height:1.4;}
+  .draft-banner .dt b{color:var(--amber);}
+  .fiche-hd{background:var(--card); border-radius:15px; box-shadow:var(--shadow); border:1px solid var(--sep); padding:15px; margin-bottom:12px;}
+  .fiche-hd .top{display:flex; gap:12px; align-items:center;}
+  .fiche-hd .av{width:48px; height:48px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; color:#fff; flex-shrink:0; background:#5A57C4;}
+  .fiche-hd .nm{flex:1; min-width:0;}
+  .fiche-hd .nm .n1{font-weight:800; font-size:16.5px; letter-spacing:-.3px; line-height:1.15;}
+  .fiche-hd .nm .n2{font-size:11.5px; color:var(--ink-2); margin-top:3px; font-family:var(--f-mono);}
+  .fiche-hd .mini{display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:13px;}
+  .mbox{background:var(--card-2); border-radius:10px; padding:9px 11px;}
+  .mbox .ml{font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); font-weight:600;}
+  .mbox .mv{font-size:14.5px; font-weight:700; margin-top:3px;}
+  .move-btn{width:100%; margin-top:12px; padding:13px; border-radius:12px; background:var(--green); color:#fff; border:none; font-weight:700; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 6px 16px -8px var(--green); font-family:var(--f);}
+
+  .tabs{display:flex; background:var(--card); border-radius:12px; box-shadow:var(--shadow); border:1px solid var(--sep); padding:4px; margin-bottom:12px; gap:2px;}
+  .tabs .tab{flex:1; text-align:center; font-size:11.5px; font-weight:700; padding:9px 2px; border-radius:9px; cursor:pointer; color:var(--ink-2); border:none; background:none; font-family:var(--f);}
+  .tabs .tab.on{background:var(--green); color:#fff;}
+  .pane{display:none;} .pane.on{display:block; animation:fade .22s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1;}}
+
+  .row{display:flex; justify-content:space-between; align-items:center; padding:12px 14px; font-size:13.5px;}
+  .row+.row{border-top:1px solid var(--sep-2);}
+  .row .rl{color:var(--ink-2);} .row .rv{font-weight:600; text-align:right;}
+  .row .rv.ai{color:var(--amber);}
+
+  .thread{padding:11px; display:flex; flex-direction:column; gap:9px;}
+  .msg{padding:10px 12px; border-radius:12px; font-size:12.5px; line-height:1.5;}
+  .msg .mh{font-size:10px; font-family:var(--f-mono); margin-bottom:5px; display:flex; justify-content:space-between; gap:8px; opacity:.85;}
+  .msg.in{background:var(--card-2); border:1px solid var(--sep);}
+  .msg.out{background:var(--green-soft); border:1px solid color-mix(in srgb,var(--green) 22%, transparent);}
+  .msg.in .mh{color:var(--blue);} .msg.out .mh{color:var(--green);}
+  .composer{border-top:1px solid var(--sep); padding:10px; display:flex; gap:7px; align-items:center;}
+  .composer .fake-input{flex:1; background:var(--card-2); border:1px solid var(--sep); border-radius:10px; padding:10px 12px; font-size:12px; color:var(--ink-3);}
+  .composer .tplbtn{background:var(--card-2); border:1px solid var(--sep); border-radius:10px; padding:10px; font-size:11.5px; color:var(--ink-2); white-space:nowrap; cursor:pointer;}
+  .composer .send{background:var(--green); border:none; color:#fff; border-radius:10px; width:40px; height:40px; font-size:15px; cursor:pointer;}
+
+  .paytop{padding:14px; display:flex; align-items:center; gap:13px;}
+  .ring{width:62px; height:62px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:var(--amber); background:conic-gradient(var(--amber) 57%, var(--sep) 0);}
+  .ring .inner{width:48px; height:48px; border-radius:50%; background:var(--card); display:flex; align-items:center; justify-content:center;}
+  .paytop .pt{flex:1;}
+  .paytop .pt .a{font-size:19px; font-weight:800;}
+  .paytop .pt .b{font-size:12px; color:var(--ink-2); margin-top:2px;} .paytop .pt .b b{color:var(--amber);}
+  .statusgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:4px 12px 12px;}
+  .sbtn{padding:10px; border-radius:10px; font-size:12px; font-weight:600; border:1.5px solid var(--sep); background:var(--card-2); color:var(--ink-2); cursor:pointer; text-align:center; font-family:var(--f);}
+  .sbtn.act{border-color:var(--green); background:var(--green-soft); color:var(--green); font-weight:700;}
+  .payhist{border-top:1px solid var(--sep);}
+
+  .guest{display:flex; align-items:center; gap:11px; padding:11px 13px;}
+  .guest+.guest{border-top:1px solid var(--sep-2);}
+  .guest .thumb{width:42px; height:30px; border-radius:5px; background:linear-gradient(135deg,var(--card-2),var(--sep)); border:1px solid var(--sep); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:14px;}
+  .guest .gi{flex:1;} .guest .gi .gn{font-weight:600; font-size:13.5px;} .guest .gi .gd{font-size:11px; color:var(--ink-2); margin-top:1px; font-family:var(--f-mono);}
+  .ai-btn{margin:10px; width:calc(100% - 20px); padding:11px; border-radius:11px; background:var(--green-soft); border:1.5px dashed var(--green); color:var(--green); font-weight:700; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; font-family:var(--f);}
+  .note-inline{font-size:11px; color:var(--ink-3); text-align:center; padding:9px; font-family:var(--f-mono);}
+
+  .toast{position:absolute; left:50%; bottom:74px; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--bg); font-size:13px; font-weight:600; padding:11px 18px; border-radius:12px; opacity:0; transition:.25s; pointer-events:none; box-shadow:var(--shadow-lg); z-index:30; text-align:center; max-width:80%;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ===== DESKTOP ===== */
+  @media(min-width:860px){
+    .rail{display:flex;}
+    .nav{display:none;}
+    .hd .back{display:none !important;}
+    .content{padding:22px;}
+    /* master-detail: list + fiche side by side */
+    .split{grid-template-columns:340px 1fr; align-items:start;}
+    .reserv-detail{display:block !important; position:sticky; top:0;}
+    .app.mobileFiche .content{overflow:auto;}
+    .greet .g1{font-size:24px;}
+    .kpis{max-width:640px;}
+  }
+  @media(max-width:859px){
+    /* mobile: when a fiche is open, hide list/tabs, show only detail + back */
+    .app.mobileFiche .reserv-list, .app.mobileFiche .foldertabs{display:none;}
+    .app.mobileFiche .reserv-detail{display:block;}
+    .app.mobileFiche .hd .back{display:flex;}
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="previewbar">
+    <span class="badge">🧪 Nieuw systeem — preview</span>
+    <span class="txt">Dit is het herontwerp. Het oude systeem blijft ongewijzigd draaien. Demo-data — nog niet gekoppeld aan echte reserveringen.</span>
+    <a href="/dashboard/">← Terug naar huidig systeem</a>
+  </div>
+
+  <div class="app" id="app">
+    <!-- HEADER -->
+    <div class="hd">
+      <button class="back" id="backBtn" onclick="closeFiche()">‹</button>
+      <div class="logo">🏕️</div>
+      <div class="ht">
+        <div class="n">Cosmopolite</div>
+        <div class="s">Dinsdag 15 juli · 28 gasten aanwezig</div>
+      </div>
+      <div class="who">👤 Karen</div>
+    </div>
+
+    <div class="main">
+      <!-- RAIL (desktop) -->
+      <div class="rail">
+        <button class="ri on" data-screen="dagbord" onclick="go('dagbord')"><span class="ic">🗓️</span> Dagbord</button>
+        <button class="ri" data-screen="reserv" onclick="go('reserv')"><span class="ic">📂</span> Reserveringen</button>
+        <button class="ri" onclick="toast('Kalender: maand · week · dag')"><span class="ic">📅</span> Kalender</button>
+        <button class="ri plus" onclick="toast('Nieuwe reservering')"><span class="ic">＋</span> Nieuw</button>
+        <div class="spacer"></div>
+        <button class="ri" onclick="toast('Beheer — enkel voor Karen')"><span class="ic">⚙️</span> Beheer</button>
+      </div>
+
+      <!-- CONTENT -->
+      <div class="content" id="content">
+
+        <!-- DAGBORD -->
+        <div class="screen on" id="scr-dagbord">
+          <div class="greet">
+            <div class="g1">Goeiemorgen, Karen 👋</div>
+            <div class="g2">Dit is je werk voor vandaag.</div>
+          </div>
+          <div class="kpis">
+            <div class="kpi"><div class="kv g">4</div><div class="kk">🟢 Aankomst</div></div>
+            <div class="kpi"><div class="kv r">3</div><div class="kk">🔴 Vertrek</div></div>
+            <div class="kpi"><div class="kv b">28</div><div class="kk">🏕️ Aanwezig</div></div>
+            <div class="kpi"><div class="kv" style="font-size:19px;">€151</div><div class="kk">💰 Openstaand</div></div>
+            <div class="kpi"><div class="kv" style="font-size:22px;">72%</div><div class="kk">📊 Bezetting</div></div>
+          </div>
+
+          <div class="alert" onclick="go('reserv'); setFolder('postvak');">
+            <div class="ai">📥</div>
+            <div class="at"><div class="a1">2 nieuwe aanvragen in Postvak</div><div class="a2">Automatisch ingelezen uit e-mail — klaar om te controleren</div></div>
+            <div class="ar">›</div>
+          </div>
+
+          <div class="sec-lbl">🟢 Verwacht vandaag</div>
+          <div class="card taskcard">
+            <div class="task" onclick="openFiche(false)"><div class="av" style="background:#3B7DD8;">FP</div><div class="tb"><div class="tn">Fam. Peeters</div><div class="td">Camper · 2 volw. · 5 nachten</div></div><span class="pill p-arr">AANKOMST</span></div>
+            <div class="task" onclick="openFiche(false)"><div class="av" style="background:#C77A11;">SV</div><div class="tb"><div class="tn">Sven Vermeulen</div><div class="td">Tent · 3 pers. · 2 nachten</div></div><span class="pill p-arr">AANKOMST</span></div>
+          </div>
+          <div class="sec-lbl">🔴 Vertrekt vandaag</div>
+          <div class="card taskcard">
+            <div class="task" onclick="openFiche(false)"><div class="av" style="background:#8A929C;">FJ</div><div class="tb"><div class="tn">Fam. Janssens</div><div class="td">Camper · vertrek 11:00</div></div><span class="pill p-dep">VERTREK</span></div>
+          </div>
+          <div class="sec-lbl">💰 Vraagt aandacht</div>
+          <div class="card taskcard">
+            <div class="task" onclick="openFiche(false)"><div class="av" style="background:#5A57C4;">MV</div><div class="tb"><div class="tn">Marc Verhaeghe</div><div class="td">Nog € 151 openstaand</div></div><span class="pill p-pay">OPENSTAAND</span></div>
+          </div>
+          <div style="height:4px;"></div>
+        </div>
+
+        <!-- RESERVERINGEN -->
+        <div class="screen" id="scr-reserv">
+          <div class="foldertabs">
+            <button class="ft" data-folder="postvak" onclick="setFolder('postvak')">📥 Postvak<span class="ct">2</span></button>
+            <button class="ft on" data-folder="booking" onclick="setFolder('booking')">Booking<span class="ct">5</span></button>
+            <button class="ft" data-folder="aanwezig" onclick="setFolder('aanwezig')">Aanwezig<span class="ct">12</span></button>
+            <button class="ft" data-folder="vertrokken" onclick="setFolder('vertrokken')">Vertrokken<span class="ct">40</span></button>
+          </div>
+
+          <div class="split">
+            <div class="reserv-list" id="reservList">
+              <!-- postvak -->
+              <div class="foldercontent" id="fc-postvak" style="display:none;">
+                <div class="card taskcard">
+                  <div class="task" onclick="openFiche(true, this)"><div class="av" style="background:#C77A11;">FW</div><div class="tb"><div class="tn">Fam. Willems</div><div class="td">10–14 aug · Tent · via e-mail</div></div><span class="pill p-draft">🤖 controleren</span></div>
+                  <div class="task" onclick="openFiche(true, this)"><div class="av" style="background:#C77A11;">JB</div><div class="tb"><div class="tn">Jan Bogaerts</div><div class="td">1–5 sep · Camper · via e-mail</div></div><span class="pill p-draft">🤖 controleren</span></div>
+                </div>
+                <div class="list-hint">AI las deze uit e-mail · nog niet bevestigd</div>
+              </div>
+              <!-- booking -->
+              <div class="foldercontent" id="fc-booking">
+                <div class="card taskcard">
+                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#3B7DD8;">FP</div><div class="tb"><div class="tn">Fam. Peeters</div><div class="td">3–8 aug · Camper</div></div><span class="pill p-conf">bevestigd</span></div>
+                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#5A57C4;">FC</div><div class="tb"><div class="tn">Fam. Claes</div><div class="td">12–19 aug · Camper</div></div><span class="pill p-conf">bevestigd</span></div>
+                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#1B8A5B;">DP</div><div class="tb"><div class="tn">Dirk Pauwels</div><div class="td">15–22 aug · Tent</div></div><span class="pill p-conf">bevestigd</span></div>
+                </div>
+                <div class="list-hint">binnen, nog niet gearriveerd</div>
+              </div>
+              <!-- aanwezig -->
+              <div class="foldercontent" id="fc-aanwezig" style="display:none;">
+                <div class="card taskcard">
+                  <div class="task sel" onclick="openFiche(false, this)"><div class="av" style="background:#5A57C4;">MV</div><div class="tb"><div class="tn">Marc Verhaeghe</div><div class="td">3–12 jul · nog € 151 open</div></div><span class="pill p-in">aanwezig</span></div>
+                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#1B8A5B;">FM</div><div class="tb"><div class="tn">Fam. Maes</div><div class="td">10–17 jul · betaald</div></div><span class="pill p-in">aanwezig</span></div>
+                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#3B7DD8;">LD</div><div class="tb"><div class="tn">Lies De Backer</div><div class="td">13–20 jul · betaald</div></div><span class="pill p-in">aanwezig</span></div>
+                </div>
+                <div class="list-hint">staan nu op de camping · dit is "wie is er"</div>
+              </div>
+              <!-- vertrokken -->
+              <div class="foldercontent" id="fc-vertrokken" style="display:none;">
+                <div class="card taskcard">
+                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#8A929C;">FJ</div><div class="tb"><div class="tn">Fam. Janssens</div><div class="td">4–11 jul · afgesloten</div></div><span class="pill p-out">vertrokken</span></div>
+                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#8A929C;">TV</div><div class="tb"><div class="tn">Tom Verhoeven</div><div class="td">1–8 jul · afgesloten</div></div><span class="pill p-out">vertrokken</span></div>
+                </div>
+                <div class="list-hint">archief · doorzoekbaar</div>
+              </div>
+            </div>
+
+            <!-- FICHE DETAIL -->
+            <div class="reserv-detail" id="reservDetail">
+              <div class="draft-banner" id="draftBanner">
+                <div class="di">🤖</div>
+                <div class="dt"><b>Automatisch ingelezen uit de e-mail.</b> Controleer de velden en bevestig — dan verhuist de fiche naar Booking en vertrekt de bevestigingsmail.</div>
+              </div>
+
+              <div class="fiche-hd">
+                <div class="top">
+                  <div class="av" id="ficheAv">MV</div>
+                  <div class="nm">
+                    <div class="n1" id="ficheName">Marc &amp; Ann Verhaeghe</div>
+                    <div class="n2" id="ficheMeta">#2026-041 · 📂 Aanwezig</div>
+                  </div>
+                </div>
+                <div class="mini">
+                  <div class="mbox"><div class="ml">Aankomst</div><div class="mv" id="ficheIn">3 jul</div></div>
+                  <div class="mbox"><div class="ml">Vertrek</div><div class="mv" id="ficheOut">12 jul</div></div>
+                </div>
+                <button class="move-btn" id="moveBtn" onclick="doMove()">→ Verplaats naar Vertrokken</button>
+              </div>
+
+              <div class="tabs">
+                <button class="tab on" data-tab="geg" onclick="setTab('geg')">Gegevens</button>
+                <button class="tab" data-tab="comm" onclick="setTab('comm')">Communicatie</button>
+                <button class="tab" data-tab="bet" onclick="setTab('bet')">Betaling</button>
+                <button class="tab" data-tab="gast" onclick="setTab('gast')">Gasten &amp; ID</button>
+              </div>
+
+              <div class="pane on" id="pane-geg">
+                <div class="card" id="gegCard">
+                  <div class="row"><span class="rl">Plaats</span><span class="rv">Camper · plaats 14</span></div>
+                  <div class="row"><span class="rl">Personen</span><span class="rv">2 volwassenen</span></div>
+                  <div class="row"><span class="rl">Nachten</span><span class="rv">9 · € 39/nacht</span></div>
+                  <div class="row"><span class="rl">Nummerplaat</span><span class="rv">1-KGD-427</span></div>
+                  <div class="row"><span class="rl">Elektriciteit</span><span class="rv">Ja</span></div>
+                  <div class="row"><span class="rl">Kanaal</span><span class="rv">📧 E-mail</span></div>
+                </div>
+                <div class="sec-lbl">Opmerking</div>
+                <div class="card"><div class="row" style="justify-content:flex-start;"><span class="rl">"Graag rustige plaats, komen met hond."</span></div></div>
+                <div class="note-inline">✏️ tik een waarde om aan te passen</div>
+              </div>
+
+              <div class="pane" id="pane-comm">
+                <div class="card">
+                  <div class="thread">
+                    <div class="msg in"><div class="mh"><span>← ontvangen</span><span>28 jun · 09:12</span></div>Goeiedag, wij zouden graag reserveren van 3 tot 12 juli met onze camper, 2 personen, elektriciteit graag. Groeten, Marc</div>
+                    <div class="msg out"><div class="mh"><span>→ verzonden · bevestiging</span><span>28 jun · 10:04</span></div>Beste Marc, jullie reservatie #2026-041 is bevestigd. Totaal € 351. Tot binnenkort!</div>
+                    <div class="msg in"><div class="mh"><span>← ontvangen</span><span>1 jul · 18:30</span></div>Perfect, bedankt! We komen aan rond 16u.</div>
+                  </div>
+                  <div class="composer">
+                    <div class="fake-input">Typ een antwoord…</div>
+                    <button class="tplbtn" onclick="toast('Sjabloon gekozen')">Sjabloon ▾</button>
+                    <button class="send" onclick="toast('Mail verzonden via Karens Gmail')">➤</button>
+                  </div>
+                </div>
+                <div class="note-inline">alle mails chronologisch · Gmail niet nodig</div>
+              </div>
+
+              <div class="pane" id="pane-bet">
+                <div class="card">
+                  <div class="paytop">
+                    <div class="ring"><div class="inner">57%</div></div>
+                    <div class="pt"><div class="a">€ 200 <span style="font-size:13px; color:var(--ink-3); font-weight:600;">/ € 351</span></div><div class="b">Nog <b>€ 151 openstaand</b></div></div>
+                  </div>
+                  <div class="statusgrid">
+                    <div class="sbtn">Niet betaald</div><div class="sbtn act">Voorschot betaald</div>
+                    <div class="sbtn">Volledig betaald</div><div class="sbtn">Terugbetaald</div>
+                  </div>
+                </div>
+                <div class="sec-lbl">Registreer betaling</div>
+                <div class="statusgrid" style="padding:0;">
+                  <div class="sbtn" onclick="toast('Cash geregistreerd')">💵 Cash</div>
+                  <div class="sbtn" onclick="toast('QR-code getoond')">📱 QR-code</div>
+                  <div class="sbtn" onclick="toast('Overschrijving geregistreerd')">🏦 Overschrijving</div>
+                  <div class="sbtn" onclick="toast('Betaallink verstuurd')">🔗 Betaallink</div>
+                </div>
+                <div class="sec-lbl">Historiek</div>
+                <div class="card payhist"><div class="row"><span class="rl">💵 Cash · 28 jun</span><span class="rv">€ 200</span></div></div>
+              </div>
+
+              <div class="pane" id="pane-gast">
+                <div class="card">
+                  <div class="guest"><div class="thumb">🪪</div><div class="gi"><div class="gn">Marc Verhaeghe</div><div class="gd">°1979 · BE · ✅ geregistreerd</div></div><span class="pill p-conf">✓ ID</span></div>
+                  <div class="guest"><div class="thumb">🪪</div><div class="gi"><div class="gn">Ann Verhaeghe</div><div class="gd">°1982 · BE · ✅ geregistreerd</div></div><span class="pill p-conf">✓ ID</span></div>
+                </div>
+                <button class="ai-btn" onclick="toast('AI leest de ID-kaarten…')">🤖 Scan ID-kaart met AI</button>
+                <div class="note-inline">wettelijk register + ID's in één lijst</div>
+              </div>
+              <div style="height:6px;"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BOTTOM NAV (mobile) -->
+    <div class="nav">
+      <button class="ni on" data-screen="dagbord" onclick="go('dagbord')"><span class="ic">🗓️</span><span class="lb">Dagbord</span></button>
+      <button class="ni" data-screen="reserv" onclick="go('reserv')"><span class="ic">📂</span><span class="lb">Reserveringen</span></button>
+      <button class="ni plus" onclick="toast('Nieuwe reservering')"><span class="ic">+</span></button>
+      <button class="ni" onclick="toast('Kalender: maand · week · dag')"><span class="ic">📅</span><span class="lb">Kalender</span></button>
+      <button class="ni" onclick="toast('Beheer — enkel Karen')"><span class="ic">⚙️</span><span class="lb">Beheer</span></button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<script>
+  var DRAFT = {
+    av:'FW', name:'Fam. Willems', meta:'nieuwe aanvraag · 📥 Postvak',
+    din:'10 aug', dout:'14 aug',
+    geg:[['Plaats','Tent · plaats ?','ai'],['Personen','4 personen','ai'],['Nachten','4','ai'],['Nummerplaat','— niet vermeld','ai'],['Elektriciteit','Nee','ai'],['Kanaal','📧 E-mail','ai']]
+  };
+  var NORMAL = {
+    av:'KD', name:'Marc &amp; Ann Verhaeghe', meta:'#2026-041 · 📂 Aanwezig',
+    din:'3 jul', dout:'12 jul'
+  };
+
+  function isMobile(){ return window.matchMedia('(max-width:859px)').matches; }
+
+  function setNav(screen){
+    document.querySelectorAll('[data-screen]').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-screen')===screen);
+    });
+  }
+  function showScreen(id){
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); });
+    document.getElementById('scr-'+id).classList.add('on');
+    document.getElementById('content').scrollTop=0;
+  }
+  function go(screen){
+    document.getElementById('app').classList.remove('mobileFiche');
+    setNav(screen); showScreen(screen);
+  }
+
+  function setFolder(f){
+    go('reserv');
+    document.querySelectorAll('.foldertabs .ft').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-folder')===f);
+    });
+    ['postvak','booking','aanwezig','vertrokken'].forEach(function(x){
+      document.getElementById('fc-'+x).style.display=(x===f)?'block':'none';
+    });
+  }
+
+  function renderFiche(isDraft){
+    var d = isDraft?DRAFT:NORMAL;
+    document.getElementById('ficheAv').textContent=d.av;
+    document.getElementById('ficheAv').style.background=isDraft?'#C77A11':'#5A57C4';
+    document.getElementById('ficheName').innerHTML=d.name;
+    document.getElementById('ficheMeta').innerHTML=d.meta;
+    document.getElementById('ficheIn').textContent=d.din;
+    document.getElementById('ficheOut').textContent=d.dout;
+    document.getElementById('draftBanner').style.display=isDraft?'flex':'none';
+    var mv=document.getElementById('moveBtn');
+    if(isDraft){ mv.textContent='✓ Bevestig — verplaats naar Booking'; mv.dataset.draft='1'; }
+    else { mv.textContent='→ Verplaats naar Vertrokken'; mv.dataset.draft='0'; }
+    if(isDraft){
+      var html='';
+      DRAFT.geg.forEach(function(r){ html+='<div class="row"><span class="rl">'+r[0]+'</span><span class="rv ai">'+r[1]+'</span></div>'; });
+      document.getElementById('gegCard').innerHTML=html;
+    } else {
+      document.getElementById('gegCard').innerHTML=
+        '<div class="row"><span class="rl">Plaats</span><span class="rv">Camper · plaats 14</span></div>'+
+        '<div class="row"><span class="rl">Personen</span><span class="rv">2 volwassenen</span></div>'+
+        '<div class="row"><span class="rl">Nachten</span><span class="rv">9 · € 39/nacht</span></div>'+
+        '<div class="row"><span class="rl">Nummerplaat</span><span class="rv">1-KGD-427</span></div>'+
+        '<div class="row"><span class="rl">Elektriciteit</span><span class="rv">Ja</span></div>'+
+        '<div class="row"><span class="rl">Kanaal</span><span class="rv">📧 E-mail</span></div>';
+    }
+    setTab('geg');
+  }
+
+  function openFiche(isDraft, el){
+    renderFiche(isDraft);
+    // highlight selected row (desktop)
+    document.querySelectorAll('.reserv-list .task').forEach(function(t){ t.classList.remove('sel'); });
+    if(el) el.classList.add('sel');
+    if(isMobile()){
+      go('reserv');
+      document.getElementById('app').classList.add('mobileFiche');
+      document.getElementById('content').scrollTop=0;
+    } else {
+      go('reserv');
+      document.getElementById('reservDetail').scrollIntoView({block:'nearest'});
+    }
+  }
+  function closeFiche(){
+    document.getElementById('app').classList.remove('mobileFiche');
+  }
+  function doMove(){
+    var isDraft = document.getElementById('moveBtn').dataset.draft==='1';
+    toast(isDraft ? '✓ Bevestigd → naar Booking + mail verzonden' : 'Fiche verplaatst naar 📂 Vertrokken');
+    if(isMobile()) closeFiche();
+  }
+
+  function setTab(t){
+    document.querySelectorAll('.tabs .tab').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-tab')===t); });
+    ['geg','comm','bet','gast'].forEach(function(x){ document.getElementById('pane-'+x).classList.toggle('on', x===t); });
+  }
+
+  var toastTimer;
+  function toast(msg){
+    var el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer=setTimeout(function(){ el.classList.remove('show'); }, 2100);
+  }
+
+  // default folder + default fiche
+  setFolder('aanwezig'); go('dagbord'); renderFiche(false);
+</script>
+</body>
+</html>
