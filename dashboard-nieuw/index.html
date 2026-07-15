@@ -235,21 +235,40 @@
 
 <div class="stage">
   <div class="previewbar">
-    <span class="badge">🧪 Nieuw systeem — preview</span>
-    <span class="txt">Dit is het herontwerp. Het oude systeem blijft ongewijzigd draaien. Demo-data — nog niet gekoppeld aan echte reserveringen.</span>
-    <a href="/dashboard/">← Terug naar huidig systeem</a>
+    <span class="badge">🧪 Nieuw systeem — test</span>
+    <span class="txt">Herontwerp met <b>echte data</b>. Acties (bevestigen, inchecken, betaling) wijzigen dezelfde reserveringen als het huidige systeem. Het oude blijft ongewijzigd draaien.</span>
+    <a href="/dashboard/">← Huidig systeem</a>
   </div>
 
-  <div class="app" id="app">
+  <!-- LOGIN -->
+  <div id="loginScreen" style="display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,var(--green-deep),var(--green));">
+    <div style="max-width:340px;width:100%;text-align:center;">
+      <div style="width:64px;height:64px;background:rgba(255,255,255,.15);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 14px;border:1px solid rgba(255,255,255,.2);">🏕️</div>
+      <div style="font-size:22px;font-weight:800;color:#fff;">Cosmopolite</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:24px;">Nieuw systeem — log in met je gewone account</div>
+      <div style="background:var(--card);border-radius:18px;padding:24px;box-shadow:var(--shadow-lg);text-align:left;">
+        <label style="font-size:11px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;">E-mailadres</label>
+        <input id="nlEmail" type="email" placeholder="karen@…" style="width:100%;padding:12px 13px;margin:6px 0 14px;border-radius:11px;border:1.5px solid var(--sep);font-size:15px;background:var(--card-2);color:var(--ink);">
+        <label style="font-size:11px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;">Wachtwoord</label>
+        <input id="nlPassword" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;padding:12px 13px;margin:6px 0 18px;border-radius:11px;border:1.5px solid var(--sep);font-size:15px;background:var(--card-2);color:var(--ink);">
+        <button onclick="doLogin()" style="width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;">Inloggen →</button>
+        <div id="nlMsg" style="font-size:12.5px;color:var(--red);margin-top:10px;min-height:15px;text-align:center;"></div>
+      </div>
+      <a href="/dashboard/" style="font-size:12px;color:rgba(255,255,255,.7);display:inline-block;margin-top:16px;text-decoration:none;">← Terug naar huidig systeem</a>
+    </div>
+  </div>
+
+  <div class="app" id="app" style="display:none;">
     <!-- HEADER -->
     <div class="hd">
       <button class="back" id="backBtn" onclick="closeFiche()">‹</button>
       <div class="logo">🏕️</div>
       <div class="ht">
         <div class="n">Cosmopolite</div>
-        <div class="s">Dinsdag 15 juli · 28 gasten aanwezig</div>
+        <div class="s">Nieuw systeem · echte data</div>
       </div>
-      <div class="who">👤 Karen</div>
+      <button class="gear" title="Vernieuwen" onclick="reloadData()">↻</button>
+      <button class="who" id="whoLbl" style="border:none;cursor:pointer;font-family:inherit;" title="Uitloggen" onclick="doLogout()">👤</button>
     </div>
 
     <div class="main">
@@ -379,17 +398,9 @@
               </div>
 
               <div class="pane on" id="pane-geg">
-                <div class="card" id="gegCard">
-                  <div class="row"><span class="rl">Plaats</span><span class="rv">Camper · plaats 14</span></div>
-                  <div class="row"><span class="rl">Personen</span><span class="rv">2 volwassenen</span></div>
-                  <div class="row"><span class="rl">Nachten</span><span class="rv">9 · € 39/nacht</span></div>
-                  <div class="row"><span class="rl">Nummerplaat</span><span class="rv">1-KGD-427</span></div>
-                  <div class="row"><span class="rl">Elektriciteit</span><span class="rv">Ja</span></div>
-                  <div class="row"><span class="rl">Kanaal</span><span class="rv">📧 E-mail</span></div>
-                </div>
-                <div class="sec-lbl">Opmerking</div>
-                <div class="card"><div class="row" style="justify-content:flex-start;"><span class="rl">"Graag rustige plaats, komen met hond."</span></div></div>
-                <div class="note-inline">✏️ tik een waarde om aan te passen</div>
+                <div class="card" id="gegCard"></div>
+                <div id="paneGegExtra"></div>
+                <div class="note-inline">✏️ velden bewerken komt in volgende stap</div>
               </div>
 
               <div class="pane" id="pane-comm">
@@ -459,108 +470,7 @@
   </div>
 </div>
 
-<script>
-  var DRAFT = {
-    av:'FW', name:'Fam. Willems', meta:'nieuwe aanvraag · 📥 Postvak',
-    din:'10 aug', dout:'14 aug',
-    geg:[['Plaats','Tent · plaats ?','ai'],['Personen','4 personen','ai'],['Nachten','4','ai'],['Nummerplaat','— niet vermeld','ai'],['Elektriciteit','Nee','ai'],['Kanaal','📧 E-mail','ai']]
-  };
-  var NORMAL = {
-    av:'KD', name:'Marc &amp; Ann Verhaeghe', meta:'#2026-041 · 📂 Aanwezig',
-    din:'3 jul', dout:'12 jul'
-  };
-
-  function isMobile(){ return window.matchMedia('(max-width:859px)').matches; }
-
-  function setNav(screen){
-    document.querySelectorAll('[data-screen]').forEach(function(b){
-      b.classList.toggle('on', b.getAttribute('data-screen')===screen);
-    });
-  }
-  function showScreen(id){
-    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); });
-    document.getElementById('scr-'+id).classList.add('on');
-    document.getElementById('content').scrollTop=0;
-  }
-  function go(screen){
-    document.getElementById('app').classList.remove('mobileFiche');
-    setNav(screen); showScreen(screen);
-  }
-
-  function setFolder(f){
-    go('reserv');
-    document.querySelectorAll('.foldertabs .ft').forEach(function(b){
-      b.classList.toggle('on', b.getAttribute('data-folder')===f);
-    });
-    ['postvak','booking','aanwezig','vertrokken'].forEach(function(x){
-      document.getElementById('fc-'+x).style.display=(x===f)?'block':'none';
-    });
-  }
-
-  function renderFiche(isDraft){
-    var d = isDraft?DRAFT:NORMAL;
-    document.getElementById('ficheAv').textContent=d.av;
-    document.getElementById('ficheAv').style.background=isDraft?'#C77A11':'#5A57C4';
-    document.getElementById('ficheName').innerHTML=d.name;
-    document.getElementById('ficheMeta').innerHTML=d.meta;
-    document.getElementById('ficheIn').textContent=d.din;
-    document.getElementById('ficheOut').textContent=d.dout;
-    document.getElementById('draftBanner').style.display=isDraft?'flex':'none';
-    var mv=document.getElementById('moveBtn');
-    if(isDraft){ mv.textContent='✓ Bevestig — verplaats naar Booking'; mv.dataset.draft='1'; }
-    else { mv.textContent='→ Verplaats naar Vertrokken'; mv.dataset.draft='0'; }
-    if(isDraft){
-      var html='';
-      DRAFT.geg.forEach(function(r){ html+='<div class="row"><span class="rl">'+r[0]+'</span><span class="rv ai">'+r[1]+'</span></div>'; });
-      document.getElementById('gegCard').innerHTML=html;
-    } else {
-      document.getElementById('gegCard').innerHTML=
-        '<div class="row"><span class="rl">Plaats</span><span class="rv">Camper · plaats 14</span></div>'+
-        '<div class="row"><span class="rl">Personen</span><span class="rv">2 volwassenen</span></div>'+
-        '<div class="row"><span class="rl">Nachten</span><span class="rv">9 · € 39/nacht</span></div>'+
-        '<div class="row"><span class="rl">Nummerplaat</span><span class="rv">1-KGD-427</span></div>'+
-        '<div class="row"><span class="rl">Elektriciteit</span><span class="rv">Ja</span></div>'+
-        '<div class="row"><span class="rl">Kanaal</span><span class="rv">📧 E-mail</span></div>';
-    }
-    setTab('geg');
-  }
-
-  function openFiche(isDraft, el){
-    renderFiche(isDraft);
-    // highlight selected row (desktop)
-    document.querySelectorAll('.reserv-list .task').forEach(function(t){ t.classList.remove('sel'); });
-    if(el) el.classList.add('sel');
-    if(isMobile()){
-      go('reserv');
-      document.getElementById('app').classList.add('mobileFiche');
-      document.getElementById('content').scrollTop=0;
-    } else {
-      go('reserv');
-      document.getElementById('reservDetail').scrollIntoView({block:'nearest'});
-    }
-  }
-  function closeFiche(){
-    document.getElementById('app').classList.remove('mobileFiche');
-  }
-  function doMove(){
-    var isDraft = document.getElementById('moveBtn').dataset.draft==='1';
-    toast(isDraft ? '✓ Bevestigd → naar Booking + mail verzonden' : 'Fiche verplaatst naar 📂 Vertrokken');
-    if(isMobile()) closeFiche();
-  }
-
-  function setTab(t){
-    document.querySelectorAll('.tabs .tab').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-tab')===t); });
-    ['geg','comm','bet','gast'].forEach(function(x){ document.getElementById('pane-'+x).classList.toggle('on', x===t); });
-  }
-
-  var toastTimer;
-  function toast(msg){
-    var el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
-    clearTimeout(toastTimer); toastTimer=setTimeout(function(){ el.classList.remove('show'); }, 2100);
-  }
-
-  // default folder + default fiche
-  setFolder('aanwezig'); go('dagbord'); renderFiche(false);
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="app-nieuw.js?v=20260715a"></script>
 </body>
 </html>
