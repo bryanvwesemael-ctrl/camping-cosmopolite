@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     const { data:{ user } } = await sb.auth.getUser(jwt!)
     if (!user) throw new Error('Niet ingelogd')
 
-    const { booking_id, template_key } = await req.json()
+    const { booking_id, template_key, onderwerp, inhoud } = await req.json()
     const { data: b } = await sb.from('bookings').select('*,clients(*)').eq('id', booking_id).single()
     if (!b) throw new Error('Boeking niet gevonden')
     if (!b.clients?.email) throw new Error('Geen e-mailadres bij deze gast')
@@ -100,16 +100,23 @@ Deno.serve(async (req) => {
     }
 
     let subjectTpl='', bodyTpl=''
-    try {
-      const arr = JSON.parse(cfg['mailtemplate_'+template_key]||'[]')
-      if (Array.isArray(arr) && arr.length) {
-        const v = arr[Math.floor(Math.random()*arr.length)]
-        subjectTpl = v.onderwerp||''; bodyTpl = v.inhoud||''
+    // Als er een zelf-geschreven onderwerp+inhoud is meegegeven (bv. een antwoord
+    // vanuit de fiche in het nieuwe dashboard), gebruik dat rechtstreeks. Anders
+    // val terug op het sjabloon voor de template_key (bestaande gedrag).
+    if (typeof onderwerp === 'string' && onderwerp.trim() && typeof inhoud === 'string' && inhoud.trim()) {
+      subjectTpl = onderwerp; bodyTpl = inhoud
+    } else {
+      try {
+        const arr = JSON.parse(cfg['mailtemplate_'+template_key]||'[]')
+        if (Array.isArray(arr) && arr.length) {
+          const v = arr[Math.floor(Math.random()*arr.length)]
+          subjectTpl = v.onderwerp||''; bodyTpl = v.inhoud||''
+        }
+      } catch(_e) {}
+      if (!bodyTpl) {
+        subjectTpl = `Camping Cosmopolite #{{volgnummer}}`
+        bodyTpl = `Beste {{voornaam}},\n\nAankomst: {{aankomst}}\nVertrek: {{vertrek}}\nPersonen: {{personen}}\nBedrag: {{bedrag}}\n\nTot binnenkort!\n{{from_name}}`
       }
-    } catch(_e) {}
-    if (!bodyTpl) {
-      subjectTpl = `Camping Cosmopolite #{{volgnummer}}`
-      bodyTpl = `Beste {{voornaam}},\n\nAankomst: {{aankomst}}\nVertrek: {{vertrek}}\nPersonen: {{personen}}\nBedrag: {{bedrag}}\n\nTot binnenkort!\n{{from_name}}`
     }
     const subject = interpolate(subjectTpl, vars)
     const text    = interpolate(bodyTpl, vars)
