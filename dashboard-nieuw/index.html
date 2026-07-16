@@ -229,6 +229,33 @@
     .app.mobileFiche .reserv-detail{display:block;}
     .app.mobileFiche .hd .back{display:flex;}
   }
+
+  /* modal / sheet */
+  .modal-ov{position:fixed;inset:0;z-index:200;background:rgba(15,20,17,.5);display:none;align-items:flex-end;justify-content:center;padding:0;}
+  @media(min-width:600px){ .modal-ov{align-items:center;padding:24px;} }
+  .modal-ov.on{display:flex;}
+  .modal-card{background:var(--card);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;border-radius:20px 20px 0 0;box-shadow:var(--shadow-lg);}
+  @media(min-width:600px){ .modal-card{border-radius:18px;} }
+  .modal-hd{position:sticky;top:0;background:var(--card);display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--sep);z-index:2;}
+  .modal-hd .t{font-size:16px;font-weight:800;letter-spacing:-.2px;}
+  .modal-hd .x{background:var(--card-2);border:none;width:32px;height:32px;border-radius:9px;font-size:16px;cursor:pointer;color:var(--ink-2);}
+  .modal-bd{padding:16px 18px 22px;}
+  .fld{margin-bottom:13px;}
+  .fld label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);display:block;margin-bottom:5px;}
+  .fld input,.fld select,.fld textarea{width:100%;padding:11px 12px;border-radius:11px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:14px;font-family:var(--f);}
+  .fld textarea{resize:vertical;}
+  .fld2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .stpr{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:9px 12px;border:1px solid var(--sep);border-radius:11px;background:var(--card-2);}
+  .stpr .sl{font-size:13.5px;color:var(--ink);}
+  .stpr .ct{display:flex;align-items:center;gap:10px;}
+  .stpr button{width:30px;height:30px;border-radius:8px;border:1px solid var(--sep);background:var(--card);color:var(--green);font-size:17px;font-weight:700;cursor:pointer;line-height:1;}
+  .stpr .val{min-width:22px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border:1px solid var(--sep);border-radius:11px;background:var(--card-2);}
+  .pricebox{background:var(--green-soft);border:1px solid color-mix(in srgb,var(--green) 25%, transparent);border-radius:12px;padding:14px;text-align:center;margin:6px 0 4px;}
+  .pricebox .pb1{font-size:24px;font-weight:800;color:var(--green);letter-spacing:-.02em;}
+  .pricebox .pb2{font-size:12px;color:var(--ink-2);margin-top:3px;}
+  .modal-save{width:100%;padding:14px;border-radius:12px;background:var(--green);color:#fff;border:none;font-weight:700;font-size:15px;cursor:pointer;font-family:var(--f);margin-top:6px;}
+  .scanbtn{width:100%;padding:12px;border-radius:11px;background:var(--green-soft);border:1.5px dashed var(--green);color:var(--green);font-weight:700;font-size:13px;cursor:pointer;font-family:var(--f);margin-bottom:12px;}
 </style>
 </head>
 <body>
@@ -277,7 +304,7 @@
         <button class="ri on" data-screen="dagbord" onclick="go('dagbord')"><span class="ic">🗓️</span> Dagbord</button>
         <button class="ri" data-screen="reserv" onclick="go('reserv')"><span class="ic">📂</span> Reserveringen</button>
         <button class="ri" onclick="toast('Kalender: maand · week · dag')"><span class="ic">📅</span> Kalender</button>
-        <button class="ri plus" onclick="toast('Nieuwe reservering')"><span class="ic">＋</span> Nieuw</button>
+        <button class="ri plus" onclick="openNewBooking()"><span class="ic">＋</span> Nieuw</button>
         <div class="spacer"></div>
         <button class="ri" onclick="toast('Beheer — enkel voor Karen')"><span class="ic">⚙️</span> Beheer</button>
       </div>
@@ -400,7 +427,6 @@
               <div class="pane on" id="pane-geg">
                 <div class="card" id="gegCard"></div>
                 <div id="paneGegExtra"></div>
-                <div class="note-inline">✏️ velden bewerken komt in volgende stap</div>
               </div>
 
               <div class="pane" id="pane-comm">
@@ -461,18 +487,27 @@
     <div class="nav">
       <button class="ni on" data-screen="dagbord" onclick="go('dagbord')"><span class="ic">🗓️</span><span class="lb">Dagbord</span></button>
       <button class="ni" data-screen="reserv" onclick="go('reserv')"><span class="ic">📂</span><span class="lb">Reserveringen</span></button>
-      <button class="ni plus" onclick="toast('Nieuwe reservering')"><span class="ic">+</span></button>
+      <button class="ni plus" onclick="openNewBooking()"><span class="ic">+</span></button>
       <button class="ni" onclick="toast('Kalender: maand · week · dag')"><span class="ic">📅</span><span class="lb">Kalender</span></button>
       <button class="ni" onclick="toast('Beheer — enkel Karen')"><span class="ic">⚙️</span><span class="lb">Beheer</span></button>
     </div>
 
     <div class="toast" id="toast"></div>
   </div>
+
+  <!-- generieke modal (nieuwe reservering, gast toevoegen) -->
+  <div class="modal-ov" id="modal" onclick="if(event.target===this)closeModal()">
+    <div class="modal-card">
+      <div class="modal-hd"><span class="t" id="modalTitle"></span><button class="x" onclick="closeModal()">✕</button></div>
+      <div class="modal-bd" id="modalBody"></div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="../shared/payment.js?v=20260715b"></script>
-<script src="app-nieuw.js?v=20260715b"></script>
+<script src="../shared/payment.js?v=20260715c"></script>
+<script src="../shared/pricing.js?v=20260715c"></script>
+<script src="app-nieuw.js?v=20260715c"></script>
 </body>
 </html>
