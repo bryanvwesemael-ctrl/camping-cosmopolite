@@ -303,10 +303,11 @@
       <div class="rail">
         <button class="ri on" data-screen="dagbord" onclick="go('dagbord')"><span class="ic">🗓️</span> Dagbord</button>
         <button class="ri" data-screen="reserv" onclick="go('reserv')"><span class="ic">📂</span> Reserveringen</button>
-        <button class="ri" onclick="toast('Kalender: maand · week · dag')"><span class="ic">📅</span> Kalender</button>
+        <button class="ri" data-screen="kalender" onclick="go('kalender')"><span class="ic">📅</span> Kalender</button>
+        <button class="ri" data-screen="bezoekers" onclick="go('bezoekers')"><span class="ic">🧍</span> Bezoekers</button>
         <button class="ri plus" onclick="openNewBooking()"><span class="ic">＋</span> Nieuw</button>
         <div class="spacer"></div>
-        <button class="ri" onclick="toast('Beheer — enkel voor Karen')"><span class="ic">⚙️</span> Beheer</button>
+        <button class="ri" id="rail-beheer" data-screen="beheer" style="display:none;" onclick="go('beheer')"><span class="ic">⚙️</span> Beheer</button>
       </div>
 
       <!-- CONTENT -->
@@ -480,6 +481,41 @@
           </div>
         </div>
 
+        <!-- KALENDER -->
+        <div class="screen" id="scr-kalender">
+          <div class="foldertabs" style="max-width:320px;">
+            <button class="ft on" data-cal="maand" onclick="setCalView('maand')">Maand</button>
+            <button class="ft" data-cal="week" onclick="setCalView('week')">Week</button>
+            <button class="ft" data-cal="dag" onclick="setCalView('dag')">Dag</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <button class="sbtn" style="flex:0 0 auto;padding:8px 14px;" onclick="calShift(-1)">‹</button>
+            <span id="calLabel" style="font-weight:700;font-size:15px;"></span>
+            <button class="sbtn" style="flex:0 0 auto;padding:8px 14px;" onclick="calShift(1)">›</button>
+          </div>
+          <div style="text-align:center;margin-bottom:12px;"><button class="sbtn" style="flex:0 0 auto;padding:7px 16px;" onclick="calToday()">Vandaag</button></div>
+          <div id="calWrap"></div>
+        </div>
+
+        <!-- BEZOEKERS -->
+        <div class="screen" id="scr-bezoekers">
+          <div class="greet" style="margin-bottom:12px;"><div class="g1" id="bezTitle">🧍 Bezoekers vandaag</div><div class="g2">Dagbezoek — los van overnachtende gasten.</div></div>
+          <button class="modal-save" style="margin-bottom:14px;" onclick="openBezoekerCheckin()">➕ Bezoeker inchecken</button>
+          <div id="bezList"></div>
+        </div>
+
+        <!-- BEHEER (admin) -->
+        <div class="screen" id="scr-beheer">
+          <div class="foldertabs" style="flex-wrap:wrap;">
+            <button class="ft on" data-beh="tarieven" onclick="setBeheer('tarieven')">💶 Tarieven</button>
+            <button class="ft" data-beh="gebruikers" onclick="setBeheer('gebruikers')">👥 Gebruikers</button>
+            <button class="ft" data-beh="idarchief" onclick="setBeheer('idarchief')">🪪 ID-archief</button>
+            <button class="ft" data-beh="register" onclick="setBeheer('register')">📋 Register</button>
+            <button class="ft" data-beh="analytics" onclick="setBeheer('analytics')">📊 Analytics</button>
+          </div>
+          <div id="beheerBody"></div>
+        </div>
+
       </div>
     </div>
 
@@ -488,8 +524,8 @@
       <button class="ni on" data-screen="dagbord" onclick="go('dagbord')"><span class="ic">🗓️</span><span class="lb">Dagbord</span></button>
       <button class="ni" data-screen="reserv" onclick="go('reserv')"><span class="ic">📂</span><span class="lb">Reserveringen</span></button>
       <button class="ni plus" onclick="openNewBooking()"><span class="ic">+</span></button>
-      <button class="ni" onclick="toast('Kalender: maand · week · dag')"><span class="ic">📅</span><span class="lb">Kalender</span></button>
-      <button class="ni" onclick="toast('Beheer — enkel Karen')"><span class="ic">⚙️</span><span class="lb">Beheer</span></button>
+      <button class="ni" data-screen="kalender" onclick="go('kalender')"><span class="ic">📅</span><span class="lb">Kalender</span></button>
+      <button class="ni" id="tab-beheer" data-screen="beheer" style="display:none;" onclick="go('beheer')"><span class="ic">⚙️</span><span class="lb">Beheer</span></button>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -508,6 +544,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="../shared/payment.js?v=20260715c"></script>
 <script src="../shared/pricing.js?v=20260715c"></script>
-<script src="app-nieuw.js?v=20260715c"></script>
+<script src="app-nieuw.js?v=20260715d"></script>
 </body>
 </html>
