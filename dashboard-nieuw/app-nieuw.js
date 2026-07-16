@@ -53,6 +53,15 @@ async function doLogin(){
   const {error}=await sb.auth.signInWithPassword({email,password:pw});
   if(error){msg.style.color='var(--red)';msg.textContent=(error.message==='Invalid login credentials')?'Ongeldig e-mailadres of wachtwoord':error.message;}
 }
+let currentRole='staff';
+async function loadRole(){
+  try{
+    const {data}=await sb.from('user_roles').select('role').eq('user_id',currentUser.id).maybeSingle();
+    currentRole=(data&&data.role)||'staff';
+  }catch(e){currentRole='staff';}
+  const isAdmin=currentRole==='admin';
+  ['rail-beheer','tab-beheer'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isAdmin?'':'none';});
+}
 async function doLogout(){ if(confirm('Uitloggen?')){ await sb.auth.signOut(); location.reload(); } }
 function showLogin(){document.getElementById('loginScreen').style.display='flex';document.getElementById('app').style.display='none';}
 function showApp(){
@@ -80,9 +89,10 @@ function mapBooking(row){
 }
 async function loadData(){
   try{
-    const pr=await sb.from('settings').select('value').eq('key','maxPlaatsen').limit(1);
+    const pr=await sb.from('settings').select('value').eq('key','max_plaatsen').limit(1);
     if(pr.data&&pr.data.length) maxPlaatsen=parseInt(pr.data[0].value)||0;
   }catch(e){}
+  await loadRole();
   try{
     const cs=await sb.from('club_settings').select('key,value');
     clubCfg={};(cs.data||[]).forEach(r=>{clubCfg[r.key]=r.value;});
@@ -195,7 +205,13 @@ function byVertrekDesc(a,b){return (b.vertrek||'').localeCompare(a.vertrek||'');
 /* ---------- navigatie ---------- */
 function setNav(screen){document.querySelectorAll('[data-screen]').forEach(b=>b.classList.toggle('on',b.getAttribute('data-screen')===screen));}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));document.getElementById('scr-'+id).classList.add('on');document.getElementById('content').scrollTop=0;}
-function go(screen){document.getElementById('app').classList.remove('mobileFiche');setNav(screen);showScreen(screen);}
+function go(screen){
+  document.getElementById('app').classList.remove('mobileFiche');
+  setNav(screen);showScreen(screen);
+  if(screen==='kalender')renderKalender();
+  if(screen==='bezoekers')loadBezoekers();
+  if(screen==='beheer')setBeheer(_beheerTab);
+}
 function setFolder(f){
   go('reserv');
   document.querySelectorAll('.foldertabs .ft').forEach(b=>b.classList.toggle('on',b.getAttribute('data-folder')===f));
@@ -686,6 +702,242 @@ async function saveNewBooking(){
     closeModal(); toast('✅ Reservering aangemaakt → Postvak');
     await loadData(); setFolder('postvak');
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;btn.disabled=false;btn.textContent='Reservering opslaan → Postvak';}
+}
+
+/* ============================================================================
+ * FASE 3 — Kalender (maand/week/dag), Bezoekers, Beheer (admin)
+ * ==========================================================================*/
+
+/* ---------- kalender ---------- */
+let calMode='maand', calAnchor=new Date();
+function ymd(d){return d.toISOString().split('T')[0];}
+function setCalView(m){
+  calMode=m;
+  document.querySelectorAll('#scr-kalender .foldertabs .ft').forEach(b=>b.classList.toggle('on',b.getAttribute('data-cal')===m));
+  renderKalender();
+}
+function calShift(dir){
+  const d=new Date(calAnchor);
+  if(calMode==='maand')d.setMonth(d.getMonth()+dir);
+  else if(calMode==='week')d.setDate(d.getDate()+dir*7);
+  else d.setDate(d.getDate()+dir);
+  calAnchor=d; renderKalender();
+}
+function calToday(){calAnchor=new Date();renderKalender();}
+function bookingsOnDay(dateStr){
+  return bookings.filter(b=>b.status!=='geannuleerd'&&b.aankomst<=dateStr&&b.vertrek>dateStr);
+}
+function renderKalender(){
+  const wrap=document.getElementById('calWrap');
+  const lbl=document.getElementById('calLabel');
+  const MND=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+  const DGN=['ma','di','wo','do','vr','za','zo'];
+  if(calMode==='maand'){
+    lbl.textContent=MND[calAnchor.getMonth()]+' '+calAnchor.getFullYear();
+    const first=new Date(calAnchor.getFullYear(),calAnchor.getMonth(),1);
+    const startOffset=(first.getDay()+6)%7; // maandag=0
+    const daysInMonth=new Date(calAnchor.getFullYear(),calAnchor.getMonth()+1,0).getDate();
+    let cells='';
+    DGN.forEach(d=>cells+='<div style="text-align:center;font-size:10.5px;color:var(--ink-3);font-family:var(--f-mono);padding:4px 0;">'+d+'</div>');
+    for(let i=0;i<startOffset;i++)cells+='<div></div>';
+    for(let day=1;day<=daysInMonth;day++){
+      const dateStr=calAnchor.getFullYear()+'-'+String(calAnchor.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+      const cnt=bookingsOnDay(dateStr).length;
+      const isToday=dateStr===TODAY;
+      cells+='<div onclick="calOpenDay(\''+dateStr+'\')" style="aspect-ratio:1;border:1px solid var(--sep);border-radius:8px;padding:5px;cursor:pointer;background:'+(isToday?'var(--green-soft)':'var(--card)')+';display:flex;flex-direction:column;">'+
+        '<span style="font-size:11px;font-weight:'+(isToday?'800':'600')+';color:'+(isToday?'var(--green)':'var(--ink)')+';">'+day+'</span>'+
+        (cnt?'<span style="margin-top:auto;font-size:9.5px;background:var(--blue-soft);color:var(--blue);border-radius:5px;padding:1px 4px;text-align:center;">'+cnt+'</span>':'')+
+        '</div>';
+    }
+    wrap.innerHTML='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;">'+cells+'</div>';
+  } else if(calMode==='week'){
+    const day0=(calAnchor.getDay()+6)%7;
+    const monday=new Date(calAnchor); monday.setDate(monday.getDate()-day0);
+    const days=[]; for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(d.getDate()+i);days.push(d);}
+    lbl.textContent=days[0].getDate()+' '+MND[days[0].getMonth()].slice(0,3)+' – '+days[6].getDate()+' '+MND[days[6].getMonth()].slice(0,3);
+    wrap.innerHTML=days.map((d,i)=>{
+      const ds=ymd(d);const cnt=bookingsOnDay(ds).length;const isToday=ds===TODAY;
+      return '<div onclick="calOpenDay(\''+ds+'\')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:'+(isToday?'var(--green-soft)':'var(--card)')+';border:1px solid var(--sep);border-radius:10px;margin-bottom:6px;cursor:pointer;">'+
+        '<span style="font-size:13.5px;font-weight:'+(isToday?'800':'600')+';color:'+(isToday?'var(--green)':'var(--ink)')+';">'+DGN[i]+' '+d.getDate()+' '+MND[d.getMonth()].slice(0,3)+'</span>'+
+        '<span class="pill p-in">'+cnt+' aanwezig</span></div>';
+    }).join('');
+  } else {
+    const ds=ymd(calAnchor);
+    lbl.textContent=calAnchor.getDate()+' '+MND[calAnchor.getMonth()]+' '+calAnchor.getFullYear();
+    const list=bookingsOnDay(ds);
+    const aank=bookings.filter(b=>b.aankomst===ds&&b.status!=='geannuleerd');
+    const vert=bookings.filter(b=>b.vertrek===ds&&b.status!=='geannuleerd');
+    let h='<div class="sec-lbl">🟢 Aankomst ('+aank.length+')</div>'+(aank.length?'<div class="card taskcard">'+aank.map(b=>rowHtml(b,esc(verblijf(b)),'')).join('')+'</div>':emptyCard('Geen'));
+    h+='<div class="sec-lbl">🔴 Vertrek ('+vert.length+')</div>'+(vert.length?'<div class="card taskcard">'+vert.map(b=>rowHtml(b,esc(verblijf(b)),'')).join('')+'</div>':emptyCard('Geen'));
+    h+='<div class="sec-lbl">🏕️ Aanwezig ('+list.length+')</div>'+(list.length?'<div class="card taskcard">'+list.map(b=>rowHtml(b,esc(verblijf(b)),'')).join('')+'</div>':emptyCard('Geen'));
+    h+='<div class="sec-lbl">🅿️ Vrije plaatsen</div><div class="card taskcard"><div class="note-inline" style="padding:16px;">'+(maxPlaatsen>0?(Math.max(0,maxPlaatsen-list.length)+' van '+maxPlaatsen+' plaatsen vrij'):'Geen capaciteitslimiet ingesteld')+'</div></div>';
+    wrap.innerHTML=h;
+  }
+}
+function calOpenDay(dateStr){
+  calMode='dag'; calAnchor=new Date(dateStr+'T00:00:00');
+  document.querySelectorAll('#scr-kalender .foldertabs .ft').forEach(b=>b.classList.toggle('on',b.getAttribute('data-cal')==='dag'));
+  renderKalender();
+}
+
+/* ---------- bezoekers (dagbezoek, los van overnachting) ---------- */
+let _bzFotoData=null;
+async function loadBezoekers(){
+  const el=document.getElementById('bezList');
+  el.innerHTML='<div class="note-inline">Laden…</div>';
+  const {data,error}=await sb.from('bezoekers').select('*').is('uitgecheckt_at',null).order('ingecheckt_at',{ascending:false});
+  const list=error?[]:(data||[]);
+  document.getElementById('bezTitle').textContent='🧍 Bezoekers vandaag ('+list.length+')';
+  if(!list.length){el.innerHTML=emptyCard('Geen bezoekers ingecheckt');return;}
+  el.innerHTML='<div class="card taskcard">'+list.map(b=>{
+    const t=new Date(b.ingecheckt_at);
+    const tijd=String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
+    return '<div class="task"><div class="av" style="background:'+avColor(b.id)+';">'+initials(b.naam||'?')+'</div>'+
+      '<div class="tb"><div class="tn">'+esc(b.naam||'Bezoeker')+'</div><div class="td">sinds '+tijd+(b.notitie?' · '+esc(b.notitie):'')+'</div></div>'+
+      '<button class="sbtn" style="flex:0 0 auto;padding:7px 12px;" onclick="checkoutBezoeker(\''+b.id+'\')">Uitchecken</button></div>';
+  }).join('')+'</div>';
+}
+function openBezoekerCheckin(){
+  _bzFotoData=null;
+  openModal('Bezoeker inchecken',
+    '<div class="fld"><label>Naam</label><input id="bzNaam" placeholder="Naam (optioneel)"></div>'+
+    '<div class="fld"><label>Notitie</label><input id="bzNotitie" placeholder="bv. dagbezoek, picknick…"></div>'+
+    '<button class="modal-save" onclick="doCheckinBezoeker()">✅ Inchecken</button>');
+}
+async function doCheckinBezoeker(){
+  const naam=(document.getElementById('bzNaam').value||'').trim()||null;
+  const notitie=(document.getElementById('bzNotitie').value||'').trim()||null;
+  const {data:{user}}=await sb.auth.getUser();
+  const {error}=await sb.from('bezoekers').insert({naam,notitie,created_by:user?user.id:null});
+  if(error){toast('⚠️ '+error.message);return;}
+  closeModal(); toast('✅ '+(naam||'Bezoeker')+' ingecheckt'); loadBezoekers();
+}
+async function checkoutBezoeker(id){
+  const {error}=await sb.from('bezoekers').update({uitgecheckt_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('👋 Uitgecheckt'); loadBezoekers();
+}
+
+/* ---------- beheer (admin-only, RLS dekt dit ook server-side) ---------- */
+let _beheerTab='tarieven';
+function setBeheer(tab){
+  if(currentRole!=='admin'){toast('⚠️ Enkel voor beheerders');return;}
+  _beheerTab=tab;
+  document.querySelectorAll('#scr-beheer .foldertabs .ft').forEach(b=>b.classList.toggle('on',b.getAttribute('data-beh')===tab));
+  const fns={tarieven:renderBeheerTarieven,gebruikers:renderBeheerGebruikers,idarchief:renderBeheerIdArchief,register:renderBeheerRegister,analytics:renderBeheerAnalytics};
+  (fns[tab]||renderBeheerTarieven)();
+}
+async function renderBeheerTarieven(){
+  const el=document.getElementById('beheerBody');
+  el.innerHTML='<div class="note-inline">Laden…</div>';
+  await loadPrices();
+  const {data:mp}=await sb.from('settings').select('value').eq('key','max_plaatsen').limit(1);
+  const maxP=(mp&&mp.length)?mp[0].value:'';
+  const num=(id,val,lbl)=>'<div class="fld"><label>'+lbl+'</label><input id="'+id+'" type="number" step="0.01" value="'+val+'"></div>';
+  el.innerHTML='<div class="card" style="padding:14px;">'+
+    num('bTent',PRICES.tent,'Tent (€/nacht)')+num('bCamper',PRICES.camper,'Camper (€/nacht)')+
+    num('bVolw',PRICES.volwassene,'Volwassene (€/nacht)')+num('bKind',PRICES.kind,'Kind 3-11 (€/nacht)')+
+    num('bBaby',PRICES.baby,'Baby (€/nacht)')+num('bHond',PRICES.hond,'Hond (€/nacht)')+
+    num('bAuto',PRICES.extraAuto,'Extra auto (€/nacht)')+num('bElek',PRICES.elektriciteit,'Elektriciteit (€, eenmalig)')+
+    num('bAfval',PRICES.afvalPer6,'Afval per 6 pers. (€/nacht)')+num('bTaks',PRICES.toeristentaks,'Toeristentaks (€/pers./nacht)')+
+    num('bMax',maxP,'Max. plaatsen (0 = geen limiet)')+
+    '<button class="modal-save" onclick="saveBeheerTarieven()">💾 Tarieven opslaan</button>'+
+    '<div id="tarMsg" class="note-inline"></div></div>';
+}
+async function saveBeheerTarieven(){
+  const msg=document.getElementById('tarMsg');
+  msg.textContent='Opslaan…';msg.style.color='var(--ink-2)';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const g=id=>document.getElementById(id).value;
+    const pairs=[['prijs_tent',g('bTent')],['prijs_camper',g('bCamper')],['prijs_volwassene',g('bVolw')],
+      ['prijs_kind',g('bKind')],['prijs_baby',g('bBaby')],['prijs_hond',g('bHond')],['prijs_extra_auto',g('bAuto')],
+      ['prijs_elektriciteit',g('bElek')],['prijs_afval_per_6',g('bAfval')],['toeristentaks',g('bTaks')],['max_plaatsen',g('bMax')||'0']];
+    for(const [key,value] of pairs){
+      await sb.from('settings').upsert({user_id:session.user.id,key,value:String(value),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
+    }
+    msg.style.color='var(--green)';msg.textContent='✅ Opgeslagen'; maxPlaatsen=parseInt(g('bMax'))||0;
+  }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
+}
+async function renderBeheerGebruikers(){
+  const el=document.getElementById('beheerBody');
+  el.innerHTML='<div class="note-inline">Laden…</div>';
+  const {data}=await sb.from('user_roles').select('user_id,role,created_at');
+  let list='';
+  if(data&&data.length){
+    list='<div class="card">'+data.map(u=>'<div class="row"><span class="rl">'+u.user_id.slice(0,8)+'… · sinds '+new Date(u.created_at).toLocaleDateString('nl-BE')+'</span><span class="pill '+(u.role==='admin'?'p-pay':'p-conf')+'">'+(u.role==='admin'?'Beheerder':'Medewerker')+'</span></div>').join('')+'</div>';
+  } else list=emptyCard('Nog geen extra gebruikers');
+  el.innerHTML='<div class="card" style="padding:14px;">'+
+    '<div class="fld"><label>E-mailadres</label><input id="invEmail" placeholder="collega@camping.be"></div>'+
+    '<div class="fld"><label>Rol</label><select id="invRole"><option value="staff">Medewerker</option><option value="admin">Beheerder</option></select></div>'+
+    '<button class="modal-save" onclick="sendInvite()">📨 Uitnodiging sturen</button>'+
+    '<div id="invMsg" class="note-inline"></div></div>'+
+    '<div class="sec-lbl">Huidige gebruikers</div>'+list;
+}
+async function sendInvite(){
+  const email=(document.getElementById('invEmail').value||'').trim();
+  const role=document.getElementById('invRole').value;
+  const msg=document.getElementById('invMsg');
+  if(!email){msg.style.color='var(--red)';msg.textContent='Vul een e-mailadres in';return;}
+  msg.style.color='var(--ink-2)';msg.textContent='Versturen…';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(SUPABASE_URL+'/functions/v1/invite-user',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body:JSON.stringify({email,role}),
+    });
+    const d=await res.json();
+    if(d.error)throw new Error(d.error);
+    msg.style.color='var(--green)';msg.textContent='✅ Uitnodiging verstuurd naar '+d.email;
+    setTimeout(renderBeheerGebruikers,1200);
+  }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
+}
+async function renderBeheerIdArchief(){
+  const el=document.getElementById('beheerBody');
+  el.innerHTML='<div class="note-inline">Laden…</div>';
+  const {data}=await sb.from('gasten').select('*,bookings(naam:client_id)').neq('naam','__pending_guest_upload__').is('deleted_at',null).order('created_at',{ascending:false}).limit(100);
+  const rows=data||[];
+  el.innerHTML='<div class="fld"><input id="idaSearch" placeholder="🔍 Zoek op naam…" oninput="filterIdArchief()"></div>'+
+    '<div class="card" id="idaList">'+(rows.length?rows.map(g=>'<div class="row" data-naam="'+esc((g.naam||'').toLowerCase())+'"><span class="rl">'+esc(g.naam||'—')+'</span><span class="rv">'+(g.geboortedatum?fmt(g.geboortedatum):'')+' '+(g.nationaliteit||'')+'</span></div>').join(''):'<div class="note-inline" style="padding:16px;">Geen gasten gevonden</div>')+'</div>';
+}
+function filterIdArchief(){
+  const q=(document.getElementById('idaSearch').value||'').toLowerCase();
+  document.querySelectorAll('#idaList [data-naam]').forEach(r=>{r.style.display=r.getAttribute('data-naam').indexOf(q)!==-1?'flex':'none';});
+}
+async function renderBeheerRegister(){
+  const el=document.getElementById('beheerBody');
+  const list=inFolder('aanwezig');
+  el.innerHTML='<div class="card" style="padding:14px;">'+
+    '<div class="note-inline" style="padding:0 0 12px;">Wettelijk verplicht dagregister — alle huidige aanwezige gasten.</div>'+
+    '<button class="sbtn" style="margin-bottom:10px;" onclick="printRegisterExport()">🖨️ Register afdrukken/exporteren</button></div>'+
+    '<div class="sec-lbl">Nu aanwezig ('+list.length+')</div>'+
+    (list.length?'<div class="card taskcard">'+list.map(b=>rowHtml(b,esc(verblijf(b))+' · '+b.personen+' pers.','')).join('')+'</div>':emptyCard('Niemand aanwezig'));
+}
+function printRegisterExport(){
+  const list=inFolder('aanwezig');
+  const w=window.open('','_blank');
+  if(!w){toast('⚠️ Sta pop-ups toe om te exporteren');return;}
+  w.document.write('<html><head><title>Register '+TODAY+'</title></head><body style="font-family:sans-serif;padding:20px;">'+
+    '<h2>Register toeristenverblijf — '+TODAY+'</h2><table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;">'+
+    '<tr><th>Naam</th><th>Aankomst</th><th>Vertrek</th><th>Personen</th></tr>'+
+    list.map(b=>'<tr><td>'+esc(b.naam)+'</td><td>'+b.aankomst+'</td><td>'+b.vertrek+'</td><td>'+b.personen+'</td></tr>').join('')+
+    '</table></body></html>');
+  w.document.close(); w.print();
+}
+async function renderBeheerAnalytics(){
+  const el=document.getElementById('beheerBody');
+  const totBoekingen=bookings.length;
+  const aanwezigNu=inFolder('aanwezig').length;
+  const omzet=bookings.reduce((s,b)=>s+Number(b.bedrag||0),0);
+  const openTotaal=bookings.reduce((s,b)=>s+Math.max(0,openOf(b)),0);
+  const perKanaal={};bookings.forEach(b=>{const k=b.bron||'onbekend';perKanaal[k]=(perKanaal[k]||0)+1;});
+  el.innerHTML='<div class="kpis" style="grid-template-columns:repeat(2,1fr);">'+
+    '<div class="kpi"><div class="kv">'+totBoekingen+'</div><div class="kk">Totaal boekingen</div></div>'+
+    '<div class="kpi"><div class="kv b">'+aanwezigNu+'</div><div class="kk">Nu aanwezig</div></div>'+
+    '<div class="kpi"><div class="kv g">'+money(omzet)+'</div><div class="kk">Totale omzet</div></div>'+
+    '<div class="kpi"><div class="kv" style="color:var(--amber)">'+money(openTotaal)+'</div><div class="kk">Totaal openstaand</div></div></div>'+
+    '<div class="sec-lbl">Boekingen per kanaal</div><div class="card taskcard">'+
+    Object.keys(perKanaal).map(k=>'<div class="row"><span class="rl">'+({mail:'📧 E-mail',website:'🌐 Website',telefoon:'☎️ Telefoon'}[k]||k)+'</span><span class="rv">'+perKanaal[k]+'</span></div>').join('')+'</div>';
 }
 
 /* ---------- toast ---------- */
