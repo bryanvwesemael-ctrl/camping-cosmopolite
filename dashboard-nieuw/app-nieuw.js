@@ -84,6 +84,7 @@ function mapBooking(row){
     type:row.verblijfstype||'', tenten:row.tenten||0, campers:row.campers||0,
     status:row.status, bron:row.bron||'', bedrag:row.bedrag_totaal||0,
     ingecheckt_at:row.ingecheckt_at, uitgecheckt_at:row.uitgecheckt_at,
+    aiDraft:!!row.ai_draft, aiParsed:row.ai_parsed||null,
     nota:row.nota||'', honden:row.honden||0, autos:row.autos||1, elektriciteit:!!row.elektriciteit,
   };
 }
@@ -194,6 +195,7 @@ function renderFolders(){
       const sub=fmt(b.aankomst)+'–'+fmt(b.vertrek)+' · '+esc(verblijf(b))+(openOf(b)>0.005&&f!=='vertrokken'?' · nog '+money(openOf(b)):'');
       let pill=c.pill;
       if(f==='postvak'&&b.status!=='aanvraag')pill='<span class="pill p-conf">'+esc(b.status)+'</span>';
+      else if(f==='postvak'&&b.aiDraft)pill='<span class="pill p-draft">🤖 AI-concept</span>';
       return rowHtml(b,sub,pill);
     }).join('');
     el.innerHTML=(c.list.length?'<div class="card taskcard">'+rows+'</div>':emptyCard('Geen reserveringen in deze map'))+'<div class="list-hint">'+c.hint+'</div>';
@@ -214,8 +216,24 @@ function go(screen){
 }
 function setFolder(f){
   go('reserv');
-  document.querySelectorAll('.foldertabs .ft').forEach(b=>b.classList.toggle('on',b.getAttribute('data-folder')===f));
+  document.querySelectorAll('#scr-reserv .foldertabs .ft').forEach(b=>b.classList.toggle('on',b.getAttribute('data-folder')===f));
   ['postvak','booking','aanwezig','vertrokken'].forEach(x=>{document.getElementById('fc-'+x).style.display=(x===f)?'block':'none';});
+  const bar=document.getElementById('postvakCheckBar'); if(bar)bar.style.display=(f==='postvak')?'block':'none';
+}
+async function checkNieuweMails(){
+  const btn=document.getElementById('postvakCheckBtn');
+  btn.disabled=true; btn.textContent='🔄 Bezig — AI leest de inbox…';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(SUPABASE_URL+'/functions/v1/parse-inbox-ai',{
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+    });
+    const d=await res.json();
+    if(d.error)throw new Error(d.error);
+    toast(d.nieuw>0?('📥 '+d.nieuw+' nieuwe aanvraag'+(d.nieuw>1?'en':'')+' gevonden'):'✅ Geen nieuwe reservatie-aanvragen');
+    await loadData(); setFolder('postvak');
+  }catch(e){toast('⚠️ '+e.message);}
+  finally{btn.disabled=false;btn.textContent='🔄 Nieuwe mails controleren (AI leest reservatie-aanvragen)';}
 }
 function setTab(t){
   document.querySelectorAll('.tabs .tab').forEach(b=>b.classList.toggle('on',b.getAttribute('data-tab')===t));
@@ -236,7 +254,8 @@ function openReal(id){
 }
 function renderFiche(b){
   const folder=folderOf(b);
-  document.getElementById('draftBanner').style.display='none';
+  const db=document.getElementById('draftBanner');
+  db.style.display=(b.aiDraft&&folder==='postvak')?'flex':'none';
   const av=document.getElementById('ficheAv');
   av.textContent=initials(b.naam); av.style.background=avColor(b.id);
   document.getElementById('ficheName').textContent=b.naam;
@@ -511,7 +530,7 @@ async function sendFicheMail(id){
 async function actBevestig(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
   if(!confirm('Reservering van '+b.naam+' bevestigen?\n\nStatus wordt "bevestigd" en de fiche verhuist naar Booking.'))return;
-  const {error}=await sb.from('bookings').update({status:'bevestigd'}).eq('id',id);
+  const {error}=await sb.from('bookings').update({status:'bevestigd',ai_draft:false}).eq('id',id);
   if(error){toast('⚠️ '+error.message);return;}
   toast('✅ Bevestigd → Booking'); await loadData();
 }

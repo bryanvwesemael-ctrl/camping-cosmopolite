@@ -357,6 +357,9 @@
             <button class="ft" data-folder="aanwezig" onclick="setFolder('aanwezig')">Aanwezig<span class="ct">12</span></button>
             <button class="ft" data-folder="vertrokken" onclick="setFolder('vertrokken')">Vertrokken<span class="ct">40</span></button>
           </div>
+          <div id="postvakCheckBar" style="display:none;margin-bottom:10px;">
+            <button class="sbtn" style="width:100%;border-color:var(--amber);color:var(--amber);font-weight:700;" id="postvakCheckBtn" onclick="checkNieuweMails()">🔄 Nieuwe mails controleren (AI leest reservatie-aanvragen)</button>
+          </div>
 
           <div class="split">
             <div class="reserv-list" id="reservList">
@@ -544,6 +547,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="../shared/payment.js?v=20260715c"></script>
 <script src="../shared/pricing.js?v=20260715c"></script>
-<script src="app-nieuw.js?v=20260715d"></script>
+<script src="app-nieuw.js?v=20260715e"></script>
 </body>
 </html>
