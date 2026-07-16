@@ -19,7 +19,13 @@ const AV = ['#3B7DD8', '#1B8A5B', '#5A57C4', '#C77A11', '#B23F2A', '#2C8F87', '#
 const MO = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 const FOLDER_LABEL = { postvak: '📥 Postvak', booking: '📂 Booking', aanwezig: '📂 Aanwezig', vertrokken: '📂 Vertrokken' };
 
-let bookings = [], paidByBooking = {}, maxPlaatsen = 0, currentUser = null, selectedId = null;
+let bookings = [], paidByBooking = {}, maxPlaatsen = 0, currentUser = null, selectedId = null, clubCfg = {};
+const MAIL_SJABLONEN = {
+  bevestiging: { onderwerp: 'Bevestiging reservatie — Camping Cosmopolite #{{volgnummer}}', inhoud: 'Beste {{voornaam}},\n\nJe reservatie is bevestigd.\nAankomst: {{aankomst}}\nVertrek: {{vertrek}}\nPersonen: {{personen}}\nTotaal: {{bedrag}}\n\nTot binnenkort!\n{{from_name}}' },
+  herinnering: { onderwerp: 'Herinnering — Camping Cosmopolite #{{volgnummer}}', inhoud: 'Beste {{voornaam}},\n\nEen vriendelijke herinnering aan je verblijf van {{aankomst}} tot {{vertrek}}.\n\nTot binnenkort!\n{{from_name}}' },
+  betaling: { onderwerp: 'Betaalverzoek — Camping Cosmopolite #{{volgnummer}}', inhoud: 'Beste {{voornaam}},\n\nVoor je reservatie (#{{volgnummer}}) staat nog een bedrag open. Je kan betalen via de QR-code die we je bezorgen of via overschrijving met mededeling {{ogm}}.\n\nDank je wel!\n{{from_name}}' },
+  uitchecken: { onderwerp: 'Tot ziens! — Camping Cosmopolite', inhoud: 'Beste {{voornaam}},\n\nBedankt voor je verblijf bij Camping Cosmopolite. We hopen je snel weer te verwelkomen!\n\nVriendelijke groeten,\n{{from_name}}' },
+};
 
 /* ---------- helpers ---------- */
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -76,6 +82,10 @@ async function loadData(){
   try{
     const pr=await sb.from('settings').select('value').eq('key','maxPlaatsen').limit(1);
     if(pr.data&&pr.data.length) maxPlaatsen=parseInt(pr.data[0].value)||0;
+  }catch(e){}
+  try{
+    const cs=await sb.from('club_settings').select('key,value');
+    clubCfg={};(cs.data||[]).forEach(r=>{clubCfg[r.key]=r.value;});
   }catch(e){}
   const res=await sb.from('bookings').select('*,clients(*)').order('aankomst',{ascending:true});
   if(res.error){toast('⚠️ Kon reserveringen niet laden: '+res.error.message);return;}
@@ -252,35 +262,72 @@ function renderFiche(b){
 }
 function grow(l,v){return '<div class="row"><span class="rl">'+l+'</span><span class="rv">'+v+'</span></div>';}
 
-/* betaling */
+/* betaling — Karen werkt met cash / overschrijving / QR op eigen IBAN (geen Mollie) */
 async function loadBetPane(b){
   const el=document.getElementById('pane-bet');
   el.innerHTML='<div class="note-inline">Laden…</div>';
   const {data}=await sb.from('payments').select('bedrag,status,methode,created_at').eq('booking_id',b.id).order('created_at');
-  const paid=(data||[]).filter(p=>p.status==='paid');
-  const betaald=paid.reduce((s,p)=>s+Number(p.bedrag||0),0);
+  const rows=(data||[]).filter(p=>p.status==='paid');
+  const betaald=rows.reduce((s,p)=>s+Number(p.bedrag||0),0);
+  const terugbetaald=rows.filter(p=>p.methode==='terugbetaling').length>0;
   const totaal=Number(b.bedrag||0);
   const open=Math.round((totaal-betaald)*100)/100;
-  const pct=totaal>0?Math.min(100,Math.round(betaald/totaal*100)):0;
-  const volledig=open<=0.005;
-  const methL={cash:'💵 Cash',overschrijving:'🏦 Overschrijving'};
+  const pct=totaal>0?Math.min(100,Math.max(0,Math.round(betaald/totaal*100))):0;
+  const volledig=open<=0.005 && betaald>0;
+  // afgeleide betaalstatus (de 7 statussen van Karen)
+  let statusLbl, statusKleur;
+  if(terugbetaald){statusLbl='↩️ Terugbetaald';statusKleur='var(--blue)';}
+  else if(volledig){statusLbl='✅ Volledig betaald';statusKleur='var(--green)';}
+  else if(betaald>0){statusLbl='◐ Voorschot betaald';statusKleur='var(--amber)';}
+  else {statusLbl='○ Niet betaald';statusKleur='var(--red)';}
+  const methL={cash:'💵 Cash',overschrijving:'🏦 Overschrijving',qr:'📱 QR-code',terugbetaling:'↩️ Terugbetaling'};
+
   let h='<div class="card"><div class="paytop">'+
     '<div class="ring" style="background:conic-gradient('+(volledig?'var(--green)':'var(--amber)')+' '+pct+'%, var(--sep) 0);color:'+(volledig?'var(--green)':'var(--amber)')+';"><div class="inner">'+pct+'%</div></div>'+
     '<div class="pt"><div class="a">'+money(betaald)+' <span style="font-size:13px;color:var(--ink-3);font-weight:600;">/ '+money(totaal)+'</span></div>'+
-    '<div class="b">'+(volledig?'<b style="color:var(--green)">✅ Volledig betaald</b>':'Nog <b>'+money(open)+' openstaand</b>')+'</div></div></div></div>';
-  if(!volledig){
-    h+='<div class="sec-lbl">Registreer betaling</div>';
-    h+='<div class="statusgrid" style="padding:0;">'+
-       '<div class="sbtn" onclick="actBetaling(\''+b.id+'\',\'cash\')">💵 Cash</div>'+
-       '<div class="sbtn" onclick="actBetaling(\''+b.id+'\',\'overschrijving\')">🏦 Overschrijving</div>'+
-       '<div class="sbtn" style="opacity:.5;" onclick="toast(\'QR-code — komt in volgende stap\')">📱 QR-code</div>'+
-       '<div class="sbtn" style="opacity:.5;" onclick="toast(\'Betaallink — komt in volgende stap\')">🔗 Betaallink</div>'+
-       '</div>';
-  }
+    '<div class="b" style="color:'+statusKleur+';font-weight:700;">'+statusLbl+(!volledig&&betaald>0?' · nog '+money(open):'')+'</div></div></div></div>';
+
+  h+='<div class="sec-lbl">Registreer betaling</div>';
+  h+='<div class="statusgrid" style="padding:0;">'+
+     '<div class="sbtn" onclick="actBetaling(\''+b.id+'\',\'cash\')">💵 Cash</div>'+
+     '<div class="sbtn" onclick="actBetaling(\''+b.id+'\',\'overschrijving\')">🏦 Overschrijving</div>'+
+     '<div class="sbtn" style="grid-column:1/-1;border-color:var(--green);color:var(--green);font-weight:700;" onclick="toggleQR(\''+b.id+'\')">📱 Toon betaal-QR (op eigen IBAN)</div>'+
+     '</div>';
+  h+='<div id="qrBox" style="display:none;margin-top:10px;"></div>';
+
   h+='<div class="sec-lbl">Historiek</div>';
-  h+=paid.length?'<div class="card payhist">'+paid.map(p=>'<div class="row"><span class="rl">'+(methL[p.methode]||'💳 Mollie')+' · '+new Date(p.created_at).toLocaleDateString('nl-BE',{day:'numeric',month:'short'})+'</span><span class="rv" style="color:var(--green)">+'+money(p.bedrag)+'</span></div>').join('')+'</div>':emptyCard('Nog geen betalingen');
-  el.className='pane'+(el.classList.contains('on')?' on':'');
+  h+=rows.length?'<div class="card payhist">'+rows.map(p=>'<div class="row"><span class="rl">'+(methL[p.methode]||'💳 '+esc(p.methode||''))+' · '+new Date(p.created_at).toLocaleDateString('nl-BE',{day:'numeric',month:'short'})+'</span><span class="rv" style="color:'+(Number(p.bedrag)<0?'var(--blue)':'var(--green)')+'">'+(Number(p.bedrag)<0?'':'+')+money(p.bedrag)+'</span></div>').join('')+'</div>':emptyCard('Nog geen betalingen');
+  if(betaald>0 && !terugbetaald){
+    h+='<div style="text-align:center;margin-top:10px;"><span onclick="actTerugbetaling(\''+b.id+'\')" style="font-size:12px;color:var(--blue);cursor:pointer;font-family:var(--f-mono);">↩️ Terugbetaling registreren</span></div>';
+  }
   el.innerHTML=h;
+}
+function toggleQR(id){
+  const box=document.getElementById('qrBox');if(!box)return;
+  if(box.style.display==='block'){box.style.display='none';box.innerHTML='';return;}
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const iban=clubCfg.iban||'';
+  if(!iban || (window.CampingPayment && !CampingPayment.isValidIban(iban))){
+    box.style.display='block';
+    box.innerHTML='<div class="card"><div class="note-inline" style="padding:16px;color:var(--red);">⚠️ Geen geldig IBAN ingesteld. Vul dit in bij Beheer → Bankgegevens.</div></div>';
+    return;
+  }
+  const open=openOf(b)>0.005?openOf(b):Number(b.bedrag||0);
+  const naam=clubCfg.rekeninghouder||'Camping Cosmopolite';
+  const ref=(window.CampingPayment&&b.volgnummer!=null)?CampingPayment.belgianOgm(b.volgnummer):(b.ogm||'');
+  const payload=CampingPayment.buildEpcQrPayload({iban:iban,name:naam,bic:clubCfg.bic,amount:open,reference:ref});
+  let qrSvg='';
+  try{ const qr=qrcode(0,'M'); qr.addData(payload); qr.make(); qrSvg=qr.createSvgTag({cellSize:4,margin:2}); }
+  catch(e){ qrSvg='<div style="color:var(--red);font-size:12px;">QR kon niet laden</div>'; }
+  box.style.display='block';
+  box.innerHTML='<div class="card" style="padding:16px;text-align:center;">'+
+    '<div style="background:#fff;display:inline-block;padding:10px;border-radius:12px;">'+qrSvg+'</div>'+
+    '<div style="font-size:12.5px;color:var(--ink-2);margin-top:12px;text-align:left;line-height:1.7;">'+
+    '<div><b>Begunstigde:</b> '+esc(naam)+'</div>'+
+    '<div><b>IBAN:</b> '+esc(CampingPayment.formatIban(iban))+'</div>'+
+    '<div><b>Bedrag:</b> '+money(open)+'</div>'+
+    '<div><b>Mededeling:</b> '+esc(ref)+'</div></div>'+
+    '<div class="note-inline">Laat de gast scannen met de bankapp</div></div>';
 }
 
 /* gasten */
@@ -303,7 +350,7 @@ async function loadGastPane(b){
   el.innerHTML=h;
 }
 
-/* communicatie */
+/* communicatie — lezen + antwoorden/nieuwe mail versturen via Karens Gmail */
 async function loadCommPane(b){
   const el=document.getElementById('pane-comm');
   el.innerHTML='<div class="note-inline">Laden…</div>';
@@ -313,15 +360,56 @@ async function loadCommPane(b){
     thread=data.map(c=>{
       const inkomend=c.richting==='inkomend';
       const when=new Date(c.created_at).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-      return '<div class="msg '+(inkomend?'in':'out')+'"><div class="mh"><span>'+(inkomend?'← ontvangen':'→ '+esc(c.onderwerp||'verzonden'))+'</span><span>'+when+'</span></div>'+esc(c.inhoud||'(geen inhoud)').slice(0,600)+'</div>';
+      return '<div class="msg '+(inkomend?'in':'out')+'"><div class="mh"><span>'+(inkomend?'← ontvangen':'→ '+esc(c.onderwerp||'verzonden'))+'</span><span>'+when+'</span></div>'+esc(c.inhoud||'(geen inhoud)').slice(0,800)+'</div>';
     }).join('');
   } else {
     thread='<div class="note-inline" style="padding:20px;">Nog geen e-mails voor deze reservering</div>';
   }
-  el.innerHTML='<div class="card"><div class="thread">'+thread+'</div>'+
-    '<div class="composer"><div class="fake-input">Antwoorden — komt in volgende stap</div>'+
-    '<button class="send" style="opacity:.55;" onclick="toast(\'Mail versturen — komt in volgende stap\')">➤</button></div></div>'+
-    '<div class="note-inline">alle communicatie chronologisch (alleen-lezen in deze fase)</div>';
+  const geenMail=!b.email||b.email.indexOf('@cosmopolite.local')!==-1;
+  let composer;
+  if(geenMail){
+    composer='<div class="note-inline" style="color:var(--amber);padding:14px;">⚠️ Geen geldig e-mailadres bij deze gast — mailen niet mogelijk</div>';
+  } else {
+    composer='<div style="padding:11px;border-top:1px solid var(--sep);">'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px;">'+
+      Object.keys(MAIL_SJABLONEN).map(k=>'<button class="sbtn" style="flex:0 0 auto;padding:7px 11px;font-size:11.5px;" onclick="prefillMail(\''+b.id+'\',\''+k+'\')">'+({bevestiging:'✅ Bevestiging',herinnering:'🔔 Herinnering',betaling:'💶 Betaalverzoek',uitchecken:'👋 Uitchecken'}[k])+'</button>').join('')+'</div>'+
+      '<input id="mailSubj" placeholder="Onderwerp" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;margin-bottom:8px;font-family:var(--f);">'+
+      '<textarea id="mailBody" rows="5" placeholder="Typ hier je antwoord…" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;font-family:var(--f);resize:vertical;"></textarea>'+
+      '<button id="mailSendBtn" class="move-btn" style="margin-top:9px;" onclick="sendFicheMail(\''+b.id+'\')">📤 Verstuur via Gmail</button>'+
+      '<div id="mailSendMsg" style="font-size:12px;text-align:center;margin-top:7px;min-height:15px;"></div></div>';
+  }
+  el.innerHTML='<div class="card"><div class="thread">'+thread+'</div>'+composer+'</div>'+
+    '<div class="note-inline">verstuurd via '+esc(clubCfg.mail_sender_email||'Karens Gmail')+' · geen aparte mailbox nodig</div>';
+}
+function prefillMail(id,key){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const t=MAIL_SJABLONEN[key];if(!t)return;
+  const vn=(b.naam||'').split(' ')[0];
+  const v={voornaam:vn,naam:b.naam,volgnummer:b.volgnummer,aankomst:fmt(b.aankomst),vertrek:fmt(b.vertrek),personen:b.personen,bedrag:money(b.bedrag),ogm:b.ogm||'',from_name:'Camping Cosmopolite'};
+  const fill=s=>String(s).replace(/\{\{(\w+)\}\}/g,(_,k)=>v[k]!=null?v[k]:'{{'+k+'}}');
+  document.getElementById('mailSubj').value=fill(t.onderwerp);
+  document.getElementById('mailBody').value=fill(t.inhoud);
+}
+async function sendFicheMail(id){
+  const subj=(document.getElementById('mailSubj').value||'').trim();
+  const body=(document.getElementById('mailBody').value||'').trim();
+  const msg=document.getElementById('mailSendMsg');
+  const btn=document.getElementById('mailSendBtn');
+  if(!subj||!body){msg.style.color='var(--red)';msg.textContent='Vul onderwerp en tekst in';return;}
+  msg.style.color='var(--ink-2)';msg.textContent='Versturen…';btn.style.opacity='.6';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(SUPABASE_URL+'/functions/v1/send-mail',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body:JSON.stringify({booking_id:id,onderwerp:subj,inhoud:body}),
+    });
+    const d=await res.json();
+    if(d.error)throw new Error(d.error);
+    msg.style.color='var(--green)';msg.textContent='✅ Verstuurd!';
+    const b=bookings.find(x=>x.id===id);
+    setTimeout(()=>{if(b)loadCommPane(b);},1000);
+  }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;btn.style.opacity='1';}
 }
 
 /* ---------- acties (schrijven echte data) ---------- */
@@ -360,6 +448,18 @@ async function actBetaling(id,methode){
     await sb.from('bookings').update({status:'betaald'}).eq('id',id);
   }
   toast('💰 '+money(bedrag)+' geregistreerd'); await loadData();
+}
+async function actTerugbetaling(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const betaald=paidByBooking[id]||0;
+  const inp=prompt('Terugbetaling registreren voor '+b.naam+'\n\nBedrag (€) dat je terugbetaalt:', betaald>0?String(betaald):'');
+  if(inp===null)return;
+  const bedrag=Math.round(parseFloat(String(inp).replace(',','.'))*100)/100;
+  if(!(bedrag>0)){toast('⚠️ Ongeldig bedrag');return;}
+  // negatieve betaalregel met methode 'terugbetaling'
+  const {error}=await sb.from('payments').insert({booking_id:id,bedrag:-bedrag,status:'paid',methode:'terugbetaling'});
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('↩️ Terugbetaling '+money(bedrag)+' geregistreerd'); await loadData();
 }
 
 /* ---------- toast ---------- */
