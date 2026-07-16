@@ -526,6 +526,33 @@ async function sendFicheMail(id){
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;btn.style.opacity='1';}
 }
 
+/* ---------- vrij verplaatsen tussen mappen (ook terug = ongedaan maken) ---------- */
+function openMoveMenu(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const cur=folderOf(b);
+  const opts=[['postvak','📥 Postvak'],['booking','📂 Booking'],['aanwezig','🏕️ Aanwezig'],['vertrokken','🚗 Vertrokken']];
+  openModal('Verplaats '+b.naam+' naar…',
+    '<div style="display:flex;flex-direction:column;gap:8px;">'+
+    opts.map(([k,l])=>'<button class="sbtn" style="width:100%;text-align:left;padding:13px 14px;display:flex;justify-content:space-between;'+(k===cur?'border-color:var(--green);color:var(--green);font-weight:700;':'')+'" onclick="doMoveToFolder(\''+id+'\',\''+k+'\')"><span>'+l+'</span>'+(k===cur?'<span style="font-family:var(--f-mono);font-size:11px;">huidige map</span>':'')+'</button>').join('')+
+    '</div>'+
+    '<div class="note-inline" style="margin-top:10px;">Je kan altijd terugverplaatsen — niets gaat verloren.</div>');
+}
+async function doMoveToFolder(id,target){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  if(folderOf(b)===target){closeModal();return;}
+  const upd={};
+  if(target==='postvak'){upd.status='aanvraag';upd.ingecheckt_at=null;upd.uitgecheckt_at=null;}
+  else if(target==='booking'){upd.status='bevestigd';upd.ingecheckt_at=null;upd.uitgecheckt_at=null;}
+  else if(target==='aanwezig'){upd.status='ingecheckt';upd.ingecheckt_at=b.ingecheckt_at||new Date().toISOString();upd.uitgecheckt_at=null;}
+  else if(target==='vertrokken'){upd.uitgecheckt_at=new Date().toISOString();}
+  const {error}=await sb.from('bookings').update(upd).eq('id',id);
+  if(error){toast('⚠️ '+error.message);return;}
+  closeModal();
+  toast('↔ Verplaatst naar '+FOLDER_LABEL[target]);
+  await loadData();
+  if(bookings.find(x=>x.id===id)){selectedId=id;openReal(id);}
+}
+
 /* ---------- acties (schrijven echte data) ---------- */
 async function actBevestig(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
@@ -664,7 +691,7 @@ async function openNewBooking(){
     '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('🐕 Honden','honden')+step('🚗 Auto'+"'"+'s','autos')+
     '<div class="toggle-row"><span class="sl">⚡ Elektriciteit</span><input type="checkbox" id="nbElek" onchange="nbState.elek=this.checked;nbPrice()"></div></div>'+
     '<div class="fld"><label>Via kanaal</label><select id="nbBron"><option value="telefoon">☎️ Telefoon</option><option value="mail">📧 E-mail</option><option value="website">🌐 Website</option></select></div>'+
-    '<div class="pricebox"><div class="pb1" id="nbTotaal">€ 0,00</div><div class="pb2" id="nbUitleg">Vul aankomst, vertrek en verblijf in</div></div>'+
+    '<div class="card" id="nbBreakdown" style="margin:6px 0 4px;"></div>'+
     '<div id="nbMsg" class="note-inline" style="min-height:14px;"></div>'+
     '<button class="modal-save" id="nbSaveBtn" onclick="saveNewBooking()">Reservering opslaan → Postvak</button>');
   nbPrice();
@@ -687,10 +714,23 @@ function nbCalc(){
   return r;
 }
 function nbPrice(){
+  const el=document.getElementById('nbBreakdown');
   const r=nbCalc();
   const nights=r.nights||0;
-  document.getElementById('nbTotaal').textContent='€ '+Number(r.totaal||0).toFixed(2).replace('.',',');
-  document.getElementById('nbUitleg').textContent=nights>0?(nights+' nacht'+(nights>1?'en':'')+' · incl. taks'):'Vul aankomst, vertrek en verblijf in';
+  if(!nights){el.innerHTML='<div class="note-inline" style="padding:14px;">Vul aankomst, vertrek en verblijf in</div>';return;}
+  const perDag=(lbl,val)=>(val>0.005?'<div class="row"><span class="rl">'+lbl+' <span style="opacity:.6;font-size:10.5px;">/dag</span></span><span class="rv">€ '+Number(val).toFixed(2).replace('.',',')+'</span></div>':'');
+  let h='';
+  h+=perDag('🏕️ Standplaats',r.basis);
+  h+=perDag('🧑 Personen ('+r.personen+'p)',r.persoonsKost);
+  h+=perDag('🐕 Honden',r.hondKost);
+  h+=perDag('🚗 Extra auto\'s',r.extraAutoKost);
+  h+=perDag('♻️ Afval',r.afvalDag);
+  h+=perDag('⚡ Elektriciteit',r.elekDag);
+  h+=perDag('🏛️ Toeristentaks',r.taksPerNacht);
+  h+='<div class="row" style="background:var(--card-2);"><span class="rl"><b>Subtotaal per dag</b></span><span class="rv"><b>€ '+Number(r.perNacht).toFixed(2).replace('.',',')+'</b></span></div>';
+  h+='<div class="row"><span class="rl">× '+nights+' nacht'+(nights===1?'':'en')+'</span><span class="rv">€ '+Number(r.totaal).toFixed(2).replace('.',',')+'</span></div>';
+  h+='<div class="row" style="background:var(--green-soft);"><span class="rl" style="color:var(--green);font-weight:800;">Totaal te betalen</span><span class="rv" style="color:var(--green);font-weight:800;">€ '+Number(r.totaal).toFixed(2).replace('.',',')+'</span></div>';
+  el.innerHTML=h;
 }
 async function saveNewBooking(){
   const naam=(document.getElementById('nbNaam').value||'').trim();
