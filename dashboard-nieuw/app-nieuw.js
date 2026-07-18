@@ -82,6 +82,7 @@ function mapBooking(row){
     personen:(row.volwassenen||0)+(row.kinderen||0)+(row.baby||0),
     aankomst:row.aankomst, vertrek:row.vertrek,
     type:row.verblijfstype||'', tenten:row.tenten||0, campers:row.campers||0,
+    extraTypeUnits:(()=>{try{return typeof row.extra_type_units==='string'?JSON.parse(row.extra_type_units):(row.extra_type_units||[]);}catch(e){return[];}})(),
     status:row.status, bron:row.bron||'', bedrag:row.bedrag_totaal||0,
     ingecheckt_at:row.ingecheckt_at, uitgecheckt_at:row.uitgecheckt_at,
     aiDraft:!!row.ai_draft, aiParsed:row.ai_parsed||null,
@@ -124,6 +125,7 @@ function verblijf(b){
   const parts=[];
   if(b.tenten>0)parts.push('⛺ '+b.tenten+' tent'+(b.tenten>1?'en':''));
   if(b.campers>0)parts.push('🚐 '+b.campers+' camper'+(b.campers>1?'s':''));
+  (b.extraTypeUnits||[]).forEach(t=>{if(t.count>0)parts.push((t.emoji||'🏕️')+' '+t.count+'× '+t.naam);});
   return parts.join(' + ')||(b.type||'—');
 }
 
@@ -429,8 +431,12 @@ function _fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader(
 function openAddGuest(bookingId){
   const b=bookings.find(x=>x.id===bookingId);
   openModal('Gast toevoegen',
-    '<button class="scanbtn" onclick="document.getElementById(\'gScanFile\').click()">🤖 Scan identiteitskaart met AI</button>'+
-    '<input type="file" id="gScanFile" accept="image/*" capture="environment" style="display:none;" onchange="scanGuestFile(this)">'+
+    '<div style="display:flex;gap:8px;margin-bottom:8px;">'+
+    '<button class="scanbtn" style="margin:0;flex:1;" onclick="document.getElementById(\'gScanFileCam\').click()">📷 Foto nemen</button>'+
+    '<button class="scanbtn" style="margin:0;flex:1;background:var(--card-2);border-style:solid;border-color:var(--sep);color:var(--ink-2);" onclick="document.getElementById(\'gScanFile\').click()">🖼️ Bestand kiezen</button>'+
+    '</div>'+
+    '<input type="file" id="gScanFileCam" accept="image/*" capture="environment" style="display:none;" onchange="scanGuestFile(this)">'+
+    '<input type="file" id="gScanFile" accept="image/*" style="display:none;" onchange="scanGuestFile(this)">'+
     '<div id="gScanHint" class="note-inline" style="min-height:14px;"></div>'+
     '<div class="fld"><label>Naam *</label><input id="gNaam" placeholder="Volledige naam"></div>'+
     '<div class="fld2"><div class="fld"><label>Geboortedatum</label><input id="gGeb" type="date"></div>'+
@@ -689,7 +695,8 @@ async function clientIdOf(bookingId){
 /* ---------- nieuwe reservering (+ knop) — met centrale prijsengine ---------- */
 let PRICES = (window.CampingPricing?Object.assign({},CampingPricing.DEFAULTS):{});
 let accTypes=[], extraTarieven=[];
-let nbState = {volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false};
+let nbState = {volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false,custom:{}};
+let nbIdFotos = []; // [{file, naam, geboortedatum, nationaliteit, id_nummer}]
 async function loadPrices(){
   try{
     // club_settings i.p.v. per-gebruiker settings — één gedeelde bron voor
@@ -707,9 +714,12 @@ async function loadPrices(){
 }
 async function openNewBooking(){
   await loadPrices();
-  nbState={volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false};
+  nbState={volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false,custom:{}};
+  nbIdFotos=[];
+  accTypes.forEach(t=>{nbState.custom[t.id]=0;});
   const today=TODAY;
   const step=(lbl,key)=>'<div class="stpr"><span class="sl">'+lbl+'</span><div class="ct"><button onclick="nbStep(\''+key+'\',-1)">−</button><span class="val" id="nb_'+key+'">'+nbState[key]+'</span><button onclick="nbStep(\''+key+'\',1)">+</button></div></div>';
+  const customStep=(t)=>'<div class="stpr"><span class="sl">'+esc(t.emoji||'🏕️')+' '+esc(t.naam)+' <span style="opacity:.6;font-size:11px;">€'+(t.prijs||0)+'/nacht</span></span><div class="ct"><button onclick="nbCustomStep(\''+t.id+'\',-1)">−</button><span class="val" id="nb_custom_'+t.id+'">0</span><button onclick="nbCustomStep(\''+t.id+'\',1)">+</button></div></div>';
   openModal('Nieuwe reservering',
     '<div class="fld"><label>Naam *</label><input id="nbNaam" placeholder="Volledige naam" oninput="nbPrice()"></div>'+
     '<div class="fld2"><div class="fld"><label>E-mail</label><input id="nbEmail" type="email" placeholder="gast@email.com"></div>'+
@@ -717,7 +727,7 @@ async function openNewBooking(){
     '<div class="fld2"><div class="fld"><label>Aankomst *</label><input id="nbAan" type="date" value="'+today+'" onchange="nbPrice()"></div>'+
     '<div class="fld"><label>Vertrek *</label><input id="nbVer" type="date" onchange="nbPrice()"></div></div>'+
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Verblijf</label>'+
-    '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('⛺ Tenten','tent')+step('🚐 Campers','camper')+'</div>'+
+    '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('⛺ Tenten','tent')+step('🚐 Campers','camper')+accTypes.map(customStep).join('')+'</div>'+
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Personen</label>'+
     '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('🧑 Volwassenen','volw')+step('🧒 Kinderen 3–11','kind')+step('👶 Baby'+"'"+'s <3','baby')+'</div>'+
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Extra</label>'+
@@ -725,6 +735,14 @@ async function openNewBooking(){
     '<div class="toggle-row"><span class="sl">⚡ Elektriciteit</span><input type="checkbox" id="nbElek" onchange="nbState.elek=this.checked;nbPrice()"></div></div>'+
     '<div class="fld"><label>Via kanaal</label><select id="nbBron"><option value="telefoon">☎️ Telefoon</option><option value="mail">📧 E-mail</option><option value="website">🌐 Website</option></select></div>'+
     '<div class="card" id="nbBreakdown" style="margin:6px 0 4px;"></div>'+
+    '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin-top:8px;display:block;">ID-kaarten (optioneel)</label>'+
+    '<div style="display:flex;gap:8px;margin:8px 0;">'+
+    '<button type="button" class="scanbtn" style="margin:0;flex:1;" onclick="document.getElementById(\'nbCamInput\').click()">📷 Foto nemen</button>'+
+    '<button type="button" class="scanbtn" style="margin:0;flex:1;background:var(--card-2);border-style:solid;border-color:var(--sep);color:var(--ink-2);" onclick="document.getElementById(\'nbFileInput\').click()">🖼️ Bestand kiezen</button>'+
+    '</div>'+
+    '<input type="file" id="nbCamInput" accept="image/*" capture="environment" style="display:none;" onchange="nbAddIdFoto(this)">'+
+    '<input type="file" id="nbFileInput" accept="image/*" multiple style="display:none;" onchange="nbAddIdFoto(this)">'+
+    '<div id="nbIdFotoList"></div>'+
     '<div id="nbMsg" class="note-inline" style="min-height:14px;"></div>'+
     '<button class="modal-save" id="nbSaveBtn" onclick="saveNewBooking()">Reservering opslaan → Postvak</button>');
   nbPrice();
@@ -734,12 +752,18 @@ function nbStep(key,delta){
   const el=document.getElementById('nb_'+key); if(el)el.textContent=nbState[key];
   nbPrice();
 }
+function nbCustomStep(id,delta){
+  nbState.custom[id]=Math.max(0,(nbState.custom[id]||0)+delta);
+  const el=document.getElementById('nb_custom_'+id); if(el)el.textContent=nbState.custom[id];
+  nbPrice();
+}
 function nbCalc(){
   const aan=document.getElementById('nbAan').value, ver=document.getElementById('nbVer').value;
   if(!window.CampingPricing) return {totaal:0, nights:0};
+  const units=[{prijs:PRICES.tent,count:nbState.tent,allIn:false},{prijs:PRICES.camper,count:nbState.camper,allIn:false}];
+  accTypes.forEach(t=>{const c=nbState.custom[t.id]||0; if(c>0)units.push({prijs:t.prijs||0,count:c,allIn:!!t.allIn});});
   const r=CampingPricing.calc({
-    prices:PRICES,
-    units:[{prijs:PRICES.tent,count:nbState.tent,allIn:false},{prijs:PRICES.camper,count:nbState.camper,allIn:false}],
+    prices:PRICES, units,
     volwassenen:nbState.volw, kinderen:nbState.kind, baby:nbState.baby,
     honden:nbState.honden, autos:nbState.autos, elektriciteit:nbState.elek,
     aankomst:aan, vertrek:ver,
@@ -753,7 +777,11 @@ function nbPrice(){
   if(!nights){el.innerHTML='<div class="note-inline" style="padding:14px;">Vul aankomst, vertrek en verblijf in</div>';return;}
   const perDag=(lbl,val)=>(val>0.005?'<div class="row"><span class="rl">'+lbl+' <span style="opacity:.6;font-size:10.5px;">/dag</span></span><span class="rv">€ '+Number(val).toFixed(2).replace('.',',')+'</span></div>':'');
   let h='';
-  h+=perDag('🏕️ Standplaats',r.basis);
+  // Standplaats — apart per type als eigen types gekozen zijn, anders één regel.
+  const gekozenTypes=accTypes.filter(t=>(nbState.custom[t.id]||0)>0);
+  if(nbState.tent>0)h+=perDag('⛺ Tent × '+nbState.tent,PRICES.tent*nbState.tent);
+  if(nbState.camper>0)h+=perDag('🚐 Camper × '+nbState.camper,PRICES.camper*nbState.camper);
+  gekozenTypes.forEach(t=>{h+=perDag(esc(t.emoji||'🏕️')+' '+esc(t.naam)+' × '+nbState.custom[t.id],(t.prijs||0)*nbState.custom[t.id]);});
   h+=perDag('🧑 Personen ('+r.personen+'p)',r.persoonsKost);
   h+=perDag('🐕 Honden',r.hondKost);
   h+=perDag('🚗 Extra auto\'s',r.extraAutoKost);
@@ -763,16 +791,60 @@ function nbPrice(){
   h+='<div class="row" style="background:var(--card-2);"><span class="rl"><b>Subtotaal per dag</b></span><span class="rv"><b>€ '+Number(r.perNacht).toFixed(2).replace('.',',')+'</b></span></div>';
   h+='<div class="row"><span class="rl">× '+nights+' nacht'+(nights===1?'':'en')+'</span><span class="rv">€ '+Number(r.totaal).toFixed(2).replace('.',',')+'</span></div>';
   h+='<div class="row" style="background:var(--green-soft);"><span class="rl" style="color:var(--green);font-weight:800;">Totaal te betalen</span><span class="rv" style="color:var(--green);font-weight:800;">€ '+Number(r.totaal).toFixed(2).replace('.',',')+'</span></div>';
+  const waarborgTotaal=gekozenTypes.reduce((s,t)=>s+(t.waarborgBedrag||0)*nbState.custom[t.id],0);
+  if(waarborgTotaal>0)h+='<div class="row"><span class="rl" style="color:var(--amber);">🔒 Waarborg (apart, niet in totaal)</span><span class="rv" style="color:var(--amber);">€ '+waarborgTotaal.toFixed(2).replace('.',',')+'</span></div>';
   el.innerHTML=h;
+}
+/* ID-foto's toevoegen tijdens het aanmaken — zelfde AI-scan als bij een
+   bestaande boeking, plus een garantie-fallback "bestand kiezen" voor
+   toestellen/browsers waar de camera-knop niet native opent. */
+async function nbAddIdFoto(input){
+  const files=input.files;if(!files||!files.length)return;
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    const idx=nbIdFotos.length;
+    nbIdFotos.push({file,naam:'',geboortedatum:'',nationaliteit:'',id_nummer:''});
+    renderNbIdFotoList();
+    try{
+      const b64=await _fileToB64(file);
+      const {data:{session}}=await sb.auth.getSession();
+      const res=await fetch(SUPABASE_URL+'/functions/v1/scan-id',{
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+        body:JSON.stringify({image_base64:b64,media_type:file.type||'image/jpeg'}),
+      });
+      const d=await res.json();
+      if(!d.error){
+        const naam=d.naam||[d.voornaam,d.achternaam].filter(Boolean).join(' ');
+        nbIdFotos[idx].naam=naam||''; nbIdFotos[idx].geboortedatum=d.geboortedatum||'';
+        nbIdFotos[idx].nationaliteit=d.nationaliteit||''; nbIdFotos[idx].id_nummer=d.documentnummer||'';
+      }
+    }catch(e){/* AI-herkenning mislukt — Karen vult hieronder gewoon manueel in */}
+    renderNbIdFotoList();
+  }
+  input.value='';
+}
+function renderNbIdFotoList(){
+  const el=document.getElementById('nbIdFotoList');if(!el)return;
+  el.innerHTML=nbIdFotos.map((g,i)=>
+    '<div class="card" style="padding:10px;margin-bottom:8px;display:flex;gap:8px;align-items:center;">'+
+    '<div class="thumb" style="flex-shrink:0;">🪪</div>'+
+    '<div style="flex:1;min-width:0;">'+
+    '<input value="'+esc(g.naam)+'" placeholder="Naam" oninput="nbIdFotos['+i+'].naam=this.value" style="width:100%;padding:7px 9px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12.5px;margin-bottom:5px;">'+
+    '<div style="font-size:10.5px;color:var(--ink-3);">'+(g.geboortedatum?fmt(g.geboortedatum)+' · ':'')+(g.nationaliteit||'AI leest…')+'</div>'+
+    '</div>'+
+    '<button onclick="nbIdFotos.splice('+i+',1);renderNbIdFotoList();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>'+
+    '</div>'
+  ).join('');
 }
 async function saveNewBooking(){
   const naam=(document.getElementById('nbNaam').value||'').trim();
   const aan=document.getElementById('nbAan').value, ver=document.getElementById('nbVer').value;
   const msg=document.getElementById('nbMsg');
+  const totalCustom=Object.values(nbState.custom).reduce((s,c)=>s+c,0);
   if(!naam){msg.style.color='var(--red)';msg.textContent='Naam is verplicht';return;}
   if(!aan||!ver){msg.style.color='var(--red)';msg.textContent='Aankomst en vertrek zijn verplicht';return;}
   if(aan>=ver){msg.style.color='var(--red)';msg.textContent='Vertrek moet na aankomst zijn';return;}
-  if(nbState.tent+nbState.camper<1){msg.style.color='var(--red)';msg.textContent='Voeg minstens 1 tent of camper toe';return;}
+  if(nbState.tent+nbState.camper+totalCustom<1){msg.style.color='var(--red)';msg.textContent='Voeg minstens 1 verblijfseenheid toe';return;}
   if(nbState.volw+nbState.kind+nbState.baby<1){msg.style.color='var(--red)';msg.textContent='Minstens 1 persoon';return;}
   const btn=document.getElementById('nbSaveBtn'); btn.disabled=true; btn.textContent='Opslaan…';
   try{
@@ -781,17 +853,36 @@ async function saveNewBooking(){
     const parts=[];
     if(nbState.tent>0)parts.push(nbState.tent+'× Tent');
     if(nbState.camper>0)parts.push(nbState.camper+'× Camper');
+    const extraTypeUnits=accTypes.filter(t=>(nbState.custom[t.id]||0)>0).map(t=>({...t,count:nbState.custom[t.id]}));
+    extraTypeUnits.forEach(t=>parts.push(t.count+'× '+t.naam));
     const {data:client,error:cErr}=await sb.from('clients').insert({naam,email,nummerplaten:(document.getElementById('nbPlaat').value||'').trim()||null}).select('id').single();
     if(cErr)throw new Error(cErr.message);
-    const {error:bErr}=await sb.from('bookings').insert({
+    const {data:booking,error:bErr}=await sb.from('bookings').insert({
       client_id:client.id, aankomst:aan, vertrek:ver,
       tenten:nbState.tent, campers:nbState.camper, verblijfstype:parts.join(' + ')||'Tent',
+      extra_type_units:extraTypeUnits.length?JSON.stringify(extraTypeUnits):null,
       volwassenen:nbState.volw, kinderen:nbState.kind, baby:nbState.baby,
       honden:nbState.honden, autos:nbState.autos, elektriciteit:nbState.elek,
       bron:document.getElementById('nbBron').value, bedrag_totaal:Number(r.totaal||0), status:'aanvraag',
-    });
+    }).select('id').single();
     if(bErr)throw new Error(bErr.message);
-    closeModal(); toast('✅ Reservering aangemaakt → Postvak');
+    // ID-foto's die tijdens het aanmaken werden toegevoegd, meteen koppelen.
+    for(let i=0;i<nbIdFotos.length;i++){
+      const g=nbIdFotos[i];
+      try{
+        const {data:gast,error:gErr}=await sb.from('gasten').insert({
+          booking_id:booking.id, naam:g.naam||('Gast '+(i+1)),
+          geboortedatum:g.geboortedatum||null, nationaliteit:g.nationaliteit||null,
+          id_nummer:g.id_nummer||null, is_hoofdgast:i===0,
+        }).select('id').single();
+        if(gErr||!gast)continue;
+        const ext=(g.file.name.split('.').pop()||'jpg').toLowerCase();
+        const path=booking.id+'/'+gast.id+'.'+ext;
+        const {error:upErr}=await sb.storage.from('id-fotos').upload(path,g.file,{upsert:true,contentType:g.file.type});
+        if(!upErr)await sb.from('gasten').update({foto_url:path}).eq('id',gast.id);
+      }catch(e){/* één mislukte foto mag de rest niet blokkeren */}
+    }
+    closeModal(); toast('✅ Reservering aangemaakt → Postvak'+(nbIdFotos.length?' · '+nbIdFotos.length+' ID(\'s) gekoppeld':''));
     await loadData(); setFolder('postvak');
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;btn.disabled=false;btn.textContent='Reservering opslaan → Postvak';}
 }
@@ -944,17 +1035,32 @@ async function renderBeheerTarieven(){
     '<button class="sbtn" style="width:100%;" onclick="voegExtraTariefToe()">➕ Kostenpost toevoegen (bv. Waarborg)</button>';
   renderExtraTarList();
 }
+/* Volledig open tariefplan: elk eigen type heeft niet enkel een prijs/nacht,
+   maar ook een eigen max. aantal personen, waarborgbedrag en omschrijving —
+   zelfde velden als de bestaande data, niets wordt meer stilzwijgend
+   afgekapt bij het bewerken/opslaan. */
 function renderAccTypesList(){
   const el=document.getElementById('accTypesList');if(!el)return;
+  const fld=(lbl,html)=>'<div style="flex:1;min-width:90px;"><label style="font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:3px;">'+lbl+'</label>'+html+'</div>';
+  const inp=(val,oninput,type,ph)=>'<input '+(type?'type="'+type+'"':'')+' value="'+esc(val)+'" placeholder="'+(ph||'')+'" oninput="'+oninput+'" style="width:100%;padding:8px 9px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;">';
   el.innerHTML=accTypes.length?accTypes.map((t,i)=>
-    '<div class="card" style="padding:10px 12px;margin-bottom:8px;display:flex;gap:8px;align-items:center;">'+
-    '<input value="'+esc(t.emoji||'🏕️')+'" oninput="accTypes['+i+'].emoji=this.value" style="width:40px;text-align:center;padding:8px 4px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:16px;">'+
-    '<input value="'+esc(t.naam||'')+'" placeholder="Naam" oninput="accTypes['+i+'].naam=this.value" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;">'+
-    '<input type="number" step="0.5" value="'+(t.prijs||0)+'" oninput="accTypes['+i+'].prijs=parseFloat(this.value)||0" style="width:64px;padding:8px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;">'+
-    '<button onclick="accTypes.splice('+i+',1);renderAccTypesList();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:34px;height:34px;cursor:pointer;">🗑</button></div>'
+    '<div class="card" style="padding:12px;margin-bottom:8px;">'+
+    '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-end;">'+
+    fld('Emoji',inp(t.emoji||'🏕️','accTypes['+i+'].emoji=this.value'))+
+    '<div style="flex:3;min-width:120px;">'+fld('Naam',inp(t.naam||'','accTypes['+i+'].naam=this.value',null,'bv. Safaritent'))+'</div>'+
+    '<button onclick="accTypes.splice('+i+',1);renderAccTypesList();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:36px;height:36px;flex-shrink:0;cursor:pointer;">🗑</button>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">'+
+    fld('Prijs/nacht (€)',inp(t.prijs||0,'accTypes['+i+'].prijs=parseFloat(this.value)||0','number'))+
+    fld('Max. personen',inp(t.maxPersonen||0,'accTypes['+i+'].maxPersonen=parseInt(this.value)||0','number'))+
+    fld('Waarborg (€)',inp(t.waarborgBedrag||0,'accTypes['+i+'].waarborgBedrag=parseFloat(this.value)||0','number'))+
+    '</div>'+
+    '<label style="font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:3px;">Omschrijving (optioneel)</label>'+
+    inp(t.beschrijving||'','accTypes['+i+'].beschrijving=this.value',null,'bv. Inclusief afvalbijdrage')+
+    '</div>'
   ).join(''):'<div class="note-inline" style="padding:6px 0;">Nog geen eigen types — standaard zijn Tent en Camper</div>';
 }
-function voegAccTypeToe(){accTypes.push({emoji:'🏕️',naam:'',prijs:0});renderAccTypesList();}
+function voegAccTypeToe(){accTypes.push({id:'custom_'+Date.now(),emoji:'🏕️',naam:'',prijs:0,maxPersonen:0,waarborgBedrag:0,allIn:false,beschrijving:''});renderAccTypesList();}
 function renderExtraTarList(){
   const el=document.getElementById('extraTarList');if(!el)return;
   el.innerHTML=extraTarieven.length?extraTarieven.map((t,i)=>
