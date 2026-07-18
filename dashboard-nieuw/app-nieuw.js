@@ -380,15 +380,32 @@ async function loadGastPane(b){
   if(real.length){
     h+='<div class="card">'+real.map(g=>{
       const sub=[g.geboortedatum?'°'+String(g.geboortedatum).slice(0,4):'',g.nationaliteit||'',g.id_nummer?'ID ✓':''].filter(Boolean).join(' · ');
-      return '<div class="guest"><div class="thumb">'+(g.foto_url?'📷':'🪪')+'</div><div class="gi"><div class="gn">'+esc(g.naam)+(g.is_hoofdgast?' <span class="pill p-conf" style="margin-left:4px;">Hoofd</span>':'')+'</div><div class="gd">'+(esc(sub)||'geen details')+'</div></div>'+
+      const thumb=g.foto_url?'<div class="thumb" data-id-thumb="'+esc(g.foto_url)+'" style="cursor:pointer;" onclick="event.stopPropagation();bekijkIdFoto(\''+esc(g.foto_url)+'\')">···</div>':'<div class="thumb">🪪</div>';
+      return '<div class="guest">'+thumb+'<div class="gi"><div class="gn">'+esc(g.naam)+(g.is_hoofdgast?' <span class="pill p-conf" style="margin-left:4px;">Hoofd</span>':'')+'</div><div class="gd">'+(esc(sub)||'geen details')+'</div></div>'+
         '<span onclick="delGast(\''+g.id+'\',\''+b.id+'\')" style="color:var(--red);cursor:pointer;font-size:15px;padding:6px;">🗑</span></div>';
     }).join('')+'</div>';
   } else {
     h+=emptyCard('Nog geen gasten geregistreerd voor deze reservering');
   }
   h+='<button class="ai-btn" onclick="openAddGuest(\''+b.id+'\')">➕ Gast toevoegen · 🤖 met AI-scan</button>';
-  h+='<div class="note-inline">wettelijk register · '+real.length+' gast'+(real.length===1?'':'en')+' geregistreerd</div>';
+  h+='<div class="note-inline">wettelijk register · '+real.length+' gast'+(real.length===1?'':'en')+' geregistreerd · ID-foto\'s zichtbaar voor beheerders</div>';
   el.innerHTML=h;
+  // ID-thumbnails asynchroon inladen (signed URLs), blokkeert de lijst niet.
+  // Enkel zichtbaar voor admins — de id-fotos-opslag is bewust admin-only
+  // (gevoelige identiteitsdocumenten), staff ziet hier het 🪪-icoon.
+  document.querySelectorAll('#pane-gast [data-id-thumb]').forEach(async(elm)=>{
+    const path=elm.getAttribute('data-id-thumb');
+    try{
+      const {data:s}=await sb.storage.from('id-fotos').createSignedUrl(path,300);
+      if(s&&s.signedUrl)elm.innerHTML='<img src="'+s.signedUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:5px;">';
+    }catch(e){/* geen rechten (staff) of foto niet gevonden — emoji-placeholder blijft staan */}
+  });
+}
+function bekijkIdFoto(path){
+  sb.storage.from('id-fotos').createSignedUrl(path,120).then(({data})=>{
+    if(data&&data.signedUrl)window.open(data.signedUrl,'_blank');
+    else toast('⚠️ Kon foto niet ophalen');
+  });
 }
 async function delGast(gastId,bookingId){
   if(!confirm('Gast verwijderen uit het register?'))return;
@@ -661,15 +678,18 @@ async function clientIdOf(bookingId){
 
 /* ---------- nieuwe reservering (+ knop) — met centrale prijsengine ---------- */
 let PRICES = (window.CampingPricing?Object.assign({},CampingPricing.DEFAULTS):{});
+let accTypes=[], extraTarieven=[];
 let nbState = {volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false};
 async function loadPrices(){
   try{
     const {data:{session}}=await sb.auth.getSession();if(!session)return;
     const {data}=await sb.from('settings').select('key,value').eq('user_id',session.user.id)
-      .in('key',['prijs_tent','prijs_camper','prijs_volwassene','prijs_kind','prijs_baby','prijs_hond','prijs_extra_auto','prijs_elektriciteit','prijs_afval_per_6','toeristentaks']);
+      .in('key',['prijs_tent','prijs_camper','prijs_volwassene','prijs_kind','prijs_baby','prijs_hond','prijs_extra_auto','prijs_elektriciteit','prijs_afval_per_6','toeristentaks','accommodatie_types','extra_tarieven']);
     const pm={};(data||[]).forEach(s=>pm[s.key]=s.value);
     const map={prijs_tent:'tent',prijs_camper:'camper',prijs_volwassene:'volwassene',prijs_kind:'kind',prijs_baby:'baby',prijs_hond:'hond',prijs_extra_auto:'extraAuto',prijs_elektriciteit:'elektriciteit',prijs_afval_per_6:'afvalPer6',toeristentaks:'toeristentaks'};
     Object.keys(map).forEach(k=>{if(pm[k]!=null)PRICES[map[k]]=parseFloat(pm[k])||PRICES[map[k]];});
+    try{accTypes=JSON.parse(pm.accommodatie_types||'[]')||[];}catch(e){accTypes=[];}
+    try{extraTarieven=JSON.parse(pm.extra_tarieven||'[]')||[];}catch(e){extraTarieven=[];}
   }catch(e){}
 }
 async function openNewBooking(){
@@ -883,7 +903,7 @@ function setBeheer(tab){
   if(currentRole!=='admin'){toast('⚠️ Enkel voor beheerders');return;}
   _beheerTab=tab;
   document.querySelectorAll('#scr-beheer .foldertabs .ft').forEach(b=>b.classList.toggle('on',b.getAttribute('data-beh')===tab));
-  const fns={tarieven:renderBeheerTarieven,gebruikers:renderBeheerGebruikers,idarchief:renderBeheerIdArchief,register:renderBeheerRegister,analytics:renderBeheerAnalytics};
+  const fns={tarieven:renderBeheerTarieven,gebruikers:renderBeheerGebruikers,idarchief:renderBeheerIdArchief,register:renderBeheerRegister,analytics:renderBeheerAnalytics,mail:renderBeheerMail};
   (fns[tab]||renderBeheerTarieven)();
 }
 async function renderBeheerTarieven(){
@@ -902,7 +922,39 @@ async function renderBeheerTarieven(){
     num('bMax',maxP,'Max. plaatsen (0 = geen limiet)')+
     '<button class="modal-save" onclick="saveBeheerTarieven()">💾 Tarieven opslaan</button>'+
     '<div id="tarMsg" class="note-inline"></div></div>';
+
+  el.innerHTML+='<div class="sec-lbl">Eigen verblijfstypes</div><div id="accTypesList"></div>'+
+    '<button class="sbtn" style="width:100%;margin-bottom:14px;" onclick="voegAccTypeToe()">➕ Type toevoegen (bv. Safaritent)</button>';
+  renderAccTypesList();
+
+  el.innerHTML+='<div class="sec-lbl">Vrije kostenposten</div><div id="extraTarList"></div>'+
+    '<button class="sbtn" style="width:100%;" onclick="voegExtraTariefToe()">➕ Kostenpost toevoegen (bv. Waarborg)</button>';
+  renderExtraTarList();
 }
+function renderAccTypesList(){
+  const el=document.getElementById('accTypesList');if(!el)return;
+  el.innerHTML=accTypes.length?accTypes.map((t,i)=>
+    '<div class="card" style="padding:10px 12px;margin-bottom:8px;display:flex;gap:8px;align-items:center;">'+
+    '<input value="'+esc(t.emoji||'🏕️')+'" oninput="accTypes['+i+'].emoji=this.value" style="width:40px;text-align:center;padding:8px 4px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:16px;">'+
+    '<input value="'+esc(t.naam||'')+'" placeholder="Naam" oninput="accTypes['+i+'].naam=this.value" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;">'+
+    '<input type="number" step="0.5" value="'+(t.prijs||0)+'" oninput="accTypes['+i+'].prijs=parseFloat(this.value)||0" style="width:64px;padding:8px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;">'+
+    '<button onclick="accTypes.splice('+i+',1);renderAccTypesList();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:34px;height:34px;cursor:pointer;">🗑</button></div>'
+  ).join(''):'<div class="note-inline" style="padding:6px 0;">Nog geen eigen types — standaard zijn Tent en Camper</div>';
+}
+function voegAccTypeToe(){accTypes.push({emoji:'🏕️',naam:'',prijs:0});renderAccTypesList();}
+function renderExtraTarList(){
+  const el=document.getElementById('extraTarList');if(!el)return;
+  el.innerHTML=extraTarieven.length?extraTarieven.map((t,i)=>
+    '<div class="card" style="padding:10px 12px;margin-bottom:8px;">'+
+    '<div style="display:flex;gap:8px;margin-bottom:8px;">'+
+    '<input value="'+esc(t.naam||'')+'" placeholder="Naam (bv. Waarborg)" oninput="extraTarieven['+i+'].naam=this.value" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;">'+
+    '<input type="number" step="0.5" value="'+(t.prijs||0)+'" oninput="extraTarieven['+i+'].prijs=parseFloat(this.value)||0" style="width:64px;padding:8px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;">'+
+    '<button onclick="extraTarieven.splice('+i+',1);renderExtraTarList();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:34px;height:34px;cursor:pointer;">🗑</button></div>'+
+    '<label style="font-size:11.5px;color:var(--ink-2);display:flex;align-items:center;gap:6px;"><input type="checkbox" '+(t.perNacht?'checked':'')+' onchange="extraTarieven['+i+'].perNacht=this.checked"> per nacht (anders eenmalig)</label>'+
+    '</div>'
+  ).join(''):'<div class="note-inline" style="padding:6px 0;">Nog geen extra kostenposten</div>';
+}
+function voegExtraTariefToe(){extraTarieven.push({naam:'',prijs:0,categorie:'extra',perNacht:false});renderExtraTarList();}
 async function saveBeheerTarieven(){
   const msg=document.getElementById('tarMsg');
   msg.textContent='Opslaan…';msg.style.color='var(--ink-2)';
@@ -911,12 +963,67 @@ async function saveBeheerTarieven(){
     const g=id=>document.getElementById(id).value;
     const pairs=[['prijs_tent',g('bTent')],['prijs_camper',g('bCamper')],['prijs_volwassene',g('bVolw')],
       ['prijs_kind',g('bKind')],['prijs_baby',g('bBaby')],['prijs_hond',g('bHond')],['prijs_extra_auto',g('bAuto')],
-      ['prijs_elektriciteit',g('bElek')],['prijs_afval_per_6',g('bAfval')],['toeristentaks',g('bTaks')],['max_plaatsen',g('bMax')||'0']];
+      ['prijs_elektriciteit',g('bElek')],['prijs_afval_per_6',g('bAfval')],['toeristentaks',g('bTaks')],['max_plaatsen',g('bMax')||'0'],
+      ['accommodatie_types',JSON.stringify(accTypes.filter(t=>(t.naam||'').trim()))],
+      ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>(t.naam||'').trim()))]];
     for(const [key,value] of pairs){
       await sb.from('settings').upsert({user_id:session.user.id,key,value:String(value),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
     }
     msg.style.color='var(--green)';msg.textContent='✅ Opgeslagen'; maxPlaatsen=parseInt(g('bMax'))||0;
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
+}
+
+/* ---------- beheer: Gmail-koppeling ---------- */
+const GOOGLE_CLIENT_ID='54730723430-j707rj00757gkh5f0hsfu9peh645tp32.apps.googleusercontent.com';
+const GMAIL_SCOPES='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email';
+// Google OAuth staat enkel geregistreerd op de /dashboard/-URL van het oude
+// systeem. Koppelen bounct daar even langs om te bevestigen, maar schrijft
+// naar dezelfde integrations-tabel die beide systemen delen — direct
+// daarna bruikbaar hier, geen tweede koppeling nodig.
+function connectGmailV2(){
+  const url=new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id',GOOGLE_CLIENT_ID);
+  url.searchParams.set('redirect_uri',window.location.origin+'/dashboard/');
+  url.searchParams.set('response_type','code');
+  url.searchParams.set('scope',GMAIL_SCOPES);
+  url.searchParams.set('access_type','offline');
+  url.searchParams.set('prompt','consent');
+  url.searchParams.set('state','gmail_connect');
+  window.location.href=url.toString();
+}
+async function renderBeheerMail(){
+  const el=document.getElementById('beheerBody');
+  el.innerHTML='<div class="note-inline">Laden…</div>';
+  const {data}=await sb.from('integrations').select('email,updated_at').eq('provider','gmail').maybeSingle();
+  let h='<div class="card" style="padding:16px;">';
+  if(data){
+    h+='<div class="row"><span class="rl">Gekoppeld account</span><span class="rv">'+esc(data.email)+'</span></div>';
+    h+='<div class="row"><span class="rl">Laatste update</span><span class="rv">'+new Date(data.updated_at).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'</span></div>';
+    h+='<button class="sbtn" style="width:100%;margin-top:12px;" onclick="syncGmailV2()">🔄 Mails synchroniseren</button>';
+    h+='<button class="sbtn" style="width:100%;margin-top:8px;color:var(--red);border-color:var(--red);" onclick="disconnectGmailV2()">Ontkoppelen</button>';
+  } else {
+    h+='<div class="note-inline" style="padding:0 0 12px;">Nog geen Gmail gekoppeld — nodig om mails te versturen en het Postvak automatisch te vullen.</div>';
+    h+='<button class="modal-save" onclick="connectGmailV2()">📧 Gmail koppelen</button>';
+    h+='<div class="note-inline">Je wordt eventjes naar het klassieke dashboard gestuurd om te bevestigen, daarna direct bruikbaar hier.</div>';
+  }
+  h+='<div id="gmailV2Msg" class="note-inline"></div></div>';
+  el.innerHTML=h;
+}
+async function syncGmailV2(){
+  const msg=document.getElementById('gmailV2Msg');
+  msg.textContent='Bezig…';msg.style.color='var(--ink-2)';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(SUPABASE_URL+'/functions/v1/gmail-sync',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token}});
+    const d=await res.json();
+    if(d.error)throw new Error(d.error);
+    msg.style.color='var(--green)';msg.textContent='✅ '+(d.synced>0?d.synced+' nieuwe mail'+(d.synced===1?'':'s')+' gesynchroniseerd':'Alles up-to-date');
+  }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
+}
+async function disconnectGmailV2(){
+  if(!confirm('Gmail ontkoppelen?'))return;
+  await sb.from('integrations').delete().eq('provider','gmail');
+  toast('Gmail ontkoppeld'); renderBeheerMail();
 }
 async function renderBeheerGebruikers(){
   const el=document.getElementById('beheerBody');
