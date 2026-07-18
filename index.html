@@ -432,12 +432,20 @@ let accommodatieTypes=[
 /* Tarieven laden uit Supabase (sync met dashboard instellingen) */
 (async function loadPrices(){
   try{
-    const {data}=await sb.from('settings').select('key,value').in('key',[
-      'prijs_tent','prijs_camper','prijs_volwassene','prijs_kind','prijs_baby',
-      'prijs_hond','prijs_extra_auto','prijs_elektriciteit','prijs_afval_per_6',
-      'toeristentaks','prijs_waarborg','extra_tarieven','accommodatie_types','turnstile_site_key'
+    // Tarieven komen uit club_settings — één gedeelde bron, niet meer per
+    // gebruiker (dat veroorzaakte willekeurig wisselende prijzen naargelang
+    // welke medewerker het laatst had bewaard). Waarborg/turnstile zijn geen
+    // "tarief"-conflictgevoelige waarden en blijven op de oude tabel staan.
+    const [{data:clubData},{data:legacyData}]=await Promise.all([
+      sb.from('club_settings').select('key,value').in('key',[
+        'prijs_tent','prijs_camper','prijs_volwassene','prijs_kind','prijs_baby',
+        'prijs_hond','prijs_extra_auto','prijs_elektriciteit','prijs_afval_per_6',
+        'toeristentaks','extra_tarieven','accommodatie_types'
+      ]),
+      sb.from('settings').select('key,value').in('key',['prijs_waarborg','turnstile_site_key']),
     ]);
-    if(!data||!data.length)return;
+    const data=[...(clubData||[]),...(legacyData||[])];
+    if(!data.length)return;
     const m={};data.forEach(r=>m[r.key]=r.value);
     if(m.turnstile_site_key)enableTurnstile(m.turnstile_site_key);
     if(m.prijs_tent){PRICES.tent=parseFloat(m.prijs_tent)||0;accommodatieTypes.find(t=>t.id==='tent').prijs=PRICES.tent;}

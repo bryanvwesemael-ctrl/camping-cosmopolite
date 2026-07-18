@@ -90,7 +90,7 @@ function mapBooking(row){
 }
 async function loadData(){
   try{
-    const pr=await sb.from('settings').select('value').eq('key','max_plaatsen').limit(1);
+    const pr=await sb.from('club_settings').select('value').eq('key','max_plaatsen').limit(1);
     if(pr.data&&pr.data.length) maxPlaatsen=parseInt(pr.data[0].value)||0;
   }catch(e){}
   await loadRole();
@@ -98,6 +98,7 @@ async function loadData(){
     const cs=await sb.from('club_settings').select('key,value');
     clubCfg={};(cs.data||[]).forEach(r=>{clubCfg[r.key]=r.value;});
   }catch(e){}
+  await loadPrices(); // PRICES/accTypes altijd fris — nodig voor de prijsopbouw in elke fiche
   const res=await sb.from('bookings').select('*,clients(*)').order('aankomst',{ascending:true});
   if(res.error){toast('⚠️ Kon reserveringen niet laden: '+res.error.message);return;}
   bookings=(res.data||[]).map(mapBooking);
@@ -280,7 +281,6 @@ function renderFiche(b){
   let g='';
   g+=grow('Plaats / type',esc(verblijf(b)));
   g+=grow('Personen',b.volwassenen+' volw.'+(b.kinderen?' · '+b.kinderen+' kind':'')+(b.baby?' · '+b.baby+' baby':''));
-  g+=grow('Nachten',nights(b.aankomst,b.vertrek)+' · '+money(b.bedrag)+' totaal');
   g+=grow('Nummerplaat',b.plaat?esc(b.plaat):'—');
   if(extra.length)g+=grow('Extra\'s',extra.join(' · '));
   g+=grow('E-mail',b.email?esc(b.email):'—');
@@ -290,6 +290,17 @@ function renderFiche(b){
   const gp=document.getElementById('paneGegExtra');
   if(gp){
     let x='';
+    // Prijs per dag × aantal dagen, direct op basis van deze boeking — zodat
+    // Karen meteen ziet wat een extra dag zou kosten. Gebaseerd op het al
+    // bevestigde totaalbedrag (klopt altijd, ook voor boekingen met een
+    // eigen verblijfstype dat niet de standaard tent/camper-prijs volgt).
+    const nn=nights(b.aankomst,b.vertrek);
+    const perDagTarief=nn>0?Math.round((Number(b.bedrag||0)/nn)*100)/100:0;
+    x+='<div class="sec-lbl">Prijs</div><div class="card">'+
+      grow('Prijs per dag',money(perDagTarief))+
+      grow('× '+nn+' nacht'+(nn===1?'':'en'),money(b.bedrag))+
+      '<div class="row" style="background:var(--green-soft);"><span class="rl" style="color:var(--green);font-weight:700;">Totaal</span><span class="rv" style="color:var(--green);font-weight:800;">'+money(b.bedrag)+'</span></div>'+
+      '</div>';
     if(b.nota)x+='<div class="sec-lbl">Opmerking</div><div class="card"><div class="row" style="justify-content:flex-start;"><span class="rl">'+esc(b.nota)+'</span></div></div>';
     x+='<button class="sbtn" style="width:100%;margin-top:12px;" onclick="editGegevens(\''+b.id+'\')">✏️ Gegevens bewerken</button>';
     gp.innerHTML=x;
@@ -681,8 +692,11 @@ let accTypes=[], extraTarieven=[];
 let nbState = {volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false};
 async function loadPrices(){
   try{
-    const {data:{session}}=await sb.auth.getSession();if(!session)return;
-    const {data}=await sb.from('settings').select('key,value').eq('user_id',session.user.id)
+    // club_settings i.p.v. per-gebruiker settings — één gedeelde bron voor
+    // tarieven, zodat wijzigingen in Beheer overal meteen doorwerken
+    // (Nieuwe reservering, het publieke formulier, en tussen medewerkers
+    // onderling) i.p.v. willekeurig af te hangen van wie het laatst bewaarde.
+    const {data}=await sb.from('club_settings').select('key,value')
       .in('key',['prijs_tent','prijs_camper','prijs_volwassene','prijs_kind','prijs_baby','prijs_hond','prijs_extra_auto','prijs_elektriciteit','prijs_afval_per_6','toeristentaks','accommodatie_types','extra_tarieven']);
     const pm={};(data||[]).forEach(s=>pm[s.key]=s.value);
     const map={prijs_tent:'tent',prijs_camper:'camper',prijs_volwassene:'volwassene',prijs_kind:'kind',prijs_baby:'baby',prijs_hond:'hond',prijs_extra_auto:'extraAuto',prijs_elektriciteit:'elektriciteit',prijs_afval_per_6:'afvalPer6',toeristentaks:'toeristentaks'};
@@ -909,7 +923,7 @@ async function renderBeheerTarieven(){
   const el=document.getElementById('beheerBody');
   el.innerHTML='<div class="note-inline">Laden…</div>';
   await loadPrices();
-  const {data:mp}=await sb.from('settings').select('value').eq('key','max_plaatsen').limit(1);
+  const {data:mp}=await sb.from('club_settings').select('value').eq('key','max_plaatsen').limit(1);
   const maxP=(mp&&mp.length)?mp[0].value:'';
   const num=(id,val,lbl)=>'<div class="fld"><label>'+lbl+'</label><input id="'+id+'" type="number" step="0.01" value="'+val+'"></div>';
   el.innerHTML='<div class="card" style="padding:14px;">'+
@@ -966,9 +980,9 @@ async function saveBeheerTarieven(){
       ['accommodatie_types',JSON.stringify(accTypes.filter(t=>(t.naam||'').trim()))],
       ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>(t.naam||'').trim()))]];
     for(const [key,value] of pairs){
-      await sb.from('settings').upsert({user_id:session.user.id,key,value:String(value),updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
+      await sb.from('club_settings').upsert({key,value:String(value),updated_by:session.user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
     }
-    msg.style.color='var(--green)';msg.textContent='✅ Opgeslagen'; maxPlaatsen=parseInt(g('bMax'))||0;
+    msg.style.color='var(--green)';msg.textContent='✅ Opgeslagen — meteen zichtbaar bij Nieuwe reservering en op het publieke formulier'; maxPlaatsen=parseInt(g('bMax'))||0;
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
 }
 
@@ -1057,17 +1071,49 @@ async function sendInvite(){
     setTimeout(renderBeheerGebruikers,1200);
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
 }
+/* ID-archief: elk gescand document, gegroepeerd per boeking — zodat een
+   opgevraagde ID altijd meteen toont bij welke reservering (naam, #, data)
+   die hoort, in plaats van losse namen zonder context. */
 async function renderBeheerIdArchief(){
   const el=document.getElementById('beheerBody');
   el.innerHTML='<div class="note-inline">Laden…</div>';
-  const {data}=await sb.from('gasten').select('*,bookings(naam:client_id)').neq('naam','__pending_guest_upload__').is('deleted_at',null).order('created_at',{ascending:false}).limit(100);
+  const {data}=await sb.from('gasten').select('*').neq('naam','__pending_guest_upload__').is('deleted_at',null).order('created_at',{ascending:false}).limit(500);
   const rows=data||[];
-  el.innerHTML='<div class="fld"><input id="idaSearch" placeholder="🔍 Zoek op naam…" oninput="filterIdArchief()"></div>'+
-    '<div class="card" id="idaList">'+(rows.length?rows.map(g=>'<div class="row" data-naam="'+esc((g.naam||'').toLowerCase())+'"><span class="rl">'+esc(g.naam||'—')+'</span><span class="rv">'+(g.geboortedatum?fmt(g.geboortedatum):'')+' '+(g.nationaliteit||'')+'</span></div>').join(''):'<div class="note-inline" style="padding:16px;">Geen gasten gevonden</div>')+'</div>';
+  const groups={};
+  rows.forEach(g=>{
+    const b=bookings.find(x=>x.id===g.booking_id);
+    if(!groups[g.booking_id])groups[g.booking_id]={booking:b,gasten:[]};
+    groups[g.booking_id].gasten.push(g);
+  });
+  const groupList=Object.values(groups).sort((a,b)=>{
+    const da=(a.booking&&a.booking.aankomst)||''; const db=(b.booking&&b.booking.aankomst)||'';
+    return db.localeCompare(da);
+  });
+  el.innerHTML='<div class="fld"><input id="idaSearch" placeholder="🔍 Zoek op naam of boekingsnummer…" oninput="filterIdArchief()"></div>'+
+    '<div id="idaList">'+(groupList.length?groupList.map(gr=>{
+      const b=gr.booking;
+      const titel=b?esc(b.naam)+' <span class="mono" style="font-weight:400;color:var(--ink-3);">#'+(b.volgnummer||'—')+' · '+fmt(b.aankomst)+'–'+fmt(b.vertrek)+'</span>':'<span style="color:var(--ink-3);">(boeking niet meer gevonden)</span>';
+      const zoekTekst=((b&&b.naam)||'').toLowerCase()+' '+((b&&b.volgnummer)||'')+' '+gr.gasten.map(g=>(g.naam||'').toLowerCase()).join(' ');
+      return '<div class="card" data-zoek="'+esc(zoekTekst)+'" style="margin-bottom:10px;">'+
+        '<div class="row" style="background:var(--card-2);"><span class="rl" style="font-weight:700;color:var(--ink);">'+titel+'</span></div>'+
+        gr.gasten.map(g=>{
+          const sub=[g.geboortedatum?'°'+String(g.geboortedatum).slice(0,4):'',g.nationaliteit||'',g.id_nummer?'ID ✓':''].filter(Boolean).join(' · ');
+          const thumb=g.foto_url?'<div class="thumb" data-id-thumb="'+esc(g.foto_url)+'" style="cursor:pointer;" onclick="bekijkIdFoto(\''+esc(g.foto_url)+'\')">···</div>':'<div class="thumb">🪪</div>';
+          return '<div class="guest">'+thumb+'<div class="gi"><div class="gn">'+esc(g.naam)+(g.is_hoofdgast?' <span class="pill p-conf" style="margin-left:4px;">Hoofd</span>':'')+'</div><div class="gd">'+(esc(sub)||'geen details')+'</div></div></div>';
+        }).join('')+
+      '</div>';
+    }).join(''):'<div class="note-inline" style="padding:16px;">Geen gasten gevonden</div>')+'</div>';
+  document.querySelectorAll('#idaList [data-id-thumb]').forEach(async(elm)=>{
+    const path=elm.getAttribute('data-id-thumb');
+    try{
+      const {data:s}=await sb.storage.from('id-fotos').createSignedUrl(path,300);
+      if(s&&s.signedUrl)elm.innerHTML='<img src="'+s.signedUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:5px;">';
+    }catch(e){}
+  });
 }
 function filterIdArchief(){
   const q=(document.getElementById('idaSearch').value||'').toLowerCase();
-  document.querySelectorAll('#idaList [data-naam]').forEach(r=>{r.style.display=r.getAttribute('data-naam').indexOf(q)!==-1?'flex':'none';});
+  document.querySelectorAll('#idaList [data-zoek]').forEach(r=>{r.style.display=r.getAttribute('data-zoek').indexOf(q)!==-1?'block':'none';});
 }
 async function renderBeheerRegister(){
   const el=document.getElementById('beheerBody');
