@@ -388,17 +388,16 @@ async function loadGastPane(b){
     h+=emptyCard('Nog geen gasten geregistreerd voor deze reservering');
   }
   h+='<button class="ai-btn" onclick="openAddGuest(\''+b.id+'\')">➕ Gast toevoegen · 🤖 met AI-scan</button>';
-  h+='<div class="note-inline">wettelijk register · '+real.length+' gast'+(real.length===1?'':'en')+' geregistreerd · ID-foto\'s zichtbaar voor beheerders</div>';
+  h+='<div class="note-inline">wettelijk register · '+real.length+' gast'+(real.length===1?'':'en')+' geregistreerd</div>';
   el.innerHTML=h;
   // ID-thumbnails asynchroon inladen (signed URLs), blokkeert de lijst niet.
-  // Enkel zichtbaar voor admins — de id-fotos-opslag is bewust admin-only
-  // (gevoelige identiteitsdocumenten), staff ziet hier het 🪪-icoon.
+  // Zichtbaar voor elke ingelogde gebruiker met een rol (staff of admin).
   document.querySelectorAll('#pane-gast [data-id-thumb]').forEach(async(elm)=>{
     const path=elm.getAttribute('data-id-thumb');
     try{
       const {data:s}=await sb.storage.from('id-fotos').createSignedUrl(path,300);
       if(s&&s.signedUrl)elm.innerHTML='<img src="'+s.signedUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:5px;">';
-    }catch(e){/* geen rechten (staff) of foto niet gevonden — emoji-placeholder blijft staan */}
+    }catch(e){/* foto niet gevonden — emoji-placeholder blijft staan */}
   });
 }
 function bekijkIdFoto(path){
