@@ -197,6 +197,10 @@ function rowHtml(b,sub,pill){
 function emptyCard(txt){return '<div class="card taskcard"><div class="note-inline" style="padding:20px;">'+txt+'</div></div>';}
 
 /* ---------- render: dagbord ---------- */
+function dbScrollTo(id){
+  const el=document.getElementById(id); if(!el)return;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+}
 function renderDagbord(){
   const aankomst=bookings.filter(b=>b.aankomst===TODAY&&b.status!=='geannuleerd'&&!b.uitgecheckt_at);
   const vertrek=bookings.filter(b=>b.vertrek===TODAY&&b.status!=='geannuleerd');
@@ -211,9 +215,9 @@ function renderDagbord(){
   let h='';
   h+='<div class="greet"><div class="g1">Goeiedag'+(naam?', '+esc(naam):'')+' 👋</div><div class="g2">Dit is je werk voor vandaag.</div></div>';
   h+='<div class="kpis">'+
-     '<div class="kpi"><div class="kv g">'+aankomst.length+'</div><div class="kk">🟢 Aankomst</div></div>'+
-     '<div class="kpi"><div class="kv r">'+vertrek.length+'</div><div class="kk">🔴 Vertrek</div></div>'+
-     '<div class="kpi"><div class="kv b">'+aanwezig.length+'</div><div class="kk">🏕️ Aanwezig</div></div>'+
+     '<div class="kpi" style="cursor:pointer;" onclick="dbScrollTo(\'dbAankomstSec\')"><div class="kv g">'+aankomst.length+'</div><div class="kk">🟢 Aankomst</div></div>'+
+     '<div class="kpi" style="cursor:pointer;" onclick="dbScrollTo(\'dbVertrekSec\')"><div class="kv r">'+vertrek.length+'</div><div class="kk">🔴 Vertrek</div></div>'+
+     '<div class="kpi" style="cursor:pointer;" onclick="setFolder(\'aanwezig\')"><div class="kv b">'+aanwezig.length+'</div><div class="kk">🏕️ Aanwezig</div></div>'+
      '<div class="kpi"><div class="kv" style="font-size:19px;">'+money(openSom)+'</div><div class="kk">💰 Openstaand</div></div>'+
      '<div class="kpi"><div class="kv" style="font-size:22px;">'+bezet+'</div><div class="kk">📊 Bezetting</div></div>'+
      '</div>';
@@ -222,9 +226,9 @@ function renderDagbord(){
        '<div class="at"><div class="a1">'+postvak.length+' aanvra'+(postvak.length===1?'ag':'gen')+' in Postvak</div>'+
        '<div class="a2">Nog te controleren en te bevestigen</div></div><div class="ar">›</div></div>';
   }
-  h+='<div class="sec-lbl">🟢 Aankomst vandaag</div>';
+  h+='<div class="sec-lbl" id="dbAankomstSec">🟢 Aankomst vandaag</div>';
   h+=aankomst.length?'<div class="card taskcard">'+aankomst.map(b=>rowHtml(b,esc(verblijf(b))+' · '+b.personen+' pers.','<span class="pill p-arr">AANKOMST</span>')).join('')+'</div>':emptyCard('Geen aankomsten vandaag');
-  h+='<div class="sec-lbl">🔴 Vertrek vandaag</div>';
+  h+='<div class="sec-lbl" id="dbVertrekSec">🔴 Vertrek vandaag</div>';
   h+=vertrek.length?'<div class="card taskcard">'+vertrek.map(b=>rowHtml(b,esc(verblijf(b)),'<span class="pill p-dep">VERTREK</span>')).join('')+'</div>':emptyCard('Geen vertrekken vandaag');
   h+='<div class="sec-lbl">💰 Openstaande betalingen</div>';
   h+=openList.length?'<div class="card taskcard">'+openList.slice(0,8).map(b=>rowHtml(b,'Nog '+money(openOf(b))+' open','<span class="pill p-pay">OPEN</span>')).join('')+'</div>':emptyCard('Alles betaald 🎉');
