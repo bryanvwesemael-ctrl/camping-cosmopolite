@@ -135,6 +135,7 @@ function mapBooking(row){
     ingecheckt_at:row.ingecheckt_at, uitgecheckt_at:row.uitgecheckt_at,
     aiDraft:!!row.ai_draft, aiParsed:row.ai_parsed||null,
     nota:row.nota||'', honden:row.honden||0, autos:row.autos||1, elektriciteit:!!row.elektriciteit,
+    waarborgOntvangenAt:row.waarborg_ontvangen_at||null, waarborgTeruggegevenAt:row.waarborg_teruggegeven_at||null,
   };
 }
 async function loadData(){
@@ -169,6 +170,9 @@ function folderOf(b){
   return 'booking';
 }
 function inFolder(f){return bookings.filter(b=>folderOf(b)===f);}
+function waarborgTotaal(b){
+  return (b.extraTypeUnits||[]).reduce((s,t)=>s+(t.waarborgBedrag||0)*(t.count||0),0);
+}
 function verblijf(b){
   const parts=[];
   if(b.tenten>0)parts.push('⛺ '+b.tenten+' tent'+(b.tenten>1?'en':''));
@@ -405,7 +409,38 @@ async function loadBetPane(b){
   if(betaald>0 && !terugbetaald){
     h+='<div style="text-align:center;margin-top:10px;"><span onclick="actTerugbetaling(\''+b.id+'\')" style="font-size:12px;color:var(--blue);cursor:pointer;font-family:var(--f-mono);">↩️ Terugbetaling registreren</span></div>';
   }
+  // Waarborg — bewust volledig los van de prijs/payments-hierboven: telt
+  // nooit mee als omzet en mag Karen enkel cash registreren (nooit QR of
+  // overschrijving), zodat een deposito nooit als betaling van de
+  // accommodatie zelf verward kan worden.
+  const wTot=waarborgTotaal(b);
+  if(wTot>0.005){
+    h+='<div class="sec-lbl">🔒 Waarborg (cash, apart van bovenstaande prijs)</div>';
+    if(!b.waarborgOntvangenAt){
+      h+='<div class="card"><div class="row" style="background:var(--amber-soft);"><span class="rl" style="color:var(--amber);font-weight:700;">Nog te ontvangen</span><span class="rv" style="color:var(--amber);font-weight:800;">'+money(wTot)+'</span></div></div>'+
+        '<button class="sbtn" style="width:100%;margin-top:8px;border-color:var(--green);color:var(--green);font-weight:700;" onclick="actWaarborgOntvangen(\''+b.id+'\')">💵 Waarborg ontvangen (cash)</button>';
+    } else if(!b.waarborgTeruggegevenAt){
+      h+='<div class="card"><div class="row" style="background:var(--green-soft);"><span class="rl" style="color:var(--green);font-weight:700;">Ontvangen · '+new Date(b.waarborgOntvangenAt).toLocaleDateString('nl-BE',{day:'numeric',month:'short'})+'</span><span class="rv" style="color:var(--green);font-weight:800;">'+money(wTot)+'</span></div></div>'+
+        '<button class="sbtn" style="width:100%;margin-top:8px;" onclick="actWaarborgTeruggegeven(\''+b.id+'\')">↩️ Waarborg teruggegeven (cash)</button>';
+    } else {
+      h+='<div class="card"><div class="row"><span class="rl" style="color:var(--ink-3);">↩️ Teruggegeven · '+new Date(b.waarborgTeruggegevenAt).toLocaleDateString('nl-BE',{day:'numeric',month:'short'})+'</span><span class="rv">'+money(wTot)+'</span></div></div>';
+    }
+  }
   el.innerHTML=h;
+}
+async function actWaarborgOntvangen(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  if(!confirm('Waarborg van '+money(waarborgTotaal(b))+' cash ontvangen van '+b.naam+'?'))return;
+  const {error}=await sb.from('bookings').update({waarborg_ontvangen_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('💵 Waarborg geregistreerd als ontvangen (cash)'); await loadData();
+}
+async function actWaarborgTeruggegeven(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  if(!confirm('Waarborg van '+money(waarborgTotaal(b))+' cash teruggegeven aan '+b.naam+'?'))return;
+  const {error}=await sb.from('bookings').update({waarborg_teruggegeven_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('↩️ Waarborg geregistreerd als teruggegeven (cash)'); await loadData();
 }
 function toggleQR(id){
   const box=document.getElementById('qrBox');if(!box)return;
