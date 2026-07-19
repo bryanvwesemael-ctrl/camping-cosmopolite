@@ -69,6 +69,53 @@ function showApp(){
   document.getElementById('app').style.display='flex';
   const who=document.getElementById('whoLbl');
   if(who && currentUser){const n=(currentUser.email||'').split('@')[0];who.textContent='👤 '+(n.charAt(0).toUpperCase()+n.slice(1));}
+  updateNotifIcon();
+  initRealtimeNotifications();
+}
+
+/* ---------- meldingen ----------
+   Browser-meldingen (Notification API) i.p.v. iets ingewikkelders zoals
+   push-meldingen: geen extra server-infrastructuur nodig, werkt vandaag al.
+   Beperking om eerlijk te zijn: dit werkt zolang deze pagina/tab open staat
+   (mag op de achtergrond) — niet wanneer de browser volledig gesloten is.
+   Trigger: een live Supabase-verbinding die meteen een nieuwe reservering
+   in Postvak detecteert (bv. via de AI-postvak-controle), ongeacht wie er
+   op dat moment is ingelogd. */
+let notifEnabled = localStorage.getItem('cc_notif_enabled')==='1';
+function updateNotifIcon(){
+  const btn=document.getElementById('notifBtn'); if(!btn)return;
+  btn.textContent = (notifEnabled && typeof Notification!=='undefined' && Notification.permission==='granted') ? '🔔' : '🔕';
+}
+async function toggleNotifications(){
+  if(typeof Notification==='undefined'){toast('⚠️ Meldingen worden niet ondersteund in deze browser');return;}
+  if(notifEnabled){
+    notifEnabled=false; localStorage.setItem('cc_notif_enabled','0');
+    updateNotifIcon(); toast('🔕 Meldingen uitgeschakeld');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if(perm!=='granted'){toast('⚠️ Toestemming geweigerd — kan later aangepast worden bij je browserinstellingen voor deze site');updateNotifIcon();return;}
+  notifEnabled=true; localStorage.setItem('cc_notif_enabled','1');
+  updateNotifIcon();
+  toast('🔔 Meldingen aan — je krijgt een melding bij nieuwe aanvragen zolang deze pagina open staat');
+  try{ new Notification('🏕️ Meldingen ingeschakeld',{body:'Je krijgt hier voortaan een melding bij nieuwe aanvragen in Postvak.'}); }catch(e){}
+}
+function showNotif(title,body){
+  if(!notifEnabled || typeof Notification==='undefined' || Notification.permission!=='granted')return;
+  try{ new Notification(title,{body}); }catch(e){}
+}
+let _notifChannelActive=false;
+function initRealtimeNotifications(){
+  if(_notifChannelActive)return; _notifChannelActive=true;
+  sb.channel('bookings-notif')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'bookings'},payload=>{
+      const row=payload.new;
+      if(row && row.status==='aanvraag'){
+        showNotif('📥 Nieuwe aanvraag in Postvak', (row.ai_draft?'🤖 Automatisch ingelezen — ':'')+'te controleren en te bevestigen.');
+      }
+      loadData();
+    })
+    .subscribe();
 }
 
 /* ---------- data ---------- */
@@ -718,8 +765,19 @@ async function openNewBooking(){
   nbIdFotos=[];
   accTypes.forEach(t=>{nbState.custom[t.id]=0;});
   const today=TODAY;
-  const step=(lbl,key)=>'<div class="stpr"><span class="sl">'+lbl+'</span><div class="ct"><button onclick="nbStep(\''+key+'\',-1)">−</button><span class="val" id="nb_'+key+'">'+nbState[key]+'</span><button onclick="nbStep(\''+key+'\',1)">+</button></div></div>';
-  const customStep=(t)=>'<div class="stpr"><span class="sl">'+esc(t.emoji||'🏕️')+' '+esc(t.naam)+' <span style="opacity:.6;font-size:11px;">€'+(t.prijs||0)+'/nacht</span></span><div class="ct"><button onclick="nbCustomStep(\''+t.id+'\',-1)">−</button><span class="val" id="nb_custom_'+t.id+'">0</span><button onclick="nbCustomStep(\''+t.id+'\',1)">+</button></div></div>';
+  // Prijs meteen zichtbaar naast elk veld — zelfde formaat als het oude
+  // "Nieuwe boeking"-formulier, zodat je bij het aanmaken al ziet wat elk
+  // stukje kost, niet enkel het totaal onderaan.
+  const priceSub={
+    tent:'€'+PRICES.tent+'/nacht', camper:'€'+PRICES.camper+'/nacht',
+    volw:'€'+PRICES.volwassene+'/nacht + €'+PRICES.toeristentaks+' taks',
+    kind:'€'+PRICES.kind+'/nacht',
+    baby:PRICES.baby>0?('€'+PRICES.baby+'/nacht'):'gratis',
+    honden:'€'+PRICES.hond+'/hond/nacht',
+    autos:'1e gratis, +€'+PRICES.extraAuto+'/extra/nacht',
+  };
+  const step=(lbl,key)=>'<div class="stpr"><span class="sl">'+lbl+' <span style="opacity:.6;font-size:11px;font-weight:400;">'+(priceSub[key]||'')+'</span></span><div class="ct"><button onclick="nbStep(\''+key+'\',-1)">−</button><span class="val" id="nb_'+key+'">'+nbState[key]+'</span><button onclick="nbStep(\''+key+'\',1)">+</button></div></div>';
+  const customStep=(t)=>'<div class="stpr"><span class="sl">'+esc(t.emoji||'🏕️')+' '+esc(t.naam)+' <span style="opacity:.6;font-size:11px;font-weight:400;">€'+(t.prijs||0)+'/nacht</span></span><div class="ct"><button onclick="nbCustomStep(\''+t.id+'\',-1)">−</button><span class="val" id="nb_custom_'+t.id+'">0</span><button onclick="nbCustomStep(\''+t.id+'\',1)">+</button></div></div>';
   openModal('Nieuwe reservering',
     '<div class="fld"><label>Naam *</label><input id="nbNaam" placeholder="Volledige naam" oninput="nbPrice()"></div>'+
     '<div class="fld2"><div class="fld"><label>E-mail</label><input id="nbEmail" type="email" placeholder="gast@email.com"></div>'+
@@ -732,7 +790,7 @@ async function openNewBooking(){
     '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('🧑 Volwassenen','volw')+step('🧒 Kinderen 3–11','kind')+step('👶 Baby'+"'"+'s <3','baby')+'</div>'+
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Extra</label>'+
     '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('🐕 Honden','honden')+step('🚗 Auto'+"'"+'s','autos')+
-    '<div class="toggle-row"><span class="sl">⚡ Elektriciteit</span><input type="checkbox" id="nbElek" onchange="nbState.elek=this.checked;nbPrice()"></div></div>'+
+    '<div class="toggle-row"><span class="sl">⚡ Elektriciteit <span style="opacity:.6;font-size:11px;font-weight:400;">+€'+PRICES.elektriciteit+'/nacht</span></span><input type="checkbox" id="nbElek" onchange="nbState.elek=this.checked;nbPrice()"></div></div>'+
     '<div class="fld"><label>Via kanaal</label><select id="nbBron"><option value="telefoon">☎️ Telefoon</option><option value="mail">📧 E-mail</option><option value="website">🌐 Website</option></select></div>'+
     '<div class="card" id="nbBreakdown" style="margin:6px 0 4px;"></div>'+
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin-top:8px;display:block;">ID-kaarten (optioneel)</label>'+
@@ -1015,24 +1073,74 @@ async function renderBeheerTarieven(){
   el.innerHTML='<div class="note-inline">Laden…</div>';
   await loadPrices();
   const {data:mp}=await sb.from('club_settings').select('value').eq('key','max_plaatsen').limit(1);
-  const maxP=(mp&&mp.length)?mp[0].value:'';
-  const num=(id,val,lbl)=>'<div class="fld"><label>'+lbl+'</label><input id="'+id+'" type="number" step="0.01" value="'+val+'"></div>';
-  el.innerHTML='<div class="card" style="padding:14px;">'+
-    num('bTent',PRICES.tent,'Tent (€/nacht)')+num('bCamper',PRICES.camper,'Camper (€/nacht)')+
-    num('bVolw',PRICES.volwassene,'Volwassene (€/nacht)')+num('bKind',PRICES.kind,'Kind 3-11 (€/nacht)')+
-    num('bBaby',PRICES.baby,'Baby (€/nacht)')+num('bHond',PRICES.hond,'Hond (€/nacht)')+
-    num('bAuto',PRICES.extraAuto,'Extra auto (€/nacht)')+num('bElek',PRICES.elektriciteit,'Elektriciteit (€, eenmalig)')+
-    num('bAfval',PRICES.afvalPer6,'Afval per 6 pers. (€/nacht)')+num('bTaks',PRICES.toeristentaks,'Toeristentaks (€/pers./nacht)')+
-    num('bMax',maxP,'Max. plaatsen (0 = geen limiet)')+
+  const maxP=(mp&&mp.length)?mp[0].value:'0';
+
+  // grote prijs-kaart (tent/camper) — zelfde stijl als het oude systeem
+  const bigCard=(id,val,emoji,lbl)=>'<div class="card" style="padding:14px 10px;text-align:center;">'+
+    '<div style="font-size:26px;margin-bottom:5px;">'+emoji+'</div>'+
+    '<div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:8px;">'+lbl+'</div>'+
+    '<div style="display:flex;align-items:center;justify-content:center;gap:3px;">'+
+    '<span style="font-size:15px;color:var(--ink-3);">€</span>'+
+    '<input id="'+id+'" type="number" min="0" step="0.5" value="'+val+'" style="width:56px;font-size:19px;font-weight:800;color:var(--green);border:none;background:transparent;text-align:center;outline:none;">'+
+    '</div><div style="font-size:10px;color:var(--ink-3);margin-top:2px;">per nacht</div></div>';
+  // kleine prijs-kaart (personen)
+  const smallCard=(id,val,emoji,lbl)=>'<div class="card" style="padding:11px 6px;text-align:center;">'+
+    '<div style="font-size:20px;margin-bottom:4px;">'+emoji+'</div>'+
+    '<div style="font-size:10.5px;font-weight:600;color:var(--ink-2);margin-bottom:6px;">'+lbl+'</div>'+
+    '<div style="display:flex;align-items:center;justify-content:center;gap:2px;">'+
+    '<span style="font-size:12px;color:var(--ink-3);">€</span>'+
+    '<input id="'+id+'" type="number" min="0" step="0.5" value="'+val+'" style="width:44px;font-size:17px;font-weight:800;color:var(--ink);border:none;background:transparent;text-align:center;outline:none;">'+
+    '</div></div>';
+  // icoon-rij (extra's / belastingen)
+  const iconRow=(id,val,emoji,lbl,sub,warn)=>'<div style="display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid '+(warn?'var(--amber-soft)':'var(--sep)')+';">'+
+    '<span style="font-size:19px;margin-right:11px;">'+emoji+'</span>'+
+    '<div style="flex:1;"><div style="font-size:12.5px;font-weight:600;color:var(--ink);">'+lbl+'</div>'+
+    '<div style="font-size:10.5px;color:var(--ink-3);">'+sub+'</div></div>'+
+    '<div style="display:flex;align-items:center;gap:3px;">'+
+    '<span style="font-size:12px;color:var(--ink-3);">€</span>'+
+    '<input id="'+id+'" type="number" min="0" step="0.1" value="'+val+'" style="width:52px;font-size:15px;font-weight:700;color:'+(warn?'var(--amber)':'var(--ink)')+';border:1.5px solid '+(warn?'var(--amber-soft)':'var(--sep)')+';border-radius:8px;padding:5px 6px;text-align:right;background:'+(warn?'var(--amber-soft)':'var(--card-2)')+';">'+
+    '</div></div>';
+  const secLbl=t=>'<div class="sec-lbl">'+t+'</div>';
+
+  el.innerHTML=
+    secLbl('🏕️ Verblijfstype /nacht')+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'+
+    bigCard('bTent',PRICES.tent,'⛺','Tent')+bigCard('bCamper',PRICES.camper,'🚐','Camper / Caravan')+
+    '</div>'+
+    '<div id="accTypesList"></div>'+
+    '<button class="sbtn" style="width:100%;margin-bottom:18px;border-style:dashed;border-color:var(--green);color:var(--green);" onclick="voegAccTypeToe()">➕ Eigen type toevoegen (bv. Safaritent)</button>'+
+
+    secLbl('🧑 Personen /nacht')+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px;">'+
+    smallCard('bVolw',PRICES.volwassene,'🧑','Volwassene')+smallCard('bKind',PRICES.kind,'🧒','Kind 3–11j')+smallCard('bBaby',PRICES.baby,'👶','Baby <3j')+
+    '</div>'+
+
+    secLbl('➕ Extra\'s')+
+    '<div class="card" style="overflow:hidden;margin-bottom:18px;">'+
+    iconRow('bHond',PRICES.hond,'🐕','Hond','per hond per nacht')+
+    iconRow('bAuto',PRICES.extraAuto,'🚗','Extra auto','1e auto gratis, elke volgende per nacht')+
+    iconRow('bElek',PRICES.elektriciteit,'⚡','Elektriciteit','eenmalig per verblijf')+
+    '</div>'+
+
+    secLbl('🏛️ Belastingen &amp; bijdragen')+
+    '<div class="card" style="overflow:hidden;margin-bottom:18px;">'+
+    iconRow('bAfval',PRICES.afvalPer6,'♻️','Afvalbijdrage','per schijf van 6 personen',true)+
+    iconRow('bTaks',PRICES.toeristentaks,'🏛️','Toeristentaks','per volwassene per nacht — BTW-vrij',true)+
+    '</div>'+
+
+    secLbl('🔢 Capaciteit')+
+    '<div class="card" style="padding:14px;margin-bottom:18px;">'+
+    '<div class="fld" style="margin-bottom:0;"><label>Max. plaatsen (0 = geen limiet)</label><input id="bMax" type="number" min="0" value="'+maxP+'"></div>'+
+    '</div>'+
+
+    secLbl('📦 Vrije kostenposten')+
+    '<div id="extraTarList"></div>'+
+    '<button class="sbtn" style="width:100%;margin-bottom:18px;" onclick="voegExtraTariefToe()">➕ Kostenpost toevoegen (bv. Waarborg)</button>'+
+
     '<button class="modal-save" onclick="saveBeheerTarieven()">💾 Tarieven opslaan</button>'+
-    '<div id="tarMsg" class="note-inline"></div></div>';
+    '<div id="tarMsg" class="note-inline"></div>';
 
-  el.innerHTML+='<div class="sec-lbl">Eigen verblijfstypes</div><div id="accTypesList"></div>'+
-    '<button class="sbtn" style="width:100%;margin-bottom:14px;" onclick="voegAccTypeToe()">➕ Type toevoegen (bv. Safaritent)</button>';
   renderAccTypesList();
-
-  el.innerHTML+='<div class="sec-lbl">Vrije kostenposten</div><div id="extraTarList"></div>'+
-    '<button class="sbtn" style="width:100%;" onclick="voegExtraTariefToe()">➕ Kostenpost toevoegen (bv. Waarborg)</button>';
   renderExtraTarList();
 }
 /* Volledig open tariefplan: elk eigen type heeft niet enkel een prijs/nacht,
