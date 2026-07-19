@@ -25,6 +25,7 @@ const MAIL_SJABLONEN = {
   herinnering: { onderwerp: 'Herinnering — Camping Cosmopolite #{{volgnummer}}', inhoud: 'Beste {{voornaam}},\n\nEen vriendelijke herinnering aan je verblijf van {{aankomst}} tot {{vertrek}}.\n\nTot binnenkort!\n{{from_name}}' },
   betaling: { onderwerp: 'Betaalverzoek — Camping Cosmopolite #{{volgnummer}}', inhoud: 'Beste {{voornaam}},\n\nVoor je reservatie (#{{volgnummer}}) staat nog een bedrag open. Je kan betalen via de QR-code die we je bezorgen of via overschrijving met mededeling {{ogm}}.\n\nDank je wel!\n{{from_name}}' },
   uitchecken: { onderwerp: 'Tot ziens! — Camping Cosmopolite', inhoud: 'Beste {{voornaam}},\n\nBedankt voor je verblijf bij Camping Cosmopolite. We hopen je snel weer te verwelkomen!\n\nVriendelijke groeten,\n{{from_name}}' },
+  volzet: { onderwerp: 'Helaas volzet — Camping Cosmopolite', inhoud: 'Beste {{voornaam}},\n\nHartelijk dank voor je aanvraag voor {{aankomst}} tot {{vertrek}}. Helaas zitten we voor deze periode volzet en kunnen we je aanvraag niet inwilligen.\n\nWe hopen je een volgende keer te mogen verwelkomen!\n\nVriendelijke groeten,\n{{from_name}}' },
 };
 
 /* ---------- helpers ---------- */
@@ -636,13 +637,33 @@ async function _cleanupBookingRelated(id){
   // booking_attachments heeft ON DELETE CASCADE, geen aparte cleanup nodig.
   await sb.from('bezoekers').update({omgezet_naar_booking_id:null}).eq('omgezet_naar_booking_id',id);
 }
+/* Stuurt automatisch een mail zonder de fiche-composer nodig te hebben —
+   gebruikt voor achtergrondacties zoals weigeren. Een mislukte mail mag het
+   weigeren zelf niet blokkeren (Karen ziet het resultaat in communicatie). */
+async function sendAutoMailV2(id,key){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const hasRealEmail=b.email&&b.email.indexOf('@cosmopolite.local')===-1;
+  if(!hasRealEmail)return;
+  const t=MAIL_SJABLONEN[key];if(!t)return;
+  const vn=(b.naam||'').split(' ')[0];
+  const v={voornaam:vn,naam:b.naam,volgnummer:b.volgnummer,aankomst:fmt(b.aankomst),vertrek:fmt(b.vertrek),personen:b.personen,bedrag:money(b.bedrag),ogm:b.ogm||'',from_name:'Camping Cosmopolite'};
+  const fill=s=>String(s).replace(/\{\{(\w+)\}\}/g,(_,k)=>v[k]!=null?v[k]:'{{'+k+'}}');
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    await fetch(SUPABASE_URL+'/functions/v1/send-mail',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body:JSON.stringify({booking_id:id,onderwerp:fill(t.onderwerp),inhoud:fill(t.inhoud)}),
+    });
+  }catch(e){/* mail mislukt — weigeren gaat gewoon door */}
+}
 async function actWeigeren(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
-  if(!confirm('Aanvraag van '+b.naam+' weigeren en verwijderen?\n\nDit kan niet ongedaan gemaakt worden.'))return;
+  if(!confirm('Aanvraag van '+b.naam+' weigeren en verwijderen?\n\nAls er een geldig e-mailadres bekend is, wordt automatisch een "volzet"-mail gestuurd.\n\nDit kan niet ongedaan gemaakt worden.'))return;
+  await sendAutoMailV2(id,'volzet'); // vóór de cleanup/delete — de mail heeft de boeking nog nodig
   await _cleanupBookingRelated(id);
   const {error}=await sb.from('bookings').delete().eq('id',id);
   if(error){toast('⚠️ '+error.message);return;}
-  closeModal(); closeFiche(); toast('❌ Aanvraag geweigerd en verwijderd');
+  closeModal(); closeFiche(); toast('❌ Aanvraag geweigerd, mail verstuurd (indien e-mailadres bekend) en verwijderd');
   selectedId=null; await loadData();
 }
 async function actVerwijderBoeking(id){
