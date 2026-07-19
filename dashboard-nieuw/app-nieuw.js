@@ -184,7 +184,21 @@ function verblijf(b){
 /* ---------- render: shell ---------- */
 function renderAll(){
   renderDagbord(); renderFolders(); updateCounts();
-  if(selectedId){const b=bookings.find(x=>x.id===selectedId); if(b) renderFiche(b); }
+  if(selectedId){const b=bookings.find(x=>x.id===selectedId); if(b){renderFiche(b);return;}}
+  showFicheEmptyState();
+}
+// Leeg-scherm voor de fiche zolang er niets geselecteerd is (of nadat de
+// geopende boeking net verwijderd/geweigerd werd) — anders zou het laatst
+// getoonde (of het allereerste, statische) fiche-scherm blijven hangen.
+function showFicheEmptyState(){
+  const av=document.getElementById('ficheAv'); if(av)av.textContent='—';
+  const nm=document.getElementById('ficheName'); if(nm)nm.textContent='Selecteer een boeking';
+  const mt=document.getElementById('ficheMeta'); if(mt)mt.textContent='Kies links een reservering uit de lijst';
+  const fi=document.getElementById('ficheIn'); if(fi)fi.textContent='—';
+  const fo=document.getElementById('ficheOut'); if(fo)fo.textContent='—';
+  const mv=document.getElementById('moveBtn'); if(mv)mv.style.display='none';
+  const db=document.getElementById('draftBanner'); if(db)db.style.display='none';
+  ['gegCard','paneGegExtra','pane-comm','pane-bet','pane-gast'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
 }
 function updateCounts(){
   ['postvak','booking','aanwezig','vertrokken'].forEach(f=>{

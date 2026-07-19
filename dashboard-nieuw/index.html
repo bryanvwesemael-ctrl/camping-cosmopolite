@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Cosmopolite — Nieuw systeem (preview)</title>
+<title>Cosmopolite — Reservatiebeheer</title>
 <style>
   :root{
     --bg:#EDEEF0; --card:#FFFFFF; --card-2:#F6F7F9;
@@ -54,10 +54,6 @@
   *{box-sizing:border-box;}
   body{margin:0;}
   .stage{background:var(--bg); font-family:var(--f); color:var(--ink); min-height:100vh; padding:0 16px 40px; -webkit-font-smoothing:antialiased;}
-  .previewbar{max-width:960px; margin:0 auto; display:flex; align-items:center; gap:12px; padding:12px 4px 14px; flex-wrap:wrap;}
-  .previewbar .badge{font-size:11px; font-family:var(--f-mono); letter-spacing:.1em; text-transform:uppercase; color:#fff; background:var(--amber); padding:6px 11px; border-radius:8px; font-weight:700;}
-  .previewbar .txt{font-size:12.5px; color:var(--ink-2); flex:1; min-width:180px;}
-  .previewbar a{font-size:12.5px; font-weight:600; color:var(--green); text-decoration:none; border:1px solid var(--sep); padding:8px 13px; border-radius:9px; white-space:nowrap; background:var(--card);}
   .intro{max-width:960px; margin:0 auto 14px; text-align:center;}
   .intro .tt{font-size:12px; font-family:var(--f-mono); letter-spacing:.12em; text-transform:uppercase; color:var(--green); font-weight:600;}
   .intro p{margin:8px 0 0; font-size:13px; color:var(--ink-2); line-height:1.5;}
@@ -263,18 +259,12 @@
 <body>
 
 <div class="stage">
-  <div class="previewbar">
-    <span class="badge">🧪 Nieuw systeem — test</span>
-    <span class="txt">Herontwerp met <b>echte data</b>. Acties (bevestigen, inchecken, betaling) wijzigen dezelfde reserveringen als het huidige systeem. Het oude blijft ongewijzigd draaien.</span>
-    <a href="/dashboard/">← Huidig systeem</a>
-  </div>
-
   <!-- LOGIN -->
   <div id="loginScreen" style="display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,var(--green-deep),var(--green));">
     <div style="max-width:340px;width:100%;text-align:center;">
       <div style="width:64px;height:64px;background:rgba(255,255,255,.15);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 14px;border:1px solid rgba(255,255,255,.2);">🏕️</div>
       <div style="font-size:22px;font-weight:800;color:#fff;">Cosmopolite</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:24px;">Nieuw systeem — log in met je gewone account</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:24px;">Log in met je account</div>
       <div style="background:var(--card);border-radius:18px;padding:24px;box-shadow:var(--shadow-lg);text-align:left;">
         <label style="font-size:11px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;">E-mailadres</label>
         <input id="nlEmail" type="email" placeholder="karen@…" style="width:100%;padding:12px 13px;margin:6px 0 14px;border-radius:11px;border:1.5px solid var(--sep);font-size:15px;background:var(--card-2);color:var(--ink);">
@@ -283,7 +273,6 @@
         <button onclick="doLogin()" style="width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;">Inloggen →</button>
         <div id="nlMsg" style="font-size:12.5px;color:var(--red);margin-top:10px;min-height:15px;text-align:center;"></div>
       </div>
-      <a href="/dashboard/" style="font-size:12px;color:rgba(255,255,255,.7);display:inline-block;margin-top:16px;text-decoration:none;">← Terug naar huidig systeem</a>
     </div>
   </div>
 
@@ -294,7 +283,7 @@
       <div class="logo">🏕️</div>
       <div class="ht">
         <div class="n">Cosmopolite</div>
-        <div class="s">Nieuw systeem · echte data</div>
+        <div class="s">Reservatiebeheer</div>
       </div>
       <button class="gear" id="notifBtn" title="Meldingen in-/uitschakelen" onclick="toggleNotifications()">🔕</button>
       <button class="gear" title="Vernieuwen" onclick="reloadData()">↻</button>
@@ -318,47 +307,16 @@
 
         <!-- DAGBORD -->
         <div class="screen on" id="scr-dagbord">
-          <div class="greet">
-            <div class="g1">Goeiemorgen, Karen 👋</div>
-            <div class="g2">Dit is je werk voor vandaag.</div>
-          </div>
-          <div class="kpis">
-            <div class="kpi"><div class="kv g">4</div><div class="kk">🟢 Aankomst</div></div>
-            <div class="kpi"><div class="kv r">3</div><div class="kk">🔴 Vertrek</div></div>
-            <div class="kpi"><div class="kv b">28</div><div class="kk">🏕️ Aanwezig</div></div>
-            <div class="kpi"><div class="kv" style="font-size:19px;">€151</div><div class="kk">💰 Openstaand</div></div>
-            <div class="kpi"><div class="kv" style="font-size:22px;">72%</div><div class="kk">📊 Bezetting</div></div>
-          </div>
-
-          <div class="alert" onclick="go('reserv'); setFolder('postvak');">
-            <div class="ai">📥</div>
-            <div class="at"><div class="a1">2 nieuwe aanvragen in Postvak</div><div class="a2">Automatisch ingelezen uit e-mail — klaar om te controleren</div></div>
-            <div class="ar">›</div>
-          </div>
-
-          <div class="sec-lbl">🟢 Verwacht vandaag</div>
-          <div class="card taskcard">
-            <div class="task" onclick="openFiche(false)"><div class="av" style="background:#3B7DD8;">FP</div><div class="tb"><div class="tn">Fam. Peeters</div><div class="td">Camper · 2 volw. · 5 nachten</div></div><span class="pill p-arr">AANKOMST</span></div>
-            <div class="task" onclick="openFiche(false)"><div class="av" style="background:#C77A11;">SV</div><div class="tb"><div class="tn">Sven Vermeulen</div><div class="td">Tent · 3 pers. · 2 nachten</div></div><span class="pill p-arr">AANKOMST</span></div>
-          </div>
-          <div class="sec-lbl">🔴 Vertrekt vandaag</div>
-          <div class="card taskcard">
-            <div class="task" onclick="openFiche(false)"><div class="av" style="background:#8A929C;">FJ</div><div class="tb"><div class="tn">Fam. Janssens</div><div class="td">Camper · vertrek 11:00</div></div><span class="pill p-dep">VERTREK</span></div>
-          </div>
-          <div class="sec-lbl">💰 Vraagt aandacht</div>
-          <div class="card taskcard">
-            <div class="task" onclick="openFiche(false)"><div class="av" style="background:#5A57C4;">MV</div><div class="tb"><div class="tn">Marc Verhaeghe</div><div class="td">Nog € 151 openstaand</div></div><span class="pill p-pay">OPENSTAAND</span></div>
-          </div>
-          <div style="height:4px;"></div>
+          <div class="note-inline">Laden…</div>
         </div>
 
         <!-- RESERVERINGEN -->
         <div class="screen" id="scr-reserv">
           <div class="foldertabs">
-            <button class="ft" data-folder="postvak" onclick="setFolder('postvak')">📥 Postvak<span class="ct">2</span></button>
-            <button class="ft on" data-folder="booking" onclick="setFolder('booking')">Booking<span class="ct">5</span></button>
-            <button class="ft" data-folder="aanwezig" onclick="setFolder('aanwezig')">Aanwezig<span class="ct">12</span></button>
-            <button class="ft" data-folder="vertrokken" onclick="setFolder('vertrokken')">Vertrokken<span class="ct">40</span></button>
+            <button class="ft" data-folder="postvak" onclick="setFolder('postvak')">📥 Postvak<span class="ct">0</span></button>
+            <button class="ft on" data-folder="booking" onclick="setFolder('booking')">Booking<span class="ct">0</span></button>
+            <button class="ft" data-folder="aanwezig" onclick="setFolder('aanwezig')">Aanwezig<span class="ct">0</span></button>
+            <button class="ft" data-folder="vertrokken" onclick="setFolder('vertrokken')">Vertrokken<span class="ct">0</span></button>
           </div>
           <div id="postvakCheckBar" style="display:none;margin-bottom:10px;">
             <button class="sbtn" style="width:100%;border-color:var(--amber);color:var(--amber);font-weight:700;" id="postvakCheckBtn" onclick="checkNieuweMails()">🔄 Nieuwe mails controleren (AI leest reservatie-aanvragen)</button>
@@ -368,37 +326,19 @@
             <div class="reserv-list" id="reservList">
               <!-- postvak -->
               <div class="foldercontent" id="fc-postvak" style="display:none;">
-                <div class="card taskcard">
-                  <div class="task" onclick="openFiche(true, this)"><div class="av" style="background:#C77A11;">FW</div><div class="tb"><div class="tn">Fam. Willems</div><div class="td">10–14 aug · Tent · via e-mail</div></div><span class="pill p-draft">🤖 controleren</span></div>
-                  <div class="task" onclick="openFiche(true, this)"><div class="av" style="background:#C77A11;">JB</div><div class="tb"><div class="tn">Jan Bogaerts</div><div class="td">1–5 sep · Camper · via e-mail</div></div><span class="pill p-draft">🤖 controleren</span></div>
-                </div>
-                <div class="list-hint">AI las deze uit e-mail · nog niet bevestigd</div>
+                <div class="note-inline">Laden…</div>
               </div>
               <!-- booking -->
               <div class="foldercontent" id="fc-booking">
-                <div class="card taskcard">
-                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#3B7DD8;">FP</div><div class="tb"><div class="tn">Fam. Peeters</div><div class="td">3–8 aug · Camper</div></div><span class="pill p-conf">bevestigd</span></div>
-                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#5A57C4;">FC</div><div class="tb"><div class="tn">Fam. Claes</div><div class="td">12–19 aug · Camper</div></div><span class="pill p-conf">bevestigd</span></div>
-                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#1B8A5B;">DP</div><div class="tb"><div class="tn">Dirk Pauwels</div><div class="td">15–22 aug · Tent</div></div><span class="pill p-conf">bevestigd</span></div>
-                </div>
-                <div class="list-hint">binnen, nog niet gearriveerd</div>
+                <div class="note-inline">Laden…</div>
               </div>
               <!-- aanwezig -->
               <div class="foldercontent" id="fc-aanwezig" style="display:none;">
-                <div class="card taskcard">
-                  <div class="task sel" onclick="openFiche(false, this)"><div class="av" style="background:#5A57C4;">MV</div><div class="tb"><div class="tn">Marc Verhaeghe</div><div class="td">3–12 jul · nog € 151 open</div></div><span class="pill p-in">aanwezig</span></div>
-                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#1B8A5B;">FM</div><div class="tb"><div class="tn">Fam. Maes</div><div class="td">10–17 jul · betaald</div></div><span class="pill p-in">aanwezig</span></div>
-                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#3B7DD8;">LD</div><div class="tb"><div class="tn">Lies De Backer</div><div class="td">13–20 jul · betaald</div></div><span class="pill p-in">aanwezig</span></div>
-                </div>
-                <div class="list-hint">staan nu op de camping · dit is "wie is er"</div>
+                <div class="note-inline">Laden…</div>
               </div>
               <!-- vertrokken -->
               <div class="foldercontent" id="fc-vertrokken" style="display:none;">
-                <div class="card taskcard">
-                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#8A929C;">FJ</div><div class="tb"><div class="tn">Fam. Janssens</div><div class="td">4–11 jul · afgesloten</div></div><span class="pill p-out">vertrokken</span></div>
-                  <div class="task" onclick="openFiche(false, this)"><div class="av" style="background:#8A929C;">TV</div><div class="tb"><div class="tn">Tom Verhoeven</div><div class="td">1–8 jul · afgesloten</div></div><span class="pill p-out">vertrokken</span></div>
-                </div>
-                <div class="list-hint">archief · doorzoekbaar</div>
+                <div class="note-inline">Laden…</div>
               </div>
             </div>
 
@@ -411,10 +351,10 @@
 
               <div class="fiche-hd">
                 <div class="top">
-                  <div class="av" id="ficheAv">MV</div>
+                  <div class="av" id="ficheAv">—</div>
                   <div class="nm">
-                    <div class="n1" id="ficheName">Marc &amp; Ann Verhaeghe</div>
-                    <div class="n2" id="ficheMeta">#2026-041 · 📂 Aanwezig</div>
+                    <div class="n1" id="ficheName">Selecteer een boeking</div>
+                    <div class="n2" id="ficheMeta">Kies links een reservering uit de lijst</div>
                   </div>
                   <div class="qa-actions">
                     <button class="qa-btn" title="Extra dagen inplannen" onclick="actExtraDagen(selectedId)">📅</button>
@@ -422,10 +362,10 @@
                   </div>
                 </div>
                 <div class="mini">
-                  <div class="mbox"><div class="ml">Aankomst</div><div class="mv" id="ficheIn">3 jul</div></div>
-                  <div class="mbox"><div class="ml">Vertrek</div><div class="mv" id="ficheOut">12 jul</div></div>
+                  <div class="mbox"><div class="ml">Aankomst</div><div class="mv" id="ficheIn">—</div></div>
+                  <div class="mbox"><div class="ml">Vertrek</div><div class="mv" id="ficheOut">—</div></div>
                 </div>
-                <button class="move-btn" id="moveBtn" onclick="doMove()">→ Verplaats naar Vertrokken</button>
+                <button class="move-btn" id="moveBtn" onclick="doMove()" style="display:none;">→ Verplaats</button>
                 <div style="text-align:center;margin-top:8px;"><span onclick="openMoveMenu(selectedId)" style="font-size:12px;color:var(--ink-2);cursor:pointer;font-family:var(--f-mono);">↔ Verplaats naar een andere map / ongedaan maken</span></div>
               </div>
 
@@ -441,52 +381,11 @@
                 <div id="paneGegExtra"></div>
               </div>
 
-              <div class="pane" id="pane-comm">
-                <div class="card">
-                  <div class="thread">
-                    <div class="msg in"><div class="mh"><span>← ontvangen</span><span>28 jun · 09:12</span></div>Goeiedag, wij zouden graag reserveren van 3 tot 12 juli met onze camper, 2 personen, elektriciteit graag. Groeten, Marc</div>
-                    <div class="msg out"><div class="mh"><span>→ verzonden · bevestiging</span><span>28 jun · 10:04</span></div>Beste Marc, jullie reservatie #2026-041 is bevestigd. Totaal € 351. Tot binnenkort!</div>
-                    <div class="msg in"><div class="mh"><span>← ontvangen</span><span>1 jul · 18:30</span></div>Perfect, bedankt! We komen aan rond 16u.</div>
-                  </div>
-                  <div class="composer">
-                    <div class="fake-input">Typ een antwoord…</div>
-                    <button class="tplbtn" onclick="toast('Sjabloon gekozen')">Sjabloon ▾</button>
-                    <button class="send" onclick="toast('Mail verzonden via Karens Gmail')">➤</button>
-                  </div>
-                </div>
-                <div class="note-inline">alle mails chronologisch · Gmail niet nodig</div>
-              </div>
+              <div class="pane" id="pane-comm"></div>
 
-              <div class="pane" id="pane-bet">
-                <div class="card">
-                  <div class="paytop">
-                    <div class="ring"><div class="inner">57%</div></div>
-                    <div class="pt"><div class="a">€ 200 <span style="font-size:13px; color:var(--ink-3); font-weight:600;">/ € 351</span></div><div class="b">Nog <b>€ 151 openstaand</b></div></div>
-                  </div>
-                  <div class="statusgrid">
-                    <div class="sbtn">Niet betaald</div><div class="sbtn act">Voorschot betaald</div>
-                    <div class="sbtn">Volledig betaald</div><div class="sbtn">Terugbetaald</div>
-                  </div>
-                </div>
-                <div class="sec-lbl">Registreer betaling</div>
-                <div class="statusgrid" style="padding:0;">
-                  <div class="sbtn" onclick="toast('Cash geregistreerd')">💵 Cash</div>
-                  <div class="sbtn" onclick="toast('QR-code getoond')">📱 QR-code</div>
-                  <div class="sbtn" onclick="toast('Overschrijving geregistreerd')">🏦 Overschrijving</div>
-                  <div class="sbtn" onclick="toast('Betaallink verstuurd')">🔗 Betaallink</div>
-                </div>
-                <div class="sec-lbl">Historiek</div>
-                <div class="card payhist"><div class="row"><span class="rl">💵 Cash · 28 jun</span><span class="rv">€ 200</span></div></div>
-              </div>
+              <div class="pane" id="pane-bet"></div>
 
-              <div class="pane" id="pane-gast">
-                <div class="card">
-                  <div class="guest"><div class="thumb">🪪</div><div class="gi"><div class="gn">Marc Verhaeghe</div><div class="gd">°1979 · BE · ✅ geregistreerd</div></div><span class="pill p-conf">✓ ID</span></div>
-                  <div class="guest"><div class="thumb">🪪</div><div class="gi"><div class="gn">Ann Verhaeghe</div><div class="gd">°1982 · BE · ✅ geregistreerd</div></div><span class="pill p-conf">✓ ID</span></div>
-                </div>
-                <button class="ai-btn" onclick="toast('AI leest de ID-kaarten…')">🤖 Scan ID-kaart met AI</button>
-                <div class="note-inline">wettelijk register + ID's in één lijst</div>
-              </div>
+              <div class="pane" id="pane-gast"></div>
               <div style="height:6px;"></div>
             </div>
           </div>
@@ -556,6 +455,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="../shared/payment.js?v=20260715c"></script>
 <script src="../shared/pricing.js?v=20260715c"></script>
-<script src="app-nieuw.js?v=20260719j"></script>
+<script src="app-nieuw.js?v=20260719k"></script>
 </body>
 </html>
