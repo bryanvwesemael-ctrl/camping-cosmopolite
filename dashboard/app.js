@@ -4336,6 +4336,9 @@ async function handleOAuthCallback(){
     openSettingsOverlay('mail');
     loadGmailStatus();
     syncGmail();
+    // Deze pagina bestaat enkel nog voor deze eenmalige OAuth-stap — na
+    // succes terug naar het nieuwe systeem, niet hier laten hangen.
+    setTimeout(()=>{window.location.href='/dashboard-nieuw/';},2500);
   }catch(err){
     setGmailMsg('⚠️ '+err.message);
   }
