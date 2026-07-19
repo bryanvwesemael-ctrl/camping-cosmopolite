@@ -611,11 +611,58 @@ function openMoveMenu(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
   const cur=folderOf(b);
   const opts=[['postvak','📥 Postvak'],['booking','📂 Booking'],['aanwezig','🏕️ Aanwezig'],['vertrokken','🚗 Vertrokken']];
-  openModal('Verplaats '+b.naam+' naar…',
-    '<div style="display:flex;flex-direction:column;gap:8px;">'+
+  let h='<div style="display:flex;flex-direction:column;gap:8px;">'+
     opts.map(([k,l])=>'<button class="sbtn" style="width:100%;text-align:left;padding:13px 14px;display:flex;justify-content:space-between;'+(k===cur?'border-color:var(--green);color:var(--green);font-weight:700;':'')+'" onclick="doMoveToFolder(\''+id+'\',\''+k+'\')"><span>'+l+'</span>'+(k===cur?'<span style="font-family:var(--f-mono);font-size:11px;">huidige map</span>':'')+'</button>').join('')+
     '</div>'+
-    '<div class="note-inline" style="margin-top:10px;">Je kan altijd terugverplaatsen — niets gaat verloren.</div>');
+    '<div class="note-inline" style="margin-top:10px;">Je kan altijd terugverplaatsen — niets gaat verloren.</div>';
+  h+='<div style="border-top:1px solid var(--sep);margin-top:14px;padding-top:14px;display:flex;flex-direction:column;gap:8px;">';
+  if(cur==='postvak'){
+    h+='<button class="sbtn" style="width:100%;text-align:left;color:var(--red);border-color:var(--red);" onclick="actWeigeren(\''+id+'\')">❌ Aanvraag weigeren (verwijderen)</button>';
+  }
+  h+='<button class="sbtn" style="width:100%;text-align:left;color:var(--red);border-color:var(--red);" onclick="actVerwijderBoeking(\''+id+'\')">🗑 Boeking volledig verwijderen</button>'+
+    '</div>';
+  openModal('Verplaats '+b.naam+' naar…',h);
+}
+/* ---------- weigeren / verwijderen (destructief, met FK-cleanup) ---------- */
+async function _cleanupBookingRelated(id){
+  // Opgeslagen ID-foto's mee opruimen (best effort — een falende foto-
+  // cleanup mag de rest van het verwijderen niet blokkeren).
+  const {data:gasten}=await sb.from('gasten').select('foto_url').eq('booking_id',id);
+  const paths=(gasten||[]).map(g=>g.foto_url).filter(Boolean);
+  if(paths.length){ try{ await sb.storage.from('id-fotos').remove(paths); }catch(_e){} }
+  await sb.from('gasten').delete().eq('booking_id',id);
+  await sb.from('payments').delete().eq('booking_id',id);
+  await sb.from('communicatie').delete().eq('booking_id',id);
+  // booking_attachments heeft ON DELETE CASCADE, geen aparte cleanup nodig.
+  await sb.from('bezoekers').update({omgezet_naar_booking_id:null}).eq('omgezet_naar_booking_id',id);
+}
+async function actWeigeren(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  if(!confirm('Aanvraag van '+b.naam+' weigeren en verwijderen?\n\nDit kan niet ongedaan gemaakt worden.'))return;
+  await _cleanupBookingRelated(id);
+  const {error}=await sb.from('bookings').delete().eq('id',id);
+  if(error){toast('⚠️ '+error.message);return;}
+  closeModal(); closeFiche(); toast('❌ Aanvraag geweigerd en verwijderd');
+  selectedId=null; await loadData();
+}
+async function actVerwijderBoeking(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const [{count:nGasten},{count:nPayments}]=await Promise.all([
+    sb.from('gasten').select('id',{count:'exact',head:true}).eq('booking_id',id).neq('naam','__pending_guest_upload__'),
+    sb.from('payments').select('id',{count:'exact',head:true}).eq('booking_id',id),
+  ]);
+  let msg='Boeking van '+b.naam+' volledig verwijderen?';
+  const details=[];
+  if(nGasten)details.push(nGasten+' gast'+(nGasten>1?'en':''));
+  if(nPayments)details.push(nPayments+' betaling'+(nPayments>1?'en':''));
+  if(details.length)msg+='\n\nDit verwijdert ook '+details.join(' en ')+' — dit kan niet ongedaan gemaakt worden.';
+  if(nGasten>0)msg+='\n\n⚠️ Er staan gasten geregistreerd voor het reizigersregister. Overweeg te verplaatsen naar Vertrokken i.p.v. verwijderen als je die gegevens wil bewaren.';
+  if(!confirm(msg))return;
+  await _cleanupBookingRelated(id);
+  const {error}=await sb.from('bookings').delete().eq('id',id);
+  if(error){toast('⚠️ Verwijderen mislukt: '+error.message);return;}
+  closeModal(); closeFiche(); toast('🗑 Boeking verwijderd');
+  selectedId=null; await loadData();
 }
 async function doMoveToFolder(id,target){
   const b=bookings.find(x=>x.id===id);if(!b)return;
@@ -691,12 +738,23 @@ function openModal(title,html){
 }
 function closeModal(){document.getElementById('modal').classList.remove('on');document.getElementById('modalBody').innerHTML='';}
 
-/* ---------- gegevens bewerken (in de fiche, geen apart scherm) ---------- */
-function editGegevens(id){
+/* ---------- gegevens bewerken (in de fiche, geen apart scherm) ----------
+   Herprijst automatisch bij elke wijziging aan data/personen/verblijf —
+   zelfde gedrag als het oude systeem's bewerk-scherm (eBedrag werd daar ook
+   telkens overschreven met de herberekende prijs). Bedrag blijft zichtbaar
+   en bewerkbaar, maar wordt bij elke stap-wijziging opnieuw ingevuld. */
+let egState=null;
+async function editGegevens(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
+  await loadPrices();
+  egState={tent:b.tenten||0,camper:b.campers||0,volw:b.volwassenen||0,kind:b.kinderen||0,baby:b.baby||0,honden:b.honden||0,autos:b.autos||1,elek:!!b.elektriciteit,custom:{},bedragOverride:null};
+  accTypes.forEach(t=>{egState.custom[t.id]=0;});
+  (b.extraTypeUnits||[]).forEach(u=>{if(egState.custom[u.id]!=null)egState.custom[u.id]=u.count||0;});
   const el=document.getElementById('gegCard');
   const f=(l,inner)=>'<div class="row" style="align-items:center;"><span class="rl">'+l+'</span><span style="flex:0 0 58%;">'+inner+'</span></div>';
-  const inp=(id,val,type)=>'<input id="'+id+'" '+(type?'type="'+type+'"':'')+' value="'+esc(val)+'" style="width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;font-family:var(--f);">';
+  const inp=(iid,val,type)=>'<input id="'+iid+'" '+(type?'type="'+type+'"':'')+' value="'+esc(val)+'" onchange="egPrice()" style="width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;font-family:var(--f);">';
+  const step=(lbl,key)=>'<div class="stpr"><span class="sl">'+lbl+'</span><div class="ct"><button type="button" onclick="egStep(\''+key+'\',-1)">−</button><span class="val" id="eg_'+key+'">'+egState[key]+'</span><button type="button" onclick="egStep(\''+key+'\',1)">+</button></div></div>';
+  const customStep=(t)=>'<div class="stpr"><span class="sl">'+esc(t.emoji||'🏕️')+' '+esc(t.naam)+'</span><div class="ct"><button type="button" onclick="egCustomStep(\''+t.id+'\',-1)">−</button><span class="val" id="eg_custom_'+t.id+'">'+(egState.custom[t.id]||0)+'</span><button type="button" onclick="egCustomStep(\''+t.id+'\',1)">+</button></div></div>';
   el.innerHTML=
     f('Naam',inp('eNaam',b.naam))+
     f('E-mail',inp('eEmail',b.email,'email'))+
@@ -704,14 +762,41 @@ function editGegevens(id){
     f('Nummerplaat',inp('ePlaat',b.plaat))+
     f('Aankomst',inp('eAan',b.aankomst,'date'))+
     f('Vertrek',inp('eVer',b.vertrek,'date'))+
-    f('Volwassenen',inp('eVolw',b.volwassenen,'number'))+
-    f('Kinderen',inp('eKind',b.kinderen,'number'))+
-    f('Bedrag (€)',inp('eBedrag',b.bedrag,'number'))+
-    f('Opmerking',inp('eNota',b.nota));
+    '<div class="sec-lbl" style="margin-top:8px;">Verblijf</div>'+
+    step('⛺ Tenten','tent')+step('🚐 Campers','camper')+accTypes.map(customStep).join('')+
+    '<div class="sec-lbl">Personen</div>'+
+    step('🧑 Volwassenen','volw')+step('🧒 Kinderen 3–11','kind')+step('👶 Baby\'s <3','baby')+
+    '<div class="sec-lbl">Extra</div>'+
+    step('🐕 Honden','honden')+step('🚗 Auto\'s','autos')+
+    '<div class="toggle-row"><span class="sl">⚡ Elektriciteit</span><input type="checkbox" id="eElek" '+(egState.elek?'checked':'')+' onchange="egState.elek=this.checked;egPrice()"></div>'+
+    f('Opmerking',inp('eNota',b.nota))+
+    '<div class="card" id="egBreakdown" style="margin:10px 0;"></div>'+
+    f('Bedrag (€) — automatisch herberekend',inp('eBedrag',b.bedrag,'number'));
   const gp=document.getElementById('paneGegExtra');
   if(gp)gp.innerHTML='<div style="display:flex;gap:8px;margin-top:10px;">'+
     '<button class="modal-save" style="margin:0;flex:1;" onclick="saveGegevens(\''+id+'\')">✓ Opslaan</button>'+
     '<button class="sbtn" style="flex:0 0 auto;" onclick="openReal(\''+id+'\')">Annuleren</button></div>';
+  egPrice();
+}
+function egStep(key,delta){
+  egState[key]=Math.max(key==='autos'?1:0,(egState[key]||0)+delta);
+  const el=document.getElementById('eg_'+key); if(el)el.textContent=egState[key];
+  egPrice();
+}
+function egCustomStep(id,delta){
+  egState.custom[id]=Math.max(0,(egState.custom[id]||0)+delta);
+  const el=document.getElementById('eg_custom_'+id); if(el)el.textContent=egState.custom[id];
+  egPrice();
+}
+function egPrice(){
+  const el=document.getElementById('egBreakdown'); if(!el||!egState)return;
+  const aan=document.getElementById('eAan').value, ver=document.getElementById('eVer').value;
+  if(!window.CampingPricing||!aan||!ver||aan>=ver){el.innerHTML='<div class="note-inline" style="padding:12px;">Vul geldige data in om te herprijzen</div>';return;}
+  const units=[{prijs:PRICES.tent,count:egState.tent,allIn:false},{prijs:PRICES.camper,count:egState.camper,allIn:false}];
+  accTypes.forEach(t=>{const c=egState.custom[t.id]||0; if(c>0)units.push({prijs:t.prijs||0,count:c,allIn:!!t.allIn});});
+  const r=CampingPricing.calc({prices:PRICES,units,volwassenen:egState.volw,kinderen:egState.kind,baby:egState.baby,honden:egState.honden,autos:egState.autos,elektriciteit:egState.elek,aankomst:aan,vertrek:ver});
+  el.innerHTML='<div class="row" style="background:var(--green-soft);"><span class="rl" style="color:var(--green);font-weight:700;">Herberekend totaal ('+(r.nights||0)+' nacht'+(r.nights===1?'':'en')+')</span><span class="rv" style="color:var(--green);font-weight:800;">'+money(r.totaal)+'</span></div>';
+  const bEl=document.getElementById('eBedrag'); if(bEl)bEl.value=Number(r.totaal||0).toFixed(2);
 }
 async function saveGegevens(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
@@ -719,6 +804,11 @@ async function saveGegevens(id){
   const aan=g('eAan').value, ver=g('eVer').value;
   if(aan&&ver&&aan>=ver){toast('⚠️ Vertrek moet na aankomst zijn');return;}
   try{
+    const parts=[];
+    if(egState.tent>0)parts.push(egState.tent+'× Tent');
+    if(egState.camper>0)parts.push(egState.camper+'× Camper');
+    const extraTypeUnits=accTypes.filter(t=>(egState.custom[t.id]||0)>0).map(t=>({...t,count:egState.custom[t.id]}));
+    extraTypeUnits.forEach(t=>parts.push(t.count+'× '+t.naam));
     const cErr=(await sb.from('clients').update({
       naam:(g('eNaam').value||'').trim()||b.naam,
       email:(g('eEmail').value||'').trim()||null,
@@ -727,7 +817,10 @@ async function saveGegevens(id){
     }).eq('id',b.clientId||(await clientIdOf(id)))).error;
     const bErr=(await sb.from('bookings').update({
       aankomst:aan||b.aankomst, vertrek:ver||b.vertrek,
-      volwassenen:parseInt(g('eVolw').value)||0, kinderen:parseInt(g('eKind').value)||0,
+      tenten:egState.tent, campers:egState.camper, verblijfstype:parts.join(' + ')||'Tent',
+      extra_type_units:extraTypeUnits.length?JSON.stringify(extraTypeUnits):null,
+      volwassenen:egState.volw, kinderen:egState.kind, baby:egState.baby,
+      honden:egState.honden, autos:egState.autos, elektriciteit:egState.elek,
       bedrag_totaal:parseFloat(g('eBedrag').value)||0, nota:(g('eNota').value||'').trim()||null,
     }).eq('id',id)).error;
     if(cErr||bErr)throw new Error((cErr||bErr).message);
@@ -1329,25 +1422,116 @@ function filterIdArchief(){
   const q=(document.getElementById('idaSearch').value||'').toLowerCase();
   document.querySelectorAll('#idaList [data-zoek]').forEach(r=>{r.style.display=r.getAttribute('data-zoek').indexOf(q)!==-1?'block':'none';});
 }
+/* Wettelijk reizigersregister (KB 27/04/2007) — op elke gekozen datum, niet
+   enkel "vandaag", zodat een historische controle-aanvraag (politie,
+   gemeente) beantwoord kan worden zonder in de database te moeten spitten. */
+function splitNaam(n){
+  const p=String(n||'').trim().split(/\s+/);
+  return {voornaam:p[0]||'',achternaam:p.slice(1).join(' ')||''};
+}
+function fmtDateLong(d){if(!d)return'—';const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('nl-BE',{day:'numeric',month:'short',year:'numeric'});}
+function registerEntries(date){
+  return bookings.filter(b=>b.aankomst<=date&&b.vertrek>date&&b.status!=='geannuleerd');
+}
+async function registerRows(date){
+  const activeBookings=registerEntries(date);
+  const bookingIds=activeBookings.map(b=>b.id);
+  let gastenMap={};
+  if(bookingIds.length){
+    const {data}=await sb.from('gasten').select('*').in('booking_id',bookingIds).neq('naam','__pending_guest_upload__').is('deleted_at',null);
+    (data||[]).forEach(g=>{if(!gastenMap[g.booking_id])gastenMap[g.booking_id]=[];gastenMap[g.booking_id].push(g);});
+  }
+  const rows=[];
+  activeBookings.forEach(b=>{
+    const isVertrek=b.vertrek===date;
+    const gasten=gastenMap[b.id]||[];
+    if(gasten.length){
+      gasten.forEach(g=>{
+        const gn=splitNaam(g.naam);
+        rows.push({volgnummer:b.volgnummer,voornaam:gn.voornaam,achternaam:gn.achternaam,
+          geboortedatum:g.geboortedatum,geboorteplaats:g.geboorteplaats,nationaliteit:g.nationaliteit,
+          documenttype:g.documenttype,idnr:g.id_nummer,nummerplaat:g.nummerplaat||b.plaat,woonplaats:'',
+          aankomst:b.aankomst,vertrek:b.vertrek,isVertrek,rol:g.is_hoofdgast?'Hoofdgast':'Meereizend',warning:!g.id_nummer});
+      });
+    } else {
+      const n=splitNaam(b.naam);
+      rows.push({volgnummer:b.volgnummer,voornaam:n.voornaam,achternaam:n.achternaam,
+        geboortedatum:'',geboorteplaats:'',nationaliteit:'',documenttype:'',idnr:b.idnr,nummerplaat:b.plaat,woonplaats:'',
+        aankomst:b.aankomst,vertrek:b.vertrek,isVertrek,rol:'Voorlopig (geen ID)',warning:true});
+    }
+  });
+  return rows;
+}
 async function renderBeheerRegister(){
   const el=document.getElementById('beheerBody');
-  const list=inFolder('aanwezig');
+  el.innerHTML='<div class="note-inline">Laden…</div>';
   el.innerHTML='<div class="card" style="padding:14px;">'+
-    '<div class="note-inline" style="padding:0 0 12px;">Wettelijk verplicht dagregister — alle huidige aanwezige gasten.</div>'+
-    '<button class="sbtn" style="margin-bottom:10px;" onclick="printRegisterExport()">🖨️ Register afdrukken/exporteren</button></div>'+
-    '<div class="sec-lbl">Nu aanwezig ('+list.length+')</div>'+
-    (list.length?'<div class="card taskcard">'+list.map(b=>rowHtml(b,esc(verblijf(b))+' · '+b.personen+' pers.','')).join('')+'</div>':emptyCard('Niemand aanwezig'));
+    '<div class="note-inline" style="padding:0 0 12px;">Wettelijk verplicht reizigersregister (KB 27/04/2007) — kies een datum om het register op die dag te bekijken (bv. voor een controle-aanvraag).</div>'+
+    '<div class="fld" style="margin-bottom:10px;"><label>Datum</label><input id="regDate" type="date" value="'+TODAY+'" onchange="renderRegisterTable()"></div>'+
+    '<div style="display:flex;gap:8px;">'+
+    '<button class="sbtn" style="flex:1;" onclick="printRegisterExport()">🖨️ Afdrukken</button>'+
+    '<button class="sbtn" style="flex:1;" onclick="exportRegisterCSV()">⬇️ CSV-export</button>'+
+    '</div></div>'+
+    '<div id="regTableWrap"></div>';
+  renderRegisterTable();
 }
-function printRegisterExport(){
-  const list=inFolder('aanwezig');
+async function renderRegisterTable(){
+  const wrap=document.getElementById('regTableWrap');if(!wrap)return;
+  const date=document.getElementById('regDate').value||TODAY;
+  wrap.innerHTML='<div class="note-inline">Laden…</div>';
+  const rows=await registerRows(date);
+  if(!rows.length){wrap.innerHTML=emptyCard('Geen gasten geregistreerd op '+fmtDateLong(date));return;}
+  const missingId=rows.filter(r=>r.warning).length;
+  let h=missingId>0?'<div class="note-inline" style="color:var(--amber);padding:8px 0;">⚠️ '+missingId+' gast'+(missingId>1?'en':'')+' zonder ID-nummer</div>':'';
+  h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap;">'+
+    '<thead><tr style="text-align:left;border-bottom:1.5px solid var(--sep);">'+
+    ['#','Voornaam','Achternaam','Geboortedatum','Geboorteplaats','Nationaliteit','Documenttype','Documentnr.','Nummerplaat','Aankomst','Vertrek','Rol'].map(t=>'<th style="padding:7px 6px;color:var(--ink-3);">'+t+'</th>').join('')+
+    '</tr></thead><tbody>'+
+    rows.map(r=>'<tr style="border-bottom:.5px solid var(--sep);'+(r.warning?'background:var(--red-soft);':'')+'">'+
+      '<td style="padding:6px;color:var(--ink-3);">#'+(r.volgnummer??'—')+'</td>'+
+      '<td style="padding:6px;font-weight:600;">'+esc(r.voornaam||'—')+'</td>'+
+      '<td style="padding:6px;font-weight:600;">'+esc(r.achternaam||'—')+'</td>'+
+      '<td style="padding:6px;">'+(r.geboortedatum?fmtDateLong(r.geboortedatum):'—')+'</td>'+
+      '<td style="padding:6px;">'+esc(r.geboorteplaats||'—')+'</td>'+
+      '<td style="padding:6px;">'+esc(r.nationaliteit||'—')+'</td>'+
+      '<td style="padding:6px;">'+esc(r.documenttype||'—')+'</td>'+
+      '<td style="padding:6px;font-family:var(--f-mono);'+(!r.idnr?'color:var(--red);font-weight:700;':'')+'">'+esc(r.idnr||'❌')+'</td>'+
+      '<td style="padding:6px;font-family:var(--f-mono);">'+esc(r.nummerplaat||'—')+'</td>'+
+      '<td style="padding:6px;">'+fmtDateLong(r.aankomst)+'</td>'+
+      '<td style="padding:6px;'+(r.isVertrek?'color:var(--amber);font-weight:700;':'')+'">'+fmtDateLong(r.vertrek)+(r.isVertrek?' ↑':'')+'</td>'+
+      '<td style="padding:6px;color:var(--ink-3);font-size:11px;">'+esc(r.rol)+'</td>'+
+      '</tr>').join('')+
+    '</tbody></table></div>'+
+    '<div class="note-inline" style="margin-top:8px;">'+rows.length+' pers. geregistreerd op '+fmtDateLong(date)+'</div>';
+  wrap.innerHTML=h;
+}
+async function printRegisterExport(){
+  const date=document.getElementById('regDate').value||TODAY;
+  const rows=await registerRows(date);
   const w=window.open('','_blank');
   if(!w){toast('⚠️ Sta pop-ups toe om te exporteren');return;}
-  w.document.write('<html><head><title>Register '+TODAY+'</title></head><body style="font-family:sans-serif;padding:20px;">'+
-    '<h2>Register toeristenverblijf — '+TODAY+'</h2><table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;">'+
-    '<tr><th>Naam</th><th>Aankomst</th><th>Vertrek</th><th>Personen</th></tr>'+
-    list.map(b=>'<tr><td>'+esc(b.naam)+'</td><td>'+b.aankomst+'</td><td>'+b.vertrek+'</td><td>'+b.personen+'</td></tr>').join('')+
-    '</table></body></html>');
-  w.document.close(); w.print();
+  w.document.write('<html><head><title>Register '+date+'</title></head><body style="font-family:sans-serif;padding:20px;">'+
+    '<h2>Register toeristenverblijf — '+fmtDateLong(date)+'</h2><table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;font-size:12px;">'+
+    '<tr>'+['#','Voornaam','Achternaam','Geboortedatum','Geboorteplaats','Nationaliteit','Documenttype','Documentnr.','Nummerplaat','Aankomst','Vertrek','Rol'].map(t=>'<th>'+t+'</th>').join('')+'</tr>'+
+    rows.map(r=>'<tr><td>#'+(r.volgnummer??'—')+'</td><td>'+esc(r.voornaam||'—')+'</td><td>'+esc(r.achternaam||'—')+'</td>'+
+      '<td>'+(r.geboortedatum?fmtDateLong(r.geboortedatum):'—')+'</td><td>'+esc(r.geboorteplaats||'—')+'</td><td>'+esc(r.nationaliteit||'—')+'</td>'+
+      '<td>'+esc(r.documenttype||'—')+'</td><td>'+esc(r.idnr||'❌ ontbreekt')+'</td><td>'+esc(r.nummerplaat||'—')+'</td>'+
+      '<td>'+fmtDateLong(r.aankomst)+'</td><td>'+fmtDateLong(r.vertrek)+'</td><td>'+esc(r.rol)+'</td></tr>').join('')+
+    '</table><div style="margin-top:16px;font-size:11px;color:#666;">Camping Cosmopolite · Register Toeristenverblijf · Afgedrukt op '+fmtDateLong(TODAY)+' · Vertrouwelijk</div>'+
+    '<script>window.onload=function(){window.print()}<\/script></body></html>');
+  w.document.close();
+}
+async function exportRegisterCSV(){
+  const date=document.getElementById('regDate').value||TODAY;
+  const rows=await registerRows(date);
+  const csvRows=[['Volgnummer','Voornaam','Achternaam','Geboortedatum','Geboorteplaats','Nationaliteit','Documenttype','ID-nummer','Nummerplaat','Aankomst','Vertrek','Rol']];
+  rows.forEach(r=>csvRows.push([r.volgnummer??'',r.voornaam,r.achternaam,r.geboortedatum||'',r.geboorteplaats||'',r.nationaliteit||'',r.documenttype||'',r.idnr||'',r.nummerplaat||'',r.aankomst,r.vertrek,r.rol]));
+  const csv=csvRows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='register_'+date+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('⬇️ CSV gedownload (incl. alle gasten)');
 }
 async function renderBeheerAnalytics(){
   const el=document.getElementById('beheerBody');
