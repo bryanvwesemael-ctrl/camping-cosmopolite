@@ -841,6 +841,47 @@ async function actTerugbetaling(id){
   toast('↩️ Terugbetaling '+money(bedrag)+' geregistreerd'); await loadData();
 }
 
+/* ---------- rechtsboven in de fiche: extra dagen / extra geld (punt 10) ---------- */
+function addDaysToDate(dateStr,n){
+  const d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+async function actExtraDagen(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const huidigeNachten=Math.max(nights(b.aankomst,b.vertrek),1);
+  const perDag=Number(b.bedrag||0)/huidigeNachten;
+  const inp=prompt('Extra dagen inplannen voor '+b.naam+'.\n\nHuidige prijs/dag: '+money(perDag)+'. Hoeveel dagen wil je erbij plannen? Vertrekdatum en totaalbedrag worden automatisch aangepast.','1');
+  if(inp===null)return;
+  const extraDagen=parseInt(inp,10);
+  if(!(extraDagen>0)){toast('⚠️ Geef een positief aantal dagen op');return;}
+  const nieuweVertrek=addDaysToDate(b.vertrek,extraDagen);
+  const nieuwBedrag=Math.round(perDag*(huidigeNachten+extraDagen)*100)/100;
+  if(!confirm(extraDagen+' extra dag'+(extraDagen>1?'en':'')+' inplannen voor '+b.naam+'?\n\nNieuwe vertrekdatum: '+fmt(nieuweVertrek)+'\nNieuw totaalbedrag: '+money(nieuwBedrag)+' (was '+money(b.bedrag)+')'))return;
+  const {error}=await sb.from('bookings').update({vertrek:nieuweVertrek,bedrag_totaal:nieuwBedrag}).eq('id',id);
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('📅 '+extraDagen+' extra dag'+(extraDagen>1?'en':'')+' ingepland — nieuw totaal '+money(nieuwBedrag));
+  await loadData();
+}
+async function actExtraGeld(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const inp=prompt('Extra bedrag toevoegen aan de rekening van '+b.naam+' (€) — bv. voor kleine extra kosten:','');
+  if(inp===null)return;
+  const bedrag=Math.round(parseFloat(String(inp).replace(',','.'))*100)/100;
+  if(!(bedrag>0)){toast('⚠️ Ongeldig bedrag');return;}
+  const omsch=(prompt('Omschrijving (optioneel) — bv. "kapotte tafel":','')||'').trim();
+  const nieuwBedrag=Math.round((Number(b.bedrag||0)+bedrag)*100)/100;
+  if(!confirm(money(bedrag)+' toevoegen aan het totaal'+(omsch?' ('+omsch+')':'')+'?\n\nNieuw totaal: '+money(nieuwBedrag)+'\n\n⚠️ Let op: als je nadien "Gegevens bewerken" gebruikt, wordt het bedrag daar volledig herberekend — deze toevoeging telt dan niet meer mee.'))return;
+  // Genoteerd in Opmerking, want het bedrag zelf is hier bewust een simpele
+  // optelling (geen apart kostenpost-archief) — zo blijft er toch een spoor
+  // van waar het verschil vandaan komt.
+  const regel='💶 +'+money(bedrag)+(omsch?' — '+omsch:'')+' ('+fmtDateLong(TODAY)+')';
+  const nieuweNota=b.nota?(b.nota+'\n'+regel):regel;
+  const {error}=await sb.from('bookings').update({bedrag_totaal:nieuwBedrag,nota:nieuweNota}).eq('id',id);
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('💶 '+money(bedrag)+' toegevoegd — nieuw totaal '+money(nieuwBedrag));
+  await loadData();
+}
+
 /* ---------- modal ---------- */
 function openModal(title,html){
   document.getElementById('modalTitle').textContent=title;

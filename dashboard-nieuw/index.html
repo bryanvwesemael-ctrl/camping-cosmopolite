@@ -157,6 +157,8 @@
   .draft-banner .dt b{color:var(--amber);}
   .fiche-hd{background:var(--card); border-radius:15px; box-shadow:var(--shadow); border:1px solid var(--sep); padding:15px; margin-bottom:12px;}
   .fiche-hd .top{display:flex; gap:12px; align-items:center;}
+  .qa-actions{margin-left:auto; display:flex; gap:6px; flex-shrink:0;}
+  .qa-btn{width:34px; height:34px; border-radius:10px; border:1px solid var(--sep); background:var(--card-2); font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
   .fiche-hd .av{width:48px; height:48px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; color:#fff; flex-shrink:0; background:#5A57C4;}
   .fiche-hd .nm{flex:1; min-width:0;}
   .fiche-hd .nm .n1{font-weight:800; font-size:16.5px; letter-spacing:-.3px; line-height:1.15;}
@@ -414,6 +416,10 @@
                     <div class="n1" id="ficheName">Marc &amp; Ann Verhaeghe</div>
                     <div class="n2" id="ficheMeta">#2026-041 · 📂 Aanwezig</div>
                   </div>
+                  <div class="qa-actions">
+                    <button class="qa-btn" title="Extra dagen inplannen" onclick="actExtraDagen(selectedId)">📅</button>
+                    <button class="qa-btn" title="Extra geld toevoegen" onclick="actExtraGeld(selectedId)">💶</button>
+                  </div>
                 </div>
                 <div class="mini">
                   <div class="mbox"><div class="ml">Aankomst</div><div class="mv" id="ficheIn">3 jul</div></div>
@@ -550,6 +556,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="../shared/payment.js?v=20260715c"></script>
 <script src="../shared/pricing.js?v=20260715c"></script>
-<script src="app-nieuw.js?v=20260719g"></script>
+<script src="app-nieuw.js?v=20260719h"></script>
 </body>
 </html>
