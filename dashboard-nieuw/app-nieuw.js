@@ -25,6 +25,7 @@ const MAIL_SJABLONEN = {
   herinnering: { onderwerp: 'Herinnering — Camping Cosmopolite #{{volgnummer}}', inhoud: 'Beste {{voornaam}},\n\nEen vriendelijke herinnering aan je verblijf van {{aankomst}} tot {{vertrek}}.\n\nTot binnenkort!\n{{from_name}}' },
   betaling: { onderwerp: 'Betaalverzoek — Camping Cosmopolite #{{volgnummer}}', inhoud: 'Beste {{voornaam}},\n\nVoor je reservatie (#{{volgnummer}}) staat nog een bedrag open. Je kan betalen via de QR-code die we je bezorgen of via overschrijving met mededeling {{ogm}}.\n\nDank je wel!\n{{from_name}}' },
   uitchecken: { onderwerp: 'Tot ziens! — Camping Cosmopolite', inhoud: 'Beste {{voornaam}},\n\nBedankt voor je verblijf bij Camping Cosmopolite. We hopen je snel weer te verwelkomen!\n\nVriendelijke groeten,\n{{from_name}}' },
+  volzet: { onderwerp: 'Helaas volzet — Camping Cosmopolite', inhoud: 'Beste {{voornaam}},\n\nHartelijk dank voor je aanvraag voor {{aankomst}} tot {{vertrek}}. Helaas zitten we voor deze periode volzet en kunnen we je aanvraag niet inwilligen.\n\nWe hopen je een volgende keer te mogen verwelkomen!\n\nVriendelijke groeten,\n{{from_name}}' },
 };
 
 /* ---------- helpers ---------- */
@@ -196,6 +197,10 @@ function rowHtml(b,sub,pill){
 function emptyCard(txt){return '<div class="card taskcard"><div class="note-inline" style="padding:20px;">'+txt+'</div></div>';}
 
 /* ---------- render: dagbord ---------- */
+function dbScrollTo(id){
+  const el=document.getElementById(id); if(!el)return;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+}
 function renderDagbord(){
   const aankomst=bookings.filter(b=>b.aankomst===TODAY&&b.status!=='geannuleerd'&&!b.uitgecheckt_at);
   const vertrek=bookings.filter(b=>b.vertrek===TODAY&&b.status!=='geannuleerd');
@@ -210,9 +215,9 @@ function renderDagbord(){
   let h='';
   h+='<div class="greet"><div class="g1">Goeiedag'+(naam?', '+esc(naam):'')+' 👋</div><div class="g2">Dit is je werk voor vandaag.</div></div>';
   h+='<div class="kpis">'+
-     '<div class="kpi"><div class="kv g">'+aankomst.length+'</div><div class="kk">🟢 Aankomst</div></div>'+
-     '<div class="kpi"><div class="kv r">'+vertrek.length+'</div><div class="kk">🔴 Vertrek</div></div>'+
-     '<div class="kpi"><div class="kv b">'+aanwezig.length+'</div><div class="kk">🏕️ Aanwezig</div></div>'+
+     '<div class="kpi" style="cursor:pointer;" onclick="dbScrollTo(\'dbAankomstSec\')"><div class="kv g">'+aankomst.length+'</div><div class="kk">🟢 Aankomst</div></div>'+
+     '<div class="kpi" style="cursor:pointer;" onclick="dbScrollTo(\'dbVertrekSec\')"><div class="kv r">'+vertrek.length+'</div><div class="kk">🔴 Vertrek</div></div>'+
+     '<div class="kpi" style="cursor:pointer;" onclick="setFolder(\'aanwezig\')"><div class="kv b">'+aanwezig.length+'</div><div class="kk">🏕️ Aanwezig</div></div>'+
      '<div class="kpi"><div class="kv" style="font-size:19px;">'+money(openSom)+'</div><div class="kk">💰 Openstaand</div></div>'+
      '<div class="kpi"><div class="kv" style="font-size:22px;">'+bezet+'</div><div class="kk">📊 Bezetting</div></div>'+
      '</div>';
@@ -221,9 +226,9 @@ function renderDagbord(){
        '<div class="at"><div class="a1">'+postvak.length+' aanvra'+(postvak.length===1?'ag':'gen')+' in Postvak</div>'+
        '<div class="a2">Nog te controleren en te bevestigen</div></div><div class="ar">›</div></div>';
   }
-  h+='<div class="sec-lbl">🟢 Aankomst vandaag</div>';
+  h+='<div class="sec-lbl" id="dbAankomstSec">🟢 Aankomst vandaag</div>';
   h+=aankomst.length?'<div class="card taskcard">'+aankomst.map(b=>rowHtml(b,esc(verblijf(b))+' · '+b.personen+' pers.','<span class="pill p-arr">AANKOMST</span>')).join('')+'</div>':emptyCard('Geen aankomsten vandaag');
-  h+='<div class="sec-lbl">🔴 Vertrek vandaag</div>';
+  h+='<div class="sec-lbl" id="dbVertrekSec">🔴 Vertrek vandaag</div>';
   h+=vertrek.length?'<div class="card taskcard">'+vertrek.map(b=>rowHtml(b,esc(verblijf(b)),'<span class="pill p-dep">VERTREK</span>')).join('')+'</div>':emptyCard('Geen vertrekken vandaag');
   h+='<div class="sec-lbl">💰 Openstaande betalingen</div>';
   h+=openList.length?'<div class="card taskcard">'+openList.slice(0,8).map(b=>rowHtml(b,'Nog '+money(openOf(b))+' open','<span class="pill p-pay">OPEN</span>')).join('')+'</div>':emptyCard('Alles betaald 🎉');
@@ -636,13 +641,33 @@ async function _cleanupBookingRelated(id){
   // booking_attachments heeft ON DELETE CASCADE, geen aparte cleanup nodig.
   await sb.from('bezoekers').update({omgezet_naar_booking_id:null}).eq('omgezet_naar_booking_id',id);
 }
+/* Stuurt automatisch een mail zonder de fiche-composer nodig te hebben —
+   gebruikt voor achtergrondacties zoals weigeren. Een mislukte mail mag het
+   weigeren zelf niet blokkeren (Karen ziet het resultaat in communicatie). */
+async function sendAutoMailV2(id,key){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const hasRealEmail=b.email&&b.email.indexOf('@cosmopolite.local')===-1;
+  if(!hasRealEmail)return;
+  const t=MAIL_SJABLONEN[key];if(!t)return;
+  const vn=(b.naam||'').split(' ')[0];
+  const v={voornaam:vn,naam:b.naam,volgnummer:b.volgnummer,aankomst:fmt(b.aankomst),vertrek:fmt(b.vertrek),personen:b.personen,bedrag:money(b.bedrag),ogm:b.ogm||'',from_name:'Camping Cosmopolite'};
+  const fill=s=>String(s).replace(/\{\{(\w+)\}\}/g,(_,k)=>v[k]!=null?v[k]:'{{'+k+'}}');
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    await fetch(SUPABASE_URL+'/functions/v1/send-mail',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body:JSON.stringify({booking_id:id,onderwerp:fill(t.onderwerp),inhoud:fill(t.inhoud)}),
+    });
+  }catch(e){/* mail mislukt — weigeren gaat gewoon door */}
+}
 async function actWeigeren(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
-  if(!confirm('Aanvraag van '+b.naam+' weigeren en verwijderen?\n\nDit kan niet ongedaan gemaakt worden.'))return;
+  if(!confirm('Aanvraag van '+b.naam+' weigeren en verwijderen?\n\nAls er een geldig e-mailadres bekend is, wordt automatisch een "volzet"-mail gestuurd.\n\nDit kan niet ongedaan gemaakt worden.'))return;
+  await sendAutoMailV2(id,'volzet'); // vóór de cleanup/delete — de mail heeft de boeking nog nodig
   await _cleanupBookingRelated(id);
   const {error}=await sb.from('bookings').delete().eq('id',id);
   if(error){toast('⚠️ '+error.message);return;}
-  closeModal(); closeFiche(); toast('❌ Aanvraag geweigerd en verwijderd');
+  closeModal(); closeFiche(); toast('❌ Aanvraag geweigerd, mail verstuurd (indien e-mailadres bekend) en verwijderd');
   selectedId=null; await loadData();
 }
 async function actVerwijderBoeking(id){
