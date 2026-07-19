@@ -851,11 +851,11 @@ async function submitForm(){
   if(!state.akkoord){ toast('⚠️ Bevestig akkoord met verwerking van je gegevens'); return; }
   if(window._turnstileOn && !getTurnstileToken()){ toast('⚠️ Bevestig even dat je geen robot bent'); return; }
 
-  // Verplicht: één identiteitsdocument per opgegeven persoon.
-  const nPersonen=totalPersons();
-  if(idDocs.length!==nPersonen){
-    const tekort=nPersonen-idDocs.length;
-    toast(tekort>0?`⚠️ Nog ${tekort} document${tekort>1?'en':''} nodig (${idDocs.length}/${nPersonen})`:`⚠️ Te veel documenten (${idDocs.length}/${nPersonen})`);
+  // Minstens één identiteitsdocument nodig om door te sturen (niet meer
+  // per se één per opgegeven persoon — Karen wil aanvragen niet nodeloos
+  // laten stranden op ontbrekende documenten van medereizigers).
+  if(idDocs.length<1){
+    toast('⚠️ Voeg minstens 1 identiteitsdocument toe');
     document.getElementById('idFotoCard')?.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
