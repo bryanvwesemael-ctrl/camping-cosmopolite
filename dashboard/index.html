@@ -1,6 +1,23 @@
 ﻿<!DOCTYPE html>
 <html lang="nl">
 <head>
+<script>
+// Oud systeem uitgeschakeld voor dagelijks gebruik — iedereen wordt naar
+// het nieuwe dashboard gestuurd. Twee technische uitzonderingen blijven
+// hier wél werken, want hun callback-URL staat vast geregistreerd op
+// exact dit adres (/dashboard/):
+//  1. Gmail OAuth-koppeling (?code=...&state=gmail_connect)
+//  2. Wachtwoord-reset via e-mail (#access_token=...&type=recovery)
+(function(){
+  var qs=new URLSearchParams(window.location.search);
+  var hash=new URLSearchParams(window.location.hash.replace('#',''));
+  var isGmailCallback=qs.get('code')&&qs.get('state')==='gmail_connect';
+  var isPasswordRecovery=hash.get('type')==='recovery';
+  if(!isGmailCallback&&!isPasswordRecovery){
+    window.location.replace('/dashboard-nieuw/');
+  }
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cosmopolite — Reservatiebeheer</title>
