@@ -396,6 +396,7 @@ async function loadBetPane(b){
     '<div class="pt"><div class="a">'+money(betaald)+' <span style="font-size:13px;color:var(--ink-3);font-weight:600;">/ '+money(totaal)+'</span></div>'+
     '<div class="b" style="color:'+statusKleur+';font-weight:700;">'+statusLbl+(!volledig&&betaald>0?' · nog '+money(open):'')+'</div></div></div></div>';
 
+  h+='<button class="sbtn" style="width:100%;margin-bottom:12px;" onclick="openFactuur(\''+b.id+'\')">🧾 Factuur openen (printen / als PDF bewaren)</button>';
   h+='<div class="sec-lbl">Registreer betaling</div>';
   h+='<div class="statusgrid" style="padding:0;">'+
      '<div class="sbtn" onclick="actBetaling(\''+b.id+'\',\'cash\')">💵 Cash</div>'+
@@ -441,6 +442,47 @@ async function actWaarborgTeruggegeven(id){
   const {error}=await sb.from('bookings').update({waarborg_teruggegeven_at:new Date().toISOString()}).eq('id',id);
   if(error){toast('⚠️ '+error.message);return;}
   toast('↩️ Waarborg geregistreerd als teruggegeven (cash)'); await loadData();
+}
+/* ---------- factuur (printbaar, geen aparte PDF-lib nodig) ----------
+   Optie 1 uit het overleg met Bryan: on-demand vanuit de fiche zelf, geen
+   apart Beheer-scherm en geen doorlopende nummering (dat kan later als er
+   veel vraag naar komt). Gebruikt window.print() — zelfde patroon als het
+   bestaande register/calamiteiten-export — zodat Karen of de klant het
+   rechtstreeks kan afdrukken of via de browser als PDF kan bewaren. */
+async function openFactuur(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  const {data}=await sb.from('settings').select('key,value').in('key',['kbo','btw_nummer','adres']);
+  const cfg={};(data||[]).forEach(r=>cfg[r.key]=r.value);
+  const nn=nights(b.aankomst,b.vertrek);
+  const perDag=nn>0?Math.round((Number(b.bedrag||0)/nn)*100)/100:0;
+  const betaald=paidOf(b), open=openOf(b);
+  const w=window.open('','_blank');
+  if(!w){toast('⚠️ Sta pop-ups toe om de factuur te openen');return;}
+  w.document.write('<html><head><title>Factuur #'+(b.volgnummer||'—')+'</title></head>'+
+    '<body style="font-family:sans-serif;padding:32px;max-width:640px;margin:0 auto;color:#1c1c1e;">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;">'+
+    '<div><div style="font-size:20px;font-weight:800;">🏕️ Camping Cosmopolite</div>'+
+    '<div style="font-size:12px;color:#666;margin-top:4px;">'+esc(cfg.adres||'')+'</div>'+
+    '<div style="font-size:12px;color:#666;">KBO: '+esc(cfg.kbo||'—')+' · BTW: '+esc(cfg.btw_nummer||'—')+'</div></div>'+
+    '<div style="text-align:right;"><div style="font-size:22px;font-weight:800;">FACTUUR</div>'+
+    '<div style="font-size:12px;color:#666;">Nr. FACT-'+(b.volgnummer||'—')+'</div>'+
+    '<div style="font-size:12px;color:#666;">Datum: '+fmtDateLong(TODAY)+'</div></div></div>'+
+    '<div style="margin-bottom:24px;"><div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.05em;">Klant</div>'+
+    '<div style="font-size:14px;font-weight:700;">'+esc(b.naam)+'</div>'+
+    (b.email?'<div style="font-size:12.5px;color:#666;">'+esc(b.email)+'</div>':'')+'</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;">'+
+    '<tr style="border-bottom:1.5px solid #ddd;text-align:left;"><th style="padding:8px 4px;">Omschrijving</th><th style="padding:8px 4px;text-align:right;">Bedrag</th></tr>'+
+    '<tr style="border-bottom:.5px solid #eee;"><td style="padding:8px 4px;">'+esc(verblijf(b))+' · '+fmt(b.aankomst)+' – '+fmt(b.vertrek)+' ('+nn+' nacht'+(nn===1?'':'en')+')<br>'+
+    '<span style="font-size:11px;color:#999;">€'+perDag.toFixed(2)+'/nacht × '+nn+'</span></td><td style="padding:8px 4px;text-align:right;vertical-align:top;">'+money(b.bedrag)+'</td></tr>'+
+    '<tr style="border-top:1.5px solid #1c1c1e;font-weight:800;"><td style="padding:10px 4px;">Totaal</td><td style="padding:10px 4px;text-align:right;">'+money(b.bedrag)+'</td></tr>'+
+    '</table>'+
+    '<div style="font-size:12.5px;line-height:1.8;">'+
+    '<div>Reeds betaald: <b>'+money(betaald)+'</b></div>'+
+    (open>0.005?'<div>Nog te betalen: <b style="color:#CC7700;">'+money(open)+'</b></div>':'<div style="color:#1B8A5B;font-weight:700;">✅ Volledig betaald</div>')+
+    '</div>'+
+    '<div style="margin-top:28px;font-size:10.5px;color:#999;">Prijzen incl. 12% BTW (campingdiensten) en toeristentaks. Waarborg (indien van toepassing) is niet in deze factuur inbegrepen — cash geregeld ter plaatse.</div>'+
+    '<script>window.onload=function(){window.print()}<\/script></body></html>');
+  w.document.close();
 }
 function toggleQR(id){
   const box=document.getElementById('qrBox');if(!box)return;
