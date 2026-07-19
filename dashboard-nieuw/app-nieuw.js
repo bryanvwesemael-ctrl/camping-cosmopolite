@@ -566,6 +566,7 @@ function openAddGuest(bookingId){
     '</div>'+
     '<input type="file" id="gScanFileCam" accept="image/*" capture="environment" style="display:none;" onchange="scanGuestFile(this)">'+
     '<input type="file" id="gScanFile" accept="image/*" style="display:none;" onchange="scanGuestFile(this)">'+
+    '<img id="gScanPreview" style="display:none;width:100%;max-height:200px;object-fit:contain;border-radius:10px;border:1px solid var(--sep);margin-bottom:8px;background:var(--card-2);">'+
     '<div id="gScanHint" class="note-inline" style="min-height:14px;"></div>'+
     '<div class="fld"><label>Naam *</label><input id="gNaam" placeholder="Volledige naam"></div>'+
     '<div class="fld2"><div class="fld"><label>Geboortedatum</label><input id="gGeb" type="date"></div>'+
@@ -580,6 +581,14 @@ function openAddGuest(bookingId){
 async function scanGuestFile(input){
   const file=input.files&&input.files[0]; if(!file)return;
   window._scanFileCache=file;
+  // Meteen een preview tonen — zo zie je onmiddellijk of de foto scherp/
+  // leesbaar is, nog voor de AI-herkenning klaar is (of faalt).
+  const preview=document.getElementById('gScanPreview');
+  if(preview){
+    if(preview.dataset.blobUrl)URL.revokeObjectURL(preview.dataset.blobUrl);
+    const url=URL.createObjectURL(file);
+    preview.src=url; preview.dataset.blobUrl=url; preview.style.display='block';
+  }
   const hint=document.getElementById('gScanHint');
   hint.style.color='var(--ink-2)'; hint.textContent='🔎 AI leest de kaart…';
   try{
@@ -1098,7 +1107,9 @@ async function nbAddIdFoto(input){
   for(let i=0;i<files.length;i++){
     const file=files[i];
     const idx=nbIdFotos.length;
-    nbIdFotos.push({file,naam:'',geboortedatum:'',nationaliteit:'',id_nummer:''});
+    // previewUrl: kleine voorbeeldweergave zodat meteen duidelijk is of de
+    // foto scherp/leesbaar getrokken is, ongeacht of de AI-herkenning lukt.
+    nbIdFotos.push({file,previewUrl:URL.createObjectURL(file),naam:'',geboortedatum:'',nationaliteit:'',id_nummer:''});
     renderNbIdFotoList();
     try{
       const b64=await _fileToB64(file);
@@ -1122,12 +1133,12 @@ function renderNbIdFotoList(){
   const el=document.getElementById('nbIdFotoList');if(!el)return;
   el.innerHTML=nbIdFotos.map((g,i)=>
     '<div class="card" style="padding:10px;margin-bottom:8px;display:flex;gap:8px;align-items:center;">'+
-    '<div class="thumb" style="flex-shrink:0;">🪪</div>'+
+    (g.previewUrl?'<img src="'+g.previewUrl+'" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer;" onclick="window.open(\''+g.previewUrl+'\',\'_blank\')">':'<div class="thumb" style="flex-shrink:0;">🪪</div>')+
     '<div style="flex:1;min-width:0;">'+
     '<input value="'+esc(g.naam)+'" placeholder="Naam" oninput="nbIdFotos['+i+'].naam=this.value" style="width:100%;padding:7px 9px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12.5px;margin-bottom:5px;">'+
     '<div style="font-size:10.5px;color:var(--ink-3);">'+(g.geboortedatum?fmt(g.geboortedatum)+' · ':'')+(g.nationaliteit||'AI leest…')+'</div>'+
     '</div>'+
-    '<button onclick="nbIdFotos.splice('+i+',1);renderNbIdFotoList();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>'+
+    '<button onclick="if(nbIdFotos['+i+'].previewUrl)URL.revokeObjectURL(nbIdFotos['+i+'].previewUrl);nbIdFotos.splice('+i+',1);renderNbIdFotoList();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>'+
     '</div>'
   ).join('');
 }
