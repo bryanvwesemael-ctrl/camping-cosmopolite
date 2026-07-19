@@ -890,44 +890,49 @@ function openModal(title,html){
 }
 function closeModal(){document.getElementById('modal').classList.remove('on');document.getElementById('modalBody').innerHTML='';}
 
-/* ---------- gegevens bewerken (in de fiche, geen apart scherm) ----------
-   Herprijst automatisch bij elke wijziging aan data/personen/verblijf —
-   zelfde gedrag als het oude systeem's bewerk-scherm (eBedrag werd daar ook
-   telkens overschreven met de herberekende prijs). Bedrag blijft zichtbaar
-   en bewerkbaar, maar wordt bij elke stap-wijziging opnieuw ingevuld. */
+/* ---------- gegevens bewerken — zelfde modal-stijl als "Nieuwe reservering" ----------
+   Punt 11: Bryan wil hetzelfde scherm als bij het aanmaken (steppers voor
+   tent/camper/eigen types/personen/honden/auto's/elektriciteit), niet de
+   vorige inline-bewerking in het tabblad zelf. ID-foto's blijven bewust
+   in het Gasten-tabblad (daar staan de al gekoppelde ID's met foto) —
+   dit scherm dupliceert dat niet. Herprijst automatisch bij elke
+   wijziging, net als voorheen. */
 let egState=null;
 async function editGegevens(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
   await loadPrices();
-  egState={tent:b.tenten||0,camper:b.campers||0,volw:b.volwassenen||0,kind:b.kinderen||0,baby:b.baby||0,honden:b.honden||0,autos:b.autos||1,elek:!!b.elektriciteit,custom:{},bedragOverride:null};
+  egState={tent:b.tenten||0,camper:b.campers||0,volw:b.volwassenen||0,kind:b.kinderen||0,baby:b.baby||0,honden:b.honden||0,autos:b.autos||1,elek:!!b.elektriciteit,custom:{}};
   accTypes.forEach(t=>{egState.custom[t.id]=0;});
   (b.extraTypeUnits||[]).forEach(u=>{if(egState.custom[u.id]!=null)egState.custom[u.id]=u.count||0;});
-  const el=document.getElementById('gegCard');
-  const f=(l,inner)=>'<div class="row" style="align-items:center;"><span class="rl">'+l+'</span><span style="flex:0 0 58%;">'+inner+'</span></div>';
-  const inp=(iid,val,type)=>'<input id="'+iid+'" '+(type?'type="'+type+'"':'')+' value="'+esc(val)+'" onchange="egPrice()" style="width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;font-family:var(--f);">';
-  const step=(lbl,key)=>'<div class="stpr"><span class="sl">'+lbl+'</span><div class="ct"><button type="button" onclick="egStep(\''+key+'\',-1)">−</button><span class="val" id="eg_'+key+'">'+egState[key]+'</span><button type="button" onclick="egStep(\''+key+'\',1)">+</button></div></div>';
-  const customStep=(t)=>'<div class="stpr"><span class="sl">'+esc(t.emoji||'🏕️')+' '+esc(t.naam)+'</span><div class="ct"><button type="button" onclick="egCustomStep(\''+t.id+'\',-1)">−</button><span class="val" id="eg_custom_'+t.id+'">'+(egState.custom[t.id]||0)+'</span><button type="button" onclick="egCustomStep(\''+t.id+'\',1)">+</button></div></div>';
-  el.innerHTML=
-    f('Naam',inp('eNaam',b.naam))+
-    f('E-mail',inp('eEmail',b.email,'email'))+
-    f('Telefoon',inp('eTel',b.telefoon,'tel'))+
-    f('Nummerplaat',inp('ePlaat',b.plaat))+
-    f('Aankomst',inp('eAan',b.aankomst,'date'))+
-    f('Vertrek',inp('eVer',b.vertrek,'date'))+
-    '<div class="sec-lbl" style="margin-top:8px;">Verblijf</div>'+
-    step('⛺ Tenten','tent')+step('🚐 Campers','camper')+accTypes.map(customStep).join('')+
-    '<div class="sec-lbl">Personen</div>'+
-    step('🧑 Volwassenen','volw')+step('🧒 Kinderen 3–11','kind')+step('👶 Baby\'s <3','baby')+
-    '<div class="sec-lbl">Extra</div>'+
-    step('🐕 Honden','honden')+step('🚗 Auto\'s','autos')+
-    '<div class="toggle-row"><span class="sl">⚡ Elektriciteit</span><input type="checkbox" id="eElek" '+(egState.elek?'checked':'')+' onchange="egState.elek=this.checked;egPrice()"></div>'+
-    f('Opmerking',inp('eNota',b.nota))+
-    '<div class="card" id="egBreakdown" style="margin:10px 0;"></div>'+
-    f('Bedrag (€) — automatisch herberekend',inp('eBedrag',b.bedrag,'number'));
-  const gp=document.getElementById('paneGegExtra');
-  if(gp)gp.innerHTML='<div style="display:flex;gap:8px;margin-top:10px;">'+
-    '<button class="modal-save" style="margin:0;flex:1;" onclick="saveGegevens(\''+id+'\')">✓ Opslaan</button>'+
-    '<button class="sbtn" style="flex:0 0 auto;" onclick="openReal(\''+id+'\')">Annuleren</button></div>';
+  const priceSub={
+    tent:'€'+PRICES.tent+'/nacht', camper:'€'+PRICES.camper+'/nacht',
+    volw:'€'+PRICES.volwassene+'/nacht + €'+PRICES.toeristentaks+' taks',
+    kind:'€'+PRICES.kind+'/nacht',
+    baby:PRICES.baby>0?('€'+PRICES.baby+'/nacht'):'gratis',
+    honden:'€'+PRICES.hond+'/hond/nacht',
+    autos:'1e gratis, +€'+PRICES.extraAuto+'/extra/nacht',
+  };
+  const step=(lbl,key)=>'<div class="stpr"><span class="sl">'+lbl+' <span style="opacity:.6;font-size:11px;font-weight:400;">'+(priceSub[key]||'')+'</span></span><div class="ct"><button type="button" onclick="egStep(\''+key+'\',-1)">−</button><span class="val" id="eg_'+key+'">'+egState[key]+'</span><button type="button" onclick="egStep(\''+key+'\',1)">+</button></div></div>';
+  const customStep=(t)=>'<div class="stpr"><span class="sl">'+esc(t.emoji||'🏕️')+' '+esc(t.naam)+' <span style="opacity:.6;font-size:11px;font-weight:400;">€'+(t.prijs||0)+'/nacht</span></span><div class="ct"><button type="button" onclick="egCustomStep(\''+t.id+'\',-1)">−</button><span class="val" id="eg_custom_'+t.id+'">'+(egState.custom[t.id]||0)+'</span><button type="button" onclick="egCustomStep(\''+t.id+'\',1)">+</button></div></div>';
+  openModal('Boeking bewerken',
+    '<div class="fld"><label>Naam *</label><input id="eNaam" value="'+esc(b.naam)+'"></div>'+
+    '<div class="fld2"><div class="fld"><label>E-mail</label><input id="eEmail" type="email" value="'+esc(b.email)+'"></div>'+
+    '<div class="fld"><label>Telefoon</label><input id="eTel" type="tel" value="'+esc(b.telefoon)+'"></div></div>'+
+    '<div class="fld"><label>Nummerplaat</label><input id="ePlaat" value="'+esc(b.plaat)+'"></div>'+
+    '<div class="fld2"><div class="fld"><label>Aankomst *</label><input id="eAan" type="date" value="'+esc(b.aankomst)+'" onchange="egPrice()"></div>'+
+    '<div class="fld"><label>Vertrek *</label><input id="eVer" type="date" value="'+esc(b.vertrek)+'" onchange="egPrice()"></div></div>'+
+    '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Verblijf</label>'+
+    '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('⛺ Tenten','tent')+step('🚐 Campers','camper')+accTypes.map(customStep).join('')+'</div>'+
+    '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Personen</label>'+
+    '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('🧑 Volwassenen','volw')+step('🧒 Kinderen 3–11','kind')+step('👶 Baby\'s <3','baby')+'</div>'+
+    '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Extra</label>'+
+    '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('🐕 Honden','honden')+step('🚗 Auto\'s','autos')+
+    '<div class="toggle-row"><span class="sl">⚡ Elektriciteit <span style="opacity:.6;font-size:11px;font-weight:400;">+€'+PRICES.elektriciteit+'/nacht</span></span><input type="checkbox" id="eElek" '+(egState.elek?'checked':'')+' onchange="egState.elek=this.checked;egPrice()"></div></div>'+
+    '<div class="fld"><label>Opmerking</label><input id="eNota" value="'+esc(b.nota)+'"></div>'+
+    '<div class="card" id="egBreakdown" style="margin:6px 0 4px;"></div>'+
+    '<div class="fld"><label>Bedrag (€) — automatisch herberekend</label><input id="eBedrag" type="number" value="'+esc(b.bedrag)+'"></div>'+
+    '<div id="egMsg" class="note-inline" style="min-height:14px;"></div>'+
+    '<button class="modal-save" id="egSaveBtn" onclick="saveGegevens(\''+id+'\')">✓ Opslaan</button>');
   egPrice();
 }
 function egStep(key,delta){
@@ -953,8 +958,12 @@ function egPrice(){
 async function saveGegevens(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
   const g=x=>document.getElementById(x);
+  const msg=document.getElementById('egMsg');
+  const btn=document.getElementById('egSaveBtn');
   const aan=g('eAan').value, ver=g('eVer').value;
-  if(aan&&ver&&aan>=ver){toast('⚠️ Vertrek moet na aankomst zijn');return;}
+  if(!(g('eNaam').value||'').trim()){msg.style.color='var(--red)';msg.textContent='Naam is verplicht';return;}
+  if(aan&&ver&&aan>=ver){msg.style.color='var(--red)';msg.textContent='Vertrek moet na aankomst zijn';return;}
+  if(btn){btn.disabled=true;btn.textContent='Opslaan…';}
   try{
     const parts=[];
     if(egState.tent>0)parts.push(egState.tent+'× Tent');
@@ -976,8 +985,11 @@ async function saveGegevens(id){
       bedrag_totaal:parseFloat(g('eBedrag').value)||0, nota:(g('eNota').value||'').trim()||null,
     }).eq('id',id)).error;
     if(cErr||bErr)throw new Error((cErr||bErr).message);
-    toast('✅ Opgeslagen'); await loadData();
-  }catch(e){toast('⚠️ '+e.message);}
+    closeModal(); toast('✅ Opgeslagen'); await loadData();
+  }catch(e){
+    msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;
+    if(btn){btn.disabled=false;btn.textContent='✓ Opslaan';}
+  }
 }
 async function clientIdOf(bookingId){
   const {data}=await sb.from('bookings').select('client_id').eq('id',bookingId).single();
