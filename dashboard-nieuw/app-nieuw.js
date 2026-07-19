@@ -1319,13 +1319,13 @@ async function renderBeheerTarieven(){
 
     secLbl('🏛️ Belastingen &amp; bijdragen')+
     '<div class="card" style="overflow:hidden;margin-bottom:18px;">'+
-    iconRow('bAfval',PRICES.afvalPer6,'♻️','Afvalbijdrage','per schijf van 6 personen',true)+
+    iconRow('bAfval',PRICES.afvalPer6,'♻️','Afvalbijdrage','stapgrootte — getrapt: 0-6p, 7-10p, 11-15p, 16-20p, +5p…',true)+
     iconRow('bTaks',PRICES.toeristentaks,'🏛️','Toeristentaks','per volwassene per nacht — BTW-vrij',true)+
     '</div>'+
 
     secLbl('🔢 Capaciteit')+
     '<div class="card" style="padding:14px;margin-bottom:18px;">'+
-    '<div class="fld" style="margin-bottom:0;"><label>Max. plaatsen (0 = geen limiet)</label><input id="bMax" type="number" min="0" value="'+maxP+'"></div>'+
+    '<div class="fld" style="margin-bottom:0;"><label>Max. boekingen per dag (0 = geen limiet) — elke boeking telt als 1, ongeacht aantal personen</label><input id="bMax" type="number" min="0" value="'+maxP+'"></div>'+
     '</div>'+
 
     secLbl('📦 Vrije kostenposten')+

@@ -14,7 +14,10 @@
  *  - Toeristentaks is BTW-vrij en komt apart bovenop (€1 / volwassene / nacht).
  *  - Volwassene = persoonsprijs (€7) + toeristentaks (€1) = €8 effectief/nacht.
  *  - Elektriciteit en afval worden PER NACHT aangerekend.
- *  - Afval: t/m 6 personen €2/nacht, daarna +€2/nacht per begonnen schijf van 2.
+ *  - Afval: getrapt per aantal personen — 0-6p €2, 7-10p €4, 11-15p €6,
+ *    16-20p €8, en zo verder +€2 per volgende schijf van 5 (afvalPer6 is de
+ *    stapgrootte, niet enkel een prijs "per 6" — de naam bleef om de
+ *    bestaande instellingen-sleutel niet te breken).
  *  - 1e auto gratis, elke volgende auto €2/nacht.
  *  - Baby's zijn gratis (tenzij prijs_baby > 0).
  *  - All-in eenheden (bv. backpacker): typeprijs dekt personen + afval.
@@ -42,6 +45,17 @@
 
   function round2(n) {
     return Math.round((Number(n) || 0) * 100) / 100;
+  }
+
+  // Aantal afvalschijven voor een gegeven personenaantal: 0-6p → 1, 7-10p → 2,
+  // 11-15p → 3, 16-20p → 4, daarna +1 per volgende schijf van 5.
+  function afvalSchijven(personen) {
+    var p = Math.max(personen, 1);
+    if (p <= 6) return 1;
+    if (p <= 10) return 2;
+    if (p <= 15) return 3;
+    if (p <= 20) return 4;
+    return 4 + Math.ceil((p - 20) / 5);
   }
 
   function nightsBetween(aankomst, vertrek) {
@@ -96,10 +110,8 @@
     var honden = Math.max(parseInt(input.honden, 10) || 0, 0);
     var extraAutos = Math.max((parseInt(input.autos, 10) || 1) - 1, 0);
 
-    // Afval per nacht, per schijf van 6 personen
-    var _p6 = Math.max(personen, 1);
-    var afvalDag = allInMode ? 0
-      : (_p6 <= 6 ? P.afvalPer6 : P.afvalPer6 * (1 + Math.ceil((_p6 - 6) / 2)));
+    // Afval per nacht — getrapt per aantal personen (zie regels bovenaan dit bestand)
+    var afvalDag = allInMode ? 0 : P.afvalPer6 * afvalSchijven(personen);
     var afval = afvalDag * nights;
 
     // Elektriciteit per nacht

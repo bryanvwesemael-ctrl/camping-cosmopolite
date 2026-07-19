@@ -65,16 +65,18 @@ test('elektriciteit wordt PER NACHT aangerekend (niet eenmalig)', () => {
   assert.equal(r3.elek, 18); // 6 × 3 nachten — bewijst per-nacht, niet eenmalig
 });
 
-test('afval per schijf van 6 personen', () => {
-  // 6 personen → €2/nacht
-  const r6 = P.calc(base({ volwassenen: 6, autos: 1, nights: 1 }));
-  assert.equal(r6.afvalDag, 2);
-  // 7 personen → 2 × (1 + ceil(1/2)) = 2 × 2 = 4
-  const r7 = P.calc(base({ volwassenen: 7, autos: 1, nights: 1 }));
-  assert.equal(r7.afvalDag, 4);
-  // 9 personen → 2 × (1 + ceil(3/2)) = 2 × 3 = 6
-  const r9 = P.calc(base({ volwassenen: 9, autos: 1, nights: 1 }));
-  assert.equal(r9.afvalDag, 6);
+test('afval getrapt per personenaantal (0-6/7-10/11-15/16-20/+5)', () => {
+  const afvalVoor = (n) => P.calc(base({ volwassenen: n, autos: 1, nights: 1 })).afvalDag;
+  assert.equal(afvalVoor(6), 2);   // 0-6 → €2
+  assert.equal(afvalVoor(7), 4);   // 7-10 → €4
+  assert.equal(afvalVoor(10), 4);
+  assert.equal(afvalVoor(11), 6);  // 11-15 → €6
+  assert.equal(afvalVoor(15), 6);
+  assert.equal(afvalVoor(16), 8);  // 16-20 → €8
+  assert.equal(afvalVoor(20), 8);
+  assert.equal(afvalVoor(21), 10); // 21-25 → €10 (en zo verder, +€2 per schijf van 5)
+  assert.equal(afvalVoor(25), 10);
+  assert.equal(afvalVoor(26), 12);
 });
 
 test('volwassene = persoonsprijs €7 + toeristentaks €1 (= €8 effectief)', () => {
