@@ -954,11 +954,49 @@ async function loadPrices(){
     try{extraTarieven=JSON.parse(pm.extra_tarieven||'[]')||[];}catch(e){extraTarieven=[];}
   }catch(e){}
 }
+/* ---------- lokaal concept ("+" nieuwe reservering zonder wifi) ----------
+   Punt 8: een boeking aanmaken mag niet verloren gaan als de wifi/data op
+   de camping wegvalt tijdens het invullen of versturen. Elke wijziging aan
+   het formulier wordt lokaal (localStorage) bewaard; bij het heropenen van
+   "Nieuwe reservering" wordt een niet-verstuurd concept aangeboden om te
+   herstellen. ID-foto's (bestanden) kunnen niet in localStorage bewaard
+   worden — die moeten na een herstel opnieuw toegevoegd worden. */
+const NB_DRAFT_KEY='cc_nb_draft_v1';
+function nbSaveDraft(){
+  try{
+    localStorage.setItem(NB_DRAFT_KEY,JSON.stringify({
+      naam:document.getElementById('nbNaam')?.value||'',
+      email:document.getElementById('nbEmail')?.value||'',
+      plaat:document.getElementById('nbPlaat')?.value||'',
+      aan:document.getElementById('nbAan')?.value||'',
+      ver:document.getElementById('nbVer')?.value||'',
+      bron:document.getElementById('nbBron')?.value||'telefoon',
+      state:nbState,
+      savedAt:new Date().toISOString(),
+    }));
+  }catch(e){/* localStorage kan uitzonderlijk falen (privé-modus/vol) — concept-opslag is een extra, geen vereiste */}
+}
+function nbClearDraft(){ try{localStorage.removeItem(NB_DRAFT_KEY);}catch(e){} }
+function nbLoadDraft(){ try{const raw=localStorage.getItem(NB_DRAFT_KEY); return raw?JSON.parse(raw):null;}catch(e){return null;} }
+function nbDraftHasContent(d){
+  if(!d)return false;
+  if((d.naam||'').trim())return true;
+  const s=d.state||{};
+  if((s.tent||0)>0||(s.camper||0)!==1||(s.volw||0)!==2||(s.kind||0)>0||(s.baby||0)>0||(s.honden||0)>0)return true;
+  if(s.custom&&Object.values(s.custom).some(c=>c>0))return true;
+  return false;
+}
 async function openNewBooking(){
   await loadPrices();
-  nbState={volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false,custom:{}};
+  const savedDraft=nbLoadDraft();
+  let draft=null;
+  if(nbDraftHasContent(savedDraft)){
+    const wilHerstellen=confirm('Er staat een niet-verstuurd concept klaar (bv. van een moment zonder wifi), opgeslagen op '+new Date(savedDraft.savedAt).toLocaleString('nl-BE')+'.\n\nWil je dit herstellen?');
+    if(wilHerstellen)draft=savedDraft; else nbClearDraft();
+  }
+  nbState=draft?Object.assign({volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false,custom:{}},draft.state):{volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false,custom:{}};
   nbIdFotos=[];
-  accTypes.forEach(t=>{nbState.custom[t.id]=0;});
+  accTypes.forEach(t=>{if(nbState.custom[t.id]==null)nbState.custom[t.id]=0;});
   const today=TODAY;
   // Prijs meteen zichtbaar naast elk veld — zelfde formaat als het oude
   // "Nieuwe boeking"-formulier, zodat je bij het aanmaken al ziet wat elk
@@ -972,21 +1010,24 @@ async function openNewBooking(){
     autos:'1e gratis, +€'+PRICES.extraAuto+'/extra/nacht',
   };
   const step=(lbl,key)=>'<div class="stpr"><span class="sl">'+lbl+' <span style="opacity:.6;font-size:11px;font-weight:400;">'+(priceSub[key]||'')+'</span></span><div class="ct"><button onclick="nbStep(\''+key+'\',-1)">−</button><span class="val" id="nb_'+key+'">'+nbState[key]+'</span><button onclick="nbStep(\''+key+'\',1)">+</button></div></div>';
-  const customStep=(t)=>'<div class="stpr"><span class="sl">'+esc(t.emoji||'🏕️')+' '+esc(t.naam)+' <span style="opacity:.6;font-size:11px;font-weight:400;">€'+(t.prijs||0)+'/nacht</span></span><div class="ct"><button onclick="nbCustomStep(\''+t.id+'\',-1)">−</button><span class="val" id="nb_custom_'+t.id+'">0</span><button onclick="nbCustomStep(\''+t.id+'\',1)">+</button></div></div>';
+  const customStep=(t)=>'<div class="stpr"><span class="sl">'+esc(t.emoji||'🏕️')+' '+esc(t.naam)+' <span style="opacity:.6;font-size:11px;font-weight:400;">€'+(t.prijs||0)+'/nacht</span></span><div class="ct"><button onclick="nbCustomStep(\''+t.id+'\',-1)">−</button><span class="val" id="nb_custom_'+t.id+'">'+(nbState.custom[t.id]||0)+'</span><button onclick="nbCustomStep(\''+t.id+'\',1)">+</button></div></div>';
   openModal('Nieuwe reservering',
-    '<div class="fld"><label>Naam *</label><input id="nbNaam" placeholder="Volledige naam" oninput="nbPrice()"></div>'+
-    '<div class="fld2"><div class="fld"><label>E-mail</label><input id="nbEmail" type="email" placeholder="gast@email.com"></div>'+
-    '<div class="fld"><label>Nummerplaat</label><input id="nbPlaat" placeholder="1-ABC-123"></div></div>'+
-    '<div class="fld2"><div class="fld"><label>Aankomst *</label><input id="nbAan" type="date" value="'+today+'" onchange="nbPrice()"></div>'+
-    '<div class="fld"><label>Vertrek *</label><input id="nbVer" type="date" onchange="nbPrice()"></div></div>'+
+    (draft?'<div class="note-inline" style="color:var(--amber);padding:0 0 8px;">📝 Concept hersteld van '+new Date(draft.savedAt).toLocaleString('nl-BE')+' — ID-foto\'s moeten opnieuw toegevoegd worden.</div>':'')+
+    '<div class="fld"><label>Naam *</label><input id="nbNaam" placeholder="Volledige naam" value="'+esc(draft?draft.naam:'')+'" oninput="nbPrice();nbSaveDraft();"></div>'+
+    '<div class="fld2"><div class="fld"><label>E-mail</label><input id="nbEmail" type="email" placeholder="gast@email.com" value="'+esc(draft?draft.email:'')+'" oninput="nbSaveDraft()"></div>'+
+    '<div class="fld"><label>Nummerplaat</label><input id="nbPlaat" placeholder="1-ABC-123" value="'+esc(draft?draft.plaat:'')+'" oninput="nbSaveDraft()"></div></div>'+
+    '<div class="fld2"><div class="fld"><label>Aankomst *</label><input id="nbAan" type="date" value="'+(draft&&draft.aan?draft.aan:today)+'" onchange="nbPrice();nbSaveDraft();"></div>'+
+    '<div class="fld"><label>Vertrek *</label><input id="nbVer" type="date" value="'+(draft?draft.ver:'')+'" onchange="nbPrice();nbSaveDraft();"></div></div>'+
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Verblijf</label>'+
     '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('⛺ Tenten','tent')+step('🚐 Campers','camper')+accTypes.map(customStep).join('')+'</div>'+
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Personen</label>'+
     '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('🧑 Volwassenen','volw')+step('🧒 Kinderen 3–11','kind')+step('👶 Baby'+"'"+'s <3','baby')+'</div>'+
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Extra</label>'+
     '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('🐕 Honden','honden')+step('🚗 Auto'+"'"+'s','autos')+
-    '<div class="toggle-row"><span class="sl">⚡ Elektriciteit <span style="opacity:.6;font-size:11px;font-weight:400;">+€'+PRICES.elektriciteit+'/nacht</span></span><input type="checkbox" id="nbElek" onchange="nbState.elek=this.checked;nbPrice()"></div></div>'+
-    '<div class="fld"><label>Via kanaal</label><select id="nbBron"><option value="telefoon">☎️ Telefoon</option><option value="mail">📧 E-mail</option><option value="website">🌐 Website</option></select></div>'+
+    '<div class="toggle-row"><span class="sl">⚡ Elektriciteit <span style="opacity:.6;font-size:11px;font-weight:400;">+€'+PRICES.elektriciteit+'/nacht</span></span><input type="checkbox" id="nbElek" '+(nbState.elek?'checked':'')+' onchange="nbState.elek=this.checked;nbPrice();nbSaveDraft();"></div></div>'+
+    '<div class="fld"><label>Via kanaal</label><select id="nbBron" onchange="nbSaveDraft()">'+
+    ['telefoon','mail','website'].map(k=>'<option value="'+k+'" '+((draft?draft.bron:'telefoon')===k?'selected':'')+'>'+({telefoon:'☎️ Telefoon',mail:'📧 E-mail',website:'🌐 Website'}[k])+'</option>').join('')+
+    '</select></div>'+
     '<div class="card" id="nbBreakdown" style="margin:6px 0 4px;"></div>'+
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin-top:8px;display:block;">ID-kaarten (optioneel)</label>'+
     '<div style="display:flex;gap:8px;margin:8px 0;">'+
@@ -997,18 +1038,19 @@ async function openNewBooking(){
     '<input type="file" id="nbFileInput" accept="image/*" multiple style="display:none;" onchange="nbAddIdFoto(this)">'+
     '<div id="nbIdFotoList"></div>'+
     '<div id="nbMsg" class="note-inline" style="min-height:14px;"></div>'+
-    '<button class="modal-save" id="nbSaveBtn" onclick="saveNewBooking()">Reservering opslaan → Postvak</button>');
+    '<button class="modal-save" id="nbSaveBtn" onclick="saveNewBooking()">Reservering opslaan → Postvak</button>'+
+    '<div class="note-inline" style="margin-top:6px;">📝 Wordt automatisch lokaal bewaard als concept — ook zonder wifi ga je niets kwijt.</div>');
   nbPrice();
 }
 function nbStep(key,delta){
   nbState[key]=Math.max(key==='autos'?1:0,(nbState[key]||0)+delta);
   const el=document.getElementById('nb_'+key); if(el)el.textContent=nbState[key];
-  nbPrice();
+  nbPrice(); nbSaveDraft();
 }
 function nbCustomStep(id,delta){
   nbState.custom[id]=Math.max(0,(nbState.custom[id]||0)+delta);
   const el=document.getElementById('nb_custom_'+id); if(el)el.textContent=nbState.custom[id];
-  nbPrice();
+  nbPrice(); nbSaveDraft();
 }
 function nbCalc(){
   const aan=document.getElementById('nbAan').value, ver=document.getElementById('nbVer').value;
@@ -1135,9 +1177,19 @@ async function saveNewBooking(){
         if(!upErr)await sb.from('gasten').update({foto_url:path}).eq('id',gast.id);
       }catch(e){/* één mislukte foto mag de rest niet blokkeren */}
     }
+    nbClearDraft();
     closeModal(); toast('✅ Reservering aangemaakt → Postvak'+(nbIdFotos.length?' · '+nbIdFotos.length+' ID(\'s) gekoppeld':''));
     await loadData(); setFolder('postvak');
-  }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;btn.disabled=false;btn.textContent='Reservering opslaan → Postvak';}
+  }catch(e){
+    // Geen wifi/data op de camping is een reëel scenario — het concept blijft
+    // hoe dan ook al bewaard (elke wijziging wordt live opgeslagen), maar
+    // geef hier wel een duidelijker signaal dan de generieke foutmelding.
+    const offline=(typeof navigator!=='undefined'&&navigator.onLine===false)||/failed to fetch|network/i.test(e.message||'');
+    nbSaveDraft();
+    if(offline){msg.style.color='var(--amber)';msg.textContent='📵 Geen internetverbinding — je concept is lokaal bewaard. Probeer opnieuw zodra je weer wifi/data hebt.';}
+    else{msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
+    btn.disabled=false;btn.textContent='Reservering opslaan → Postvak';
+  }
 }
 
 /* ============================================================================
