@@ -1100,7 +1100,7 @@ async function openNewBooking(){
     '<input type="file" id="nbFileInput" accept="image/*" multiple style="display:none;" onchange="nbAddIdFoto(this)">'+
     '<div id="nbIdFotoList"></div>'+
     '<div id="nbMsg" class="note-inline" style="min-height:14px;"></div>'+
-    '<button class="modal-save" id="nbSaveBtn" onclick="saveNewBooking()">Reservering opslaan → Postvak</button>'+
+    '<button class="modal-save" id="nbSaveBtn" onclick="saveNewBooking()">Reservering opslaan → Booking</button>'+
     '<div class="note-inline" style="margin-top:6px;">📝 Wordt automatisch lokaal bewaard als concept — ook zonder wifi ga je niets kwijt.</div>');
   nbPrice();
 }
@@ -1222,7 +1222,7 @@ async function saveNewBooking(){
       extra_type_units:extraTypeUnits.length?JSON.stringify(extraTypeUnits):null,
       volwassenen:nbState.volw, kinderen:nbState.kind, baby:nbState.baby,
       honden:nbState.honden, autos:nbState.autos, elektriciteit:nbState.elek,
-      bron:document.getElementById('nbBron').value, bedrag_totaal:Number(r.totaal||0), status:'aanvraag',
+      bron:document.getElementById('nbBron').value, bedrag_totaal:Number(r.totaal||0), status:'bevestigd',
     }).select('id').single();
     if(bErr)throw new Error(bErr.message);
     // ID-foto's die tijdens het aanmaken werden toegevoegd, meteen koppelen.
@@ -1242,8 +1242,8 @@ async function saveNewBooking(){
       }catch(e){/* één mislukte foto mag de rest niet blokkeren */}
     }
     nbClearDraft();
-    closeModal(); toast('✅ Reservering aangemaakt → Postvak'+(nbIdFotos.length?' · '+nbIdFotos.length+' ID(\'s) gekoppeld':''));
-    await loadData(); setFolder('postvak');
+    closeModal(); toast('✅ Reservering aangemaakt → Booking'+(nbIdFotos.length?' · '+nbIdFotos.length+' ID(\'s) gekoppeld':''));
+    await loadData(); setFolder('booking');
   }catch(e){
     // Geen wifi/data op de camping is een reëel scenario — het concept blijft
     // hoe dan ook al bewaard (elke wijziging wordt live opgeslagen), maar
@@ -1252,7 +1252,7 @@ async function saveNewBooking(){
     nbSaveDraft();
     if(offline){msg.style.color='var(--amber)';msg.textContent='📵 Geen internetverbinding — je concept is lokaal bewaard. Probeer opnieuw zodra je weer wifi/data hebt.';}
     else{msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
-    btn.disabled=false;btn.textContent='Reservering opslaan → Postvak';
+    btn.disabled=false;btn.textContent='Reservering opslaan → Booking';
   }
 }
 
