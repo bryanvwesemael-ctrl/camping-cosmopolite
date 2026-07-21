@@ -244,6 +244,7 @@ function renderDagbord(){
        '<div class="at"><div class="a1">'+postvak.length+' aanvra'+(postvak.length===1?'ag':'gen')+' in Postvak</div>'+
        '<div class="a2">Nog te controleren en te bevestigen</div></div><div class="ar">›</div></div>';
   }
+  h+='<div id="draftsAlertBox"></div>';
   h+='<div class="sec-lbl" id="dbAankomstSec">🟢 Aankomst vandaag</div>';
   h+=aankomst.length?'<div class="card taskcard">'+aankomst.map(b=>rowHtml(b,esc(verblijf(b))+' · '+b.personen+' pers.','<span class="pill p-arr">AANKOMST</span>')).join('')+'</div>':emptyCard('Geen aankomsten vandaag');
   h+='<div class="sec-lbl" id="dbVertrekSec">🔴 Vertrek vandaag</div>';
@@ -252,6 +253,7 @@ function renderDagbord(){
   h+=openList.length?'<div class="card taskcard">'+openList.slice(0,8).map(b=>rowHtml(b,'Nog '+money(openOf(b))+' open','<span class="pill p-pay">OPEN</span>')).join('')+'</div>':emptyCard('Alles betaald 🎉');
   h+='<div style="height:6px;"></div>';
   document.getElementById('scr-dagbord').innerHTML=h;
+  updateDraftsUI();
 }
 
 /* ---------- render: mappen ---------- */
@@ -1030,48 +1032,128 @@ async function loadPrices(){
     try{extraTarieven=JSON.parse(pm.extra_tarieven||'[]')||[];}catch(e){extraTarieven=[];}
   }catch(e){}
 }
-/* ---------- lokaal concept ("+" nieuwe reservering zonder wifi) ----------
-   Punt 8: een boeking aanmaken mag niet verloren gaan als de wifi/data op
-   de camping wegvalt tijdens het invullen of versturen. Elke wijziging aan
-   het formulier wordt lokaal (localStorage) bewaard; bij het heropenen van
-   "Nieuwe reservering" wordt een niet-verstuurd concept aangeboden om te
-   herstellen. ID-foto's (bestanden) kunnen niet in localStorage bewaard
-   worden — die moeten na een herstel opnieuw toegevoegd worden. */
-const NB_DRAFT_KEY='cc_nb_draft_v1';
-function nbSaveDraft(){
-  try{
-    localStorage.setItem(NB_DRAFT_KEY,JSON.stringify({
-      naam:document.getElementById('nbNaam')?.value||'',
-      email:document.getElementById('nbEmail')?.value||'',
-      plaat:document.getElementById('nbPlaat')?.value||'',
-      aan:document.getElementById('nbAan')?.value||'',
-      ver:document.getElementById('nbVer')?.value||'',
-      bron:document.getElementById('nbBron')?.value||'telefoon',
-      state:nbState,
-      savedAt:new Date().toISOString(),
-    }));
-  }catch(e){/* localStorage kan uitzonderlijk falen (privé-modus/vol) — concept-opslag is een extra, geen vereiste */}
+/* ---------- concepten ("+" nieuwe reservering zonder wifi) ----------
+   Punt 8+vervolg: een boeking aanmaken mag niet verloren gaan als de wifi/
+   data wegvalt. Meerdere concepten tegelijk (bv. 3-4 gasten die je zonder
+   wifi inschrijft) worden bewaard in IndexedDB — inclusief de ID-foto's
+   zelf (Files), in tegenstelling tot de vorige localStorage-versie die
+   enkel tekstvelden en maar 1 concept tegelijk aankon. Elk concept krijgt
+   een eigen id; "Nieuwe reservering" start altijd vers, tenzij je een
+   concept uit de lijst (📝-melding/badge) expliciet opent om verder te
+   werken. */
+const DRAFTS_DB='cc_drafts_db', DRAFTS_STORE='drafts';
+function idbOpen(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DRAFTS_DB,1);
+    req.onupgradeneeded=()=>{ req.result.createObjectStore(DRAFTS_STORE,{keyPath:'id'}); };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
 }
-function nbClearDraft(){ try{localStorage.removeItem(NB_DRAFT_KEY);}catch(e){} }
-function nbLoadDraft(){ try{const raw=localStorage.getItem(NB_DRAFT_KEY); return raw?JSON.parse(raw):null;}catch(e){return null;} }
-function nbDraftHasContent(d){
-  if(!d)return false;
-  if((d.naam||'').trim())return true;
-  const s=d.state||{};
+async function idbPutDraft(record){
+  try{
+    const db=await idbOpen();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(DRAFTS_STORE,'readwrite');
+      tx.objectStore(DRAFTS_STORE).put(record);
+      tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error);
+    });
+  }catch(e){/* IndexedDB kan uitzonderlijk falen (privé-modus) — concept-opslag is een extra, geen vereiste */}
+}
+async function idbDeleteDraft(id){
+  try{
+    const db=await idbOpen();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(DRAFTS_STORE,'readwrite');
+      tx.objectStore(DRAFTS_STORE).delete(id);
+      tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error);
+    });
+  }catch(e){}
+}
+async function idbGetDraft(id){
+  try{
+    const db=await idbOpen();
+    return await new Promise((resolve,reject)=>{
+      const req=db.transaction(DRAFTS_STORE,'readonly').objectStore(DRAFTS_STORE).get(id);
+      req.onsuccess=()=>resolve(req.result||null); req.onerror=()=>reject(req.error);
+    });
+  }catch(e){return null;}
+}
+async function idbGetAllDrafts(){
+  try{
+    const db=await idbOpen();
+    return await new Promise((resolve,reject)=>{
+      const req=db.transaction(DRAFTS_STORE,'readonly').objectStore(DRAFTS_STORE).getAll();
+      req.onsuccess=()=>resolve(req.result||[]); req.onerror=()=>reject(req.error);
+    });
+  }catch(e){return [];}
+}
+let currentDraftId=null;
+function nbDraftHasContent(){
+  if((document.getElementById('nbNaam')?.value||'').trim())return true;
+  const s=nbState||{};
   if((s.tent||0)>0||(s.camper||0)!==1||(s.volw||0)!==2||(s.kind||0)>0||(s.baby||0)>0||(s.honden||0)>0)return true;
   if(s.custom&&Object.values(s.custom).some(c=>c>0))return true;
+  if(nbIdFotos.length>0)return true;
   return false;
 }
-async function openNewBooking(){
+async function nbSaveDraft(){
+  if(!nbDraftHasContent())return;
+  if(!currentDraftId)currentDraftId='draft_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+  await idbPutDraft({
+    id:currentDraftId,
+    naam:document.getElementById('nbNaam')?.value||'',
+    email:document.getElementById('nbEmail')?.value||'',
+    plaat:document.getElementById('nbPlaat')?.value||'',
+    aan:document.getElementById('nbAan')?.value||'',
+    ver:document.getElementById('nbVer')?.value||'',
+    bron:document.getElementById('nbBron')?.value||'telefoon',
+    state:JSON.parse(JSON.stringify(nbState)),
+    idFotos:nbIdFotos.map(g=>({file:g.file,naam:g.naam,geboortedatum:g.geboortedatum,nationaliteit:g.nationaliteit,id_nummer:g.id_nummer})),
+    savedAt:new Date().toISOString(),
+  });
+  updateDraftsUI();
+}
+async function updateDraftsUI(){
+  const drafts=await idbGetAllDrafts();
+  const n=drafts.length;
+  const box=document.getElementById('draftsAlertBox');
+  if(box)box.innerHTML=n?('<div class="alert" onclick="openDraftsList()"><div class="ai">📝</div><div class="at"><div class="a1">'+n+' concept'+(n===1?'':'en')+' nog niet verstuurd</div><div class="a2">Klaar om af te werken</div></div><div class="ar">›</div></div>'):'';
+  ['plusBadge','plusBadgeRail'].forEach(bid=>{
+    const b=document.getElementById(bid); if(!b)return;
+    if(n){b.textContent=n;b.style.display='flex';} else {b.style.display='none';}
+  });
+}
+async function openDraftsList(){
+  const drafts=(await idbGetAllDrafts()).sort((a,b)=>new Date(b.savedAt)-new Date(a.savedAt));
+  if(!drafts.length){toast('Geen openstaande concepten');return;}
+  const rows=drafts.map(d=>{
+    const naam=(d.naam||'').trim()?esc(d.naam):'Naamloos concept';
+    const nFotos=(d.idFotos||[]).length;
+    const when=new Date(d.savedAt).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    return '<div class="card" style="padding:10px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">'+
+      '<div style="flex:1;min-width:0;">'+
+      '<div style="font-weight:700;font-size:13.5px;">'+naam+'</div>'+
+      '<div style="font-size:11px;color:var(--ink-3);">'+when+(nFotos?' · '+nFotos+' ID-foto'+(nFotos===1?'':'\'s'):'')+'</div>'+
+      '</div>'+
+      '<button class="sbtn" style="flex:0 0 auto;" onclick="closeModal();openNewBooking(\''+d.id+'\')">Verderwerken</button>'+
+      '<button onclick="deleteDraftPrompt(\''+d.id+'\')" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>'+
+      '</div>';
+  }).join('');
+  openModal('📝 Concepten ('+drafts.length+')',rows);
+}
+async function deleteDraftPrompt(id){
+  if(!confirm('Dit concept verwijderen? Dit kan niet ongedaan gemaakt worden.'))return;
+  await idbDeleteDraft(id);
+  await updateDraftsUI();
+  openDraftsList();
+}
+async function openNewBooking(resumeId){
   await loadPrices();
-  const savedDraft=nbLoadDraft();
-  let draft=null;
-  if(nbDraftHasContent(savedDraft)){
-    const wilHerstellen=confirm('Er staat een niet-verstuurd concept klaar (bv. van een moment zonder wifi), opgeslagen op '+new Date(savedDraft.savedAt).toLocaleString('nl-BE')+'.\n\nWil je dit herstellen?');
-    if(wilHerstellen)draft=savedDraft; else nbClearDraft();
-  }
+  const draft=resumeId?await idbGetDraft(resumeId):null;
+  currentDraftId=resumeId||('draft_'+Date.now()+'_'+Math.random().toString(36).slice(2,8));
   nbState=draft?Object.assign({volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false,custom:{}},draft.state):{volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false,custom:{}};
-  nbIdFotos=[];
+  nbIdFotos=(draft&&draft.idFotos)?draft.idFotos.map(g=>({file:g.file,previewUrl:g.file?URL.createObjectURL(g.file):'',naam:g.naam||'',geboortedatum:g.geboortedatum||'',nationaliteit:g.nationaliteit||'',id_nummer:g.id_nummer||''})):[];
   accTypes.forEach(t=>{if(nbState.custom[t.id]==null)nbState.custom[t.id]=0;});
   const today=TODAY;
   // Prijs meteen zichtbaar naast elk veld — zelfde formaat als het oude
@@ -1088,7 +1170,7 @@ async function openNewBooking(){
   const step=(lbl,key)=>'<div class="stpr"><span class="sl">'+lbl+' <span style="opacity:.6;font-size:11px;font-weight:400;">'+(priceSub[key]||'')+'</span></span><div class="ct"><button onclick="nbStep(\''+key+'\',-1)">−</button><span class="val" id="nb_'+key+'">'+nbState[key]+'</span><button onclick="nbStep(\''+key+'\',1)">+</button></div></div>';
   const customStep=(t)=>'<div class="stpr"><span class="sl">'+esc(t.emoji||'🏕️')+' '+esc(t.naam)+' <span style="opacity:.6;font-size:11px;font-weight:400;">€'+(t.prijs||0)+'/nacht</span></span><div class="ct"><button onclick="nbCustomStep(\''+t.id+'\',-1)">−</button><span class="val" id="nb_custom_'+t.id+'">'+(nbState.custom[t.id]||0)+'</span><button onclick="nbCustomStep(\''+t.id+'\',1)">+</button></div></div>';
   openModal('Nieuwe reservering',
-    (draft?'<div class="note-inline" style="color:var(--amber);padding:0 0 8px;">📝 Concept hersteld van '+new Date(draft.savedAt).toLocaleString('nl-BE')+' — ID-foto\'s moeten opnieuw toegevoegd worden.</div>':'')+
+    (draft?'<div class="note-inline" style="color:var(--amber);padding:0 0 8px;">📝 Concept hersteld van '+new Date(draft.savedAt).toLocaleString('nl-BE')+(nbIdFotos.length?' — inclusief '+nbIdFotos.length+' ID-foto'+(nbIdFotos.length===1?'':'\'s'):'')+'.</div>':'')+
     '<div class="fld"><label>Naam *</label><input id="nbNaam" placeholder="Volledige naam" value="'+esc(draft?draft.naam:'')+'" oninput="nbPrice();nbSaveDraft();"></div>'+
     '<div class="fld2"><div class="fld"><label>E-mail</label><input id="nbEmail" type="email" placeholder="gast@email.com" value="'+esc(draft?draft.email:'')+'" oninput="nbSaveDraft()"></div>'+
     '<div class="fld"><label>Nummerplaat</label><input id="nbPlaat" placeholder="1-ABC-123" value="'+esc(draft?draft.plaat:'')+'" oninput="nbSaveDraft()"></div></div>'+
@@ -1116,7 +1198,7 @@ async function openNewBooking(){
     '<div id="nbMsg" class="note-inline" style="min-height:14px;"></div>'+
     '<button class="modal-save" id="nbSaveBtn" onclick="saveNewBooking()">Reservering opslaan → Booking</button>'+
     '<div class="note-inline" style="margin-top:6px;">📝 Wordt automatisch lokaal bewaard als concept — ook zonder wifi ga je niets kwijt.</div>');
-  nbPrice();
+  nbPrice(); renderNbIdFotoList();
 }
 function nbStep(key,delta){
   nbState[key]=Math.max(key==='autos'?1:0,(nbState[key]||0)+delta);
@@ -1194,7 +1276,7 @@ async function nbAddIdFoto(input){
     }catch(e){/* AI-herkenning mislukt — Karen vult hieronder gewoon manueel in */}
     renderNbIdFotoList();
   }
-  input.value='';
+  input.value=''; nbSaveDraft();
 }
 function renderNbIdFotoList(){
   const el=document.getElementById('nbIdFotoList');if(!el)return;
@@ -1202,10 +1284,10 @@ function renderNbIdFotoList(){
     '<div class="card" style="padding:10px;margin-bottom:8px;display:flex;gap:8px;align-items:center;">'+
     (g.previewUrl?'<img src="'+g.previewUrl+'" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer;" onclick="window.open(\''+g.previewUrl+'\',\'_blank\')">':'<div class="thumb" style="flex-shrink:0;">🪪</div>')+
     '<div style="flex:1;min-width:0;">'+
-    '<input value="'+esc(g.naam)+'" placeholder="Naam" oninput="nbIdFotos['+i+'].naam=this.value" style="width:100%;padding:7px 9px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12.5px;margin-bottom:5px;">'+
+    '<input value="'+esc(g.naam)+'" placeholder="Naam" oninput="nbIdFotos['+i+'].naam=this.value;nbSaveDraft();" style="width:100%;padding:7px 9px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12.5px;margin-bottom:5px;">'+
     '<div style="font-size:10.5px;color:var(--ink-3);">'+(g.geboortedatum?fmt(g.geboortedatum)+' · ':'')+(g.nationaliteit||'AI leest…')+'</div>'+
     '</div>'+
-    '<button onclick="if(nbIdFotos['+i+'].previewUrl)URL.revokeObjectURL(nbIdFotos['+i+'].previewUrl);nbIdFotos.splice('+i+',1);renderNbIdFotoList();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>'+
+    '<button onclick="if(nbIdFotos['+i+'].previewUrl)URL.revokeObjectURL(nbIdFotos['+i+'].previewUrl);nbIdFotos.splice('+i+',1);renderNbIdFotoList();nbSaveDraft();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>'+
     '</div>'
   ).join('');
 }
@@ -1255,7 +1337,7 @@ async function saveNewBooking(){
         if(!upErr)await sb.from('gasten').update({foto_url:path}).eq('id',gast.id);
       }catch(e){/* één mislukte foto mag de rest niet blokkeren */}
     }
-    nbClearDraft();
+    await idbDeleteDraft(currentDraftId); currentDraftId=null; updateDraftsUI();
     closeModal(); toast('✅ Reservering aangemaakt → Booking'+(nbIdFotos.length?' · '+nbIdFotos.length+' ID(\'s) gekoppeld':''));
     await loadData(); setFolder('booking');
   }catch(e){
