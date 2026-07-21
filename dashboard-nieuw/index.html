@@ -94,7 +94,10 @@
   .nav .ni .ic{font-size:18px; line-height:1;}
   .nav .ni .lb{font-size:9.5px; font-weight:600;}
   .nav .ni.on{color:var(--green);}
-  .nav .ni.plus .ic{width:38px; height:38px; background:var(--green); color:#fff; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:21px; box-shadow:0 6px 16px -6px var(--green);}
+  .nav .ni.plus .ic{width:38px; height:38px; background:var(--green); color:#fff; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:21px; box-shadow:0 6px 16px -6px var(--green); position:relative;}
+  .plusbadge{background:var(--amber); color:#fff; font-size:10px; font-weight:800; min-width:16px; height:16px; border-radius:8px; display:none; align-items:center; justify-content:center; padding:0 3px; font-family:var(--f);}
+  .nav .ni.plus .plusbadge{position:absolute; top:-3px; right:-3px;}
+  .rail .ri.plus .plusbadge{margin-left:auto;}
 
   /* ===== shared ===== */
   .card{background:var(--card); border-radius:15px; box-shadow:var(--shadow); border:1px solid var(--sep); overflow:hidden;}
@@ -299,7 +302,7 @@
         <button class="ri" data-screen="reserv" onclick="go('reserv')"><span class="ic">📂</span> Reserveringen</button>
         <button class="ri" data-screen="kalender" onclick="go('kalender')"><span class="ic">📅</span> Kalender</button>
         <button class="ri" data-screen="bezoekers" onclick="go('bezoekers')"><span class="ic">🧍</span> Bezoekers</button>
-        <button class="ri plus" onclick="openNewBooking()"><span class="ic">＋</span> Nieuw</button>
+        <button class="ri plus" onclick="openNewBooking()"><span class="ic">＋</span> Nieuw<span id="plusBadgeRail" class="plusbadge"></span></button>
         <div class="spacer"></div>
         <button class="ri" id="rail-beheer" data-screen="beheer" style="display:none;" onclick="go('beheer')"><span class="ic">⚙️</span> Beheer</button>
       </div>
@@ -436,7 +439,7 @@
     <div class="nav">
       <button class="ni on" data-screen="dagbord" onclick="go('dagbord')"><span class="ic">🗓️</span><span class="lb">Dagbord</span></button>
       <button class="ni" data-screen="reserv" onclick="go('reserv')"><span class="ic">📂</span><span class="lb">Reserveringen</span></button>
-      <button class="ni plus" onclick="openNewBooking()"><span class="ic">+</span></button>
+      <button class="ni plus" onclick="openNewBooking()"><span class="ic">+<span id="plusBadge" class="plusbadge"></span></span></button>
       <button class="ni" data-screen="kalender" onclick="go('kalender')"><span class="ic">📅</span><span class="lb">Kalender</span></button>
       <button class="ni" id="tab-beheer" data-screen="beheer" style="display:none;" onclick="go('beheer')"><span class="ic">⚙️</span><span class="lb">Beheer</span></button>
     </div>
@@ -457,6 +460,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="../shared/payment.js?v=20260715c"></script>
 <script src="../shared/pricing.js?v=20260715c"></script>
-<script src="app-nieuw.js?v=20260719k"></script>
+<script src="app-nieuw.js?v=20260719l"></script>
 </body>
 </html>
