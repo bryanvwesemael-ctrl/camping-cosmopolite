@@ -138,24 +138,69 @@ function mapBooking(row){
     waarborgOntvangenAt:row.waarborg_ontvangen_at||null, waarborgTeruggegevenAt:row.waarborg_teruggegeven_at||null,
   };
 }
+/* ---------- offline-cache (lezen zonder internet) ----------
+   Vervolg-punt: op de weide moet je tussen bestaande boekingen kunnen
+   wisselen zonder verbinding. Optie A (besproken en gekozen): na elke
+   geslaagde laadbeurt bewaren we een kopie van alles in IndexedDB; lukt
+   het live laden niet (geen netwerk), dan vallen we terug op die kopie
+   zodat de app toch gevuld is en je kan lezen/wisselen. Acties die een
+   schrijfactie vereisen (inchecken, gast toevoegen...) blijven wel
+   internet nodig hebben — dat is optie B, bewust (nog) niet gebouwd. */
+const CACHE_DB='cc_offline_cache', CACHE_STORE='snapshot';
+function cacheDbOpen(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(CACHE_DB,1);
+    req.onupgradeneeded=()=>{ req.result.createObjectStore(CACHE_STORE,{keyPath:'key'}); };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function saveOfflineSnapshot(){
+  try{
+    const db=await cacheDbOpen();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(CACHE_STORE,'readwrite');
+      tx.objectStore(CACHE_STORE).put({
+        key:'main', bookings, paidByBooking, maxPlaatsen, clubCfg, PRICES, accTypes, extraTarieven,
+        savedAt:new Date().toISOString(),
+      });
+      tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error);
+    });
+  }catch(e){/* IndexedDB kan uitzonderlijk falen (privé-modus) — offline-lezen is een extra, geen vereiste */}
+}
+async function loadOfflineSnapshot(){
+  try{
+    const db=await cacheDbOpen();
+    return await new Promise((resolve,reject)=>{
+      const req=db.transaction(CACHE_STORE,'readonly').objectStore(CACHE_STORE).get('main');
+      req.onsuccess=()=>resolve(req.result||null); req.onerror=()=>reject(req.error);
+    });
+  }catch(e){return null;}
+}
 async function loadData(){
   try{
     const pr=await sb.from('club_settings').select('value').eq('key','max_plaatsen').limit(1);
     if(pr.data&&pr.data.length) maxPlaatsen=parseInt(pr.data[0].value)||0;
-  }catch(e){}
-  await loadRole();
-  try{
+    await loadRole();
     const cs=await sb.from('club_settings').select('key,value');
     clubCfg={};(cs.data||[]).forEach(r=>{clubCfg[r.key]=r.value;});
-  }catch(e){}
-  await loadPrices(); // PRICES/accTypes altijd fris — nodig voor de prijsopbouw in elke fiche
-  const res=await sb.from('bookings').select('*,clients(*)').order('aankomst',{ascending:true});
-  if(res.error){toast('⚠️ Kon reserveringen niet laden: '+res.error.message);return;}
-  bookings=(res.data||[]).map(mapBooking);
-  paidByBooking={};
-  const pays=await sb.from('payments').select('booking_id,bedrag,status');
-  (pays.data||[]).filter(p=>p.status==='paid').forEach(p=>{paidByBooking[p.booking_id]=(paidByBooking[p.booking_id]||0)+Number(p.bedrag||0);});
-  renderAll();
+    await loadPrices(); // PRICES/accTypes altijd fris — nodig voor de prijsopbouw in elke fiche
+    const res=await sb.from('bookings').select('*,clients(*)').order('aankomst',{ascending:true});
+    if(res.error)throw new Error(res.error.message);
+    bookings=(res.data||[]).map(mapBooking);
+    paidByBooking={};
+    const pays=await sb.from('payments').select('booking_id,bedrag,status');
+    (pays.data||[]).filter(p=>p.status==='paid').forEach(p=>{paidByBooking[p.booking_id]=(paidByBooking[p.booking_id]||0)+Number(p.bedrag||0);});
+    renderAll();
+    saveOfflineSnapshot();
+  }catch(e){
+    const snap=await loadOfflineSnapshot();
+    if(!snap){toast('⚠️ Kon reserveringen niet laden: '+e.message);return;}
+    bookings=snap.bookings||[]; paidByBooking=snap.paidByBooking||{}; maxPlaatsen=snap.maxPlaatsen||0;
+    clubCfg=snap.clubCfg||{}; PRICES=snap.PRICES||PRICES; accTypes=snap.accTypes||[]; extraTarieven=snap.extraTarieven||[];
+    renderAll();
+    toast('📵 Geen verbinding — laatst gekende gegevens getoond (van '+new Date(snap.savedAt).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'). Nieuw inschrijven/inchecken lukt pas terug met internet.');
+  }
 }
 function reloadData(){ loadData(); toast('↻ Vernieuwd'); }
 
