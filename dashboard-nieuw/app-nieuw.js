@@ -1587,6 +1587,14 @@ async function renderBeheerTarieven(){
     '<div class="fld" style="margin-bottom:0;"><label>Max. boekingen per dag (0 = geen limiet) — elke boeking telt als 1, ongeacht aantal personen</label><input id="bMax" type="number" min="0" value="'+maxP+'"></div>'+
     '</div>'+
 
+    secLbl('🏦 Bankgegevens (voor betaal-QR)')+
+    '<div class="card" style="padding:14px;margin-bottom:4px;">'+
+    '<div class="fld"><label>IBAN — hier komt elke QR-betaling op toe</label><input id="bIban" value="'+esc(clubCfg.iban?CampingPayment.formatIban(clubCfg.iban):'')+'" placeholder="BE00 0000 0000 0000" style="font-family:var(--f-mono);" oninput="onBeheerIbanInput(this.value)"></div>'+
+    '<div class="fld"><label>Rekeninghouder</label><input id="bRekeninghouder" value="'+esc(clubCfg.rekeninghouder||'')+'" placeholder="bv. Camping Cosmopolite"></div>'+
+    '<div class="fld" style="margin-bottom:0;"><label>BIC <span style="font-weight:400;color:var(--ink-3);">(optioneel, niet verplicht binnen SEPA)</span></label><input id="bBic" value="'+esc(clubCfg.bic||'')+'" style="font-family:var(--f-mono);"></div>'+
+    '</div>'+
+    '<div id="ibanFeedback" style="font-size:11.5px;margin:0 0 18px;padding:0 2px;"></div>'+
+
     secLbl('📦 Vrije kostenposten')+
     '<div id="extraTarList"></div>'+
     '<button class="sbtn" style="width:100%;margin-bottom:18px;" onclick="voegExtraTariefToe()">➕ Kostenpost toevoegen (bv. Waarborg)</button>'+
@@ -1596,6 +1604,19 @@ async function renderBeheerTarieven(){
 
   renderAccTypesList();
   renderExtraTarList();
+  renderBeheerIbanFeedback(clubCfg.iban||'');
+}
+function onBeheerIbanInput(v){
+  renderBeheerIbanFeedback(String(v||'').replace(/\s+/g,'').toUpperCase());
+}
+function renderBeheerIbanFeedback(v){
+  const el=document.getElementById('ibanFeedback');if(!el)return;
+  const clean=(v||'').trim();
+  if(!clean){el.innerHTML='';return;}
+  const valid=window.CampingPayment&&CampingPayment.isValidIban(clean);
+  el.innerHTML=valid
+    ?'<span style="color:var(--green);font-weight:700;">✅ Geldig IBAN</span>'
+    :'<span style="color:var(--red);font-weight:700;">⚠️ Dit IBAN-nummer lijkt niet correct — controleer de cijfers</span>';
 }
 /* Volledig open tariefplan: elk eigen type heeft niet enkel een prijs/nacht,
    maar ook een eigen max. aantal personen, waarborgbedrag en omschrijving —
@@ -1642,14 +1663,20 @@ async function saveBeheerTarieven(){
   try{
     const {data:{session}}=await sb.auth.getSession();
     const g=id=>document.getElementById(id).value;
+    const ibanClean=g('bIban').replace(/\s+/g,'').toUpperCase();
+    if(ibanClean&&window.CampingPayment&&!CampingPayment.isValidIban(ibanClean)){
+      msg.style.color='var(--red)';msg.textContent='⚠️ Het IBAN-nummer lijkt niet correct — controleer de cijfers voor je opslaat';return;
+    }
     const pairs=[['prijs_tent',g('bTent')],['prijs_camper',g('bCamper')],['prijs_volwassene',g('bVolw')],
       ['prijs_kind',g('bKind')],['prijs_baby',g('bBaby')],['prijs_hond',g('bHond')],['prijs_extra_auto',g('bAuto')],
       ['prijs_elektriciteit',g('bElek')],['prijs_afval_per_6',g('bAfval')],['toeristentaks',g('bTaks')],['max_plaatsen',g('bMax')||'0'],
       ['accommodatie_types',JSON.stringify(accTypes.filter(t=>(t.naam||'').trim()))],
-      ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>(t.naam||'').trim()))]];
+      ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>(t.naam||'').trim()))],
+      ['iban',ibanClean],['rekeninghouder',g('bRekeninghouder').trim()],['bic',g('bBic').trim()]];
     for(const [key,value] of pairs){
       await sb.from('club_settings').upsert({key,value:String(value),updated_by:session.user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
     }
+    clubCfg.iban=ibanClean; clubCfg.rekeninghouder=g('bRekeninghouder').trim(); clubCfg.bic=g('bBic').trim();
     msg.style.color='var(--green)';msg.textContent='✅ Opgeslagen — meteen zichtbaar bij Nieuwe reservering en op het publieke formulier'; maxPlaatsen=parseInt(g('bMax'))||0;
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
 }
