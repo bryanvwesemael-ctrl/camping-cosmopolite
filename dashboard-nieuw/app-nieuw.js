@@ -417,6 +417,7 @@ async function loadBetPane(b){
   h+='<div class="statusgrid" style="padding:0;">'+
      '<div class="sbtn" onclick="actBetaling(\''+b.id+'\',\'cash\')">💵 Cash</div>'+
      '<div class="sbtn" onclick="actBetaling(\''+b.id+'\',\'overschrijving\')">🏦 Overschrijving</div>'+
+     '<div class="sbtn" style="grid-column:1/-1;" onclick="actBetaling(\''+b.id+'\',\'qr\')">📱 QR-betaling ontvangen</div>'+
      '<div class="sbtn" style="grid-column:1/-1;border-color:var(--green);color:var(--green);font-weight:700;" onclick="toggleQR(\''+b.id+'\')">📱 Toon betaal-QR (op eigen IBAN)</div>'+
      '</div>';
   h+='<div id="qrBox" style="display:none;margin-top:10px;"></div>';
@@ -832,7 +833,8 @@ async function actUitchecken(id){
 async function actBetaling(id,methode){
   const b=bookings.find(x=>x.id===id);if(!b)return;
   const open=openOf(b);
-  const inp=prompt((methode==='cash'?'Cash':'Overschrijving')+' registreren voor '+b.naam+'\n\nBedrag (€):', open>0?String(open):'');
+  const methLbl={cash:'Cash',overschrijving:'Overschrijving',qr:'QR-betaling'}[methode]||methode;
+  const inp=prompt(methLbl+' registreren voor '+b.naam+'\n\nBedrag (€):', open>0?String(open):'');
   if(inp===null)return;
   const bedrag=Math.round(parseFloat(String(inp).replace(',','.'))*100)/100;
   if(!(bedrag>0)){toast('⚠️ Ongeldig bedrag');return;}
