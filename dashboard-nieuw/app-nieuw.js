@@ -1648,6 +1648,7 @@ function renderAccTypesList(){
     '</div>'+
     '<label style="font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:3px;">Omschrijving (optioneel)</label>'+
     inp(t.beschrijving||'','accTypes['+i+'].beschrijving=this.value',null,'bv. Inclusief afvalbijdrage')+
+    '<label style="font-size:11.5px;color:var(--ink-2);display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="checkbox" '+(t.allIn?'checked':'')+' onchange="accTypes['+i+'].allIn=this.checked;renderAccTypesList();"> All-in vaste prijs — geen afvalkost, geen toeristenbelasting, geen aparte personenprijs bovenop (bv. Moto/Backpacker)</label>'+
     '</div>'
   ).join(''):'<div class="note-inline" style="padding:6px 0;">Nog geen eigen types — standaard zijn Tent en Camper</div>';
 }

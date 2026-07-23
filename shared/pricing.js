@@ -20,7 +20,8 @@
  *    bestaande instellingen-sleutel niet te breken).
  *  - 1e auto gratis, elke volgende auto €2/nacht.
  *  - Baby's zijn gratis (tenzij prijs_baby > 0).
- *  - All-in eenheden (bv. backpacker): typeprijs dekt personen + afval.
+ *  - All-in eenheden (bv. Moto/Backpacker): vaste typeprijs dekt alles —
+ *    geen aparte persoons-, afval- of toeristentakskost.
  *  - Aantal nachten = vertrekdatum − aankomstdatum (vertrekdag telt niet mee).
  * ========================================================================== */
 (function (root) {
@@ -118,8 +119,9 @@
     var elekDag = input.elektriciteit ? P.elektriciteit : 0;
     var elek = elekDag * nights;
 
-    // Toeristentaks (BTW-vrij) — apart bovenop
-    var taksPerNacht = volw * P.toeristentaks;
+    // Toeristentaks (BTW-vrij) — apart bovenop, behalve bij een all-in type
+    // (bv. Moto/Backpacker): vaste prijs, geen afval- of toeristentakskost.
+    var taksPerNacht = allInMode ? 0 : volw * P.toeristentaks;
     var taksTotaal = taksPerNacht * nights;
 
     var persoonsKost = allInMode ? 0
