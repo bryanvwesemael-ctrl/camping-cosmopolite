@@ -784,6 +784,14 @@ async function _cleanupBookingRelated(id){
   const paths=(gasten||[]).map(g=>g.foto_url).filter(Boolean);
   if(paths.length){ try{ await sb.storage.from('id-fotos').remove(paths); }catch(_e){} }
   await sb.from('gasten').delete().eq('booking_id',id);
+  // booking_documents: oudere tabel (ID's geüpload via het publieke formulier)
+  // zonder ON DELETE CASCADE — blokkeerde tot nu toe het verwijderen van elke
+  // boeking met via het formulier geüploade documenten (FK-fout
+  // "booking_documents_booking_id_fkey").
+  const {data:docs}=await sb.from('booking_documents').select('storage_path').eq('booking_id',id);
+  const docPaths=(docs||[]).map(d=>d.storage_path).filter(Boolean);
+  if(docPaths.length){ try{ await sb.storage.from('id-fotos').remove(docPaths); }catch(_e){} }
+  await sb.from('booking_documents').delete().eq('booking_id',id);
   await sb.from('payments').delete().eq('booking_id',id);
   await sb.from('communicatie').delete().eq('booking_id',id);
   // booking_attachments heeft ON DELETE CASCADE, geen aparte cleanup nodig.
