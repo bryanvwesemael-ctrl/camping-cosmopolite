@@ -265,7 +265,7 @@ function dbScrollTo(id){
   el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function renderDagbord(){
-  const aankomst=bookings.filter(b=>b.aankomst===TODAY&&b.status!=='geannuleerd'&&!b.uitgecheckt_at);
+  const aankomst=bookings.filter(b=>b.aankomst===TODAY&&b.status!=='geannuleerd'&&!b.uitgecheckt_at&&!b.ingecheckt_at);
   const vertrek=bookings.filter(b=>b.vertrek===TODAY&&b.status!=='geannuleerd'&&!b.uitgecheckt_at);
   const aanwezig=inFolder('aanwezig');
   const openList=bookings.filter(b=>folderOf(b)!=='vertrokken'&&openOf(b)>0.005);
