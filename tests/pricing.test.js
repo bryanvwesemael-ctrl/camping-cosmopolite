@@ -94,16 +94,18 @@ test('BTW 12% wordt geëxtraheerd, niet bovenop', () => {
   assert.equal(r.totaal, 33);
 });
 
-test('all-in eenheid (backpacker): geen aparte persoons-/afvalkost', () => {
+test('all-in eenheid (Moto/Backpacker): vaste prijs, geen persoons-/afval-/takskost', () => {
   const r = P.calc({
-    units: [{ prijs: 20, count: 1, allIn: true }],
+    units: [{ prijs: 15, count: 1, allIn: true }],
     volwassenen: 2, autos: 1, nights: 2,
   });
-  // 20/nacht ×2 = 40 ; geen persoonskost, geen afval ; taks 2×1×2 = 4 → 44
+  // 15/nacht × 2 = 30 ; geen persoonskost, geen afval, geen toeristentaks
   assert.equal(r.allInMode, true);
   assert.equal(r.persoonsKost, 0);
   assert.equal(r.afval, 0);
-  assert.equal(r.totaal, 44);
+  assert.equal(r.taksPerNacht, 0);
+  assert.equal(r.taks_totaal, 0);
+  assert.equal(r.totaal, 30);
 });
 
 test('meerdere nachten schalen lineair (eenmalige kosten niet)', () => {
