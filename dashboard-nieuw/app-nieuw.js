@@ -1527,7 +1527,7 @@ function setBeheer(tab){
   if(currentRole!=='admin'){toast('⚠️ Enkel voor beheerders');return;}
   _beheerTab=tab;
   document.querySelectorAll('#scr-beheer .foldertabs .ft').forEach(b=>b.classList.toggle('on',b.getAttribute('data-beh')===tab));
-  const fns={tarieven:renderBeheerTarieven,gebruikers:renderBeheerGebruikers,idarchief:renderBeheerIdArchief,register:renderBeheerRegister,analytics:renderBeheerAnalytics,mail:renderBeheerMail};
+  const fns={tarieven:renderBeheerTarieven,gebruikers:renderBeheerGebruikers,idarchief:renderBeheerIdArchief,register:renderBeheerRegister,analytics:renderBeheerAnalytics,mail:renderBeheerMail,website:(typeof renderBeheerWebsite==='function'?renderBeheerWebsite:renderBeheerTarieven)};
   (fns[tab]||renderBeheerTarieven)();
 }
 async function renderBeheerTarieven(){
