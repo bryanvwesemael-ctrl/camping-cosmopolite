@@ -1,9 +1,18 @@
 [build]
   publish = "."
 
+# De nieuwe publieke website staat op / (root index.html). Het
+# reserveringsformulier verhuisde naar reserveren.html; beide URL-vormen
+# (met en zonder trailing slash) wijzen ernaar. Assets in het formulier
+# gebruiken absolute /shared/-paden, dus dit werkt ongeacht de slash.
 [[redirects]]
   from = "/reserveren"
-  to = "/index.html"
+  to = "/reserveren.html"
+  status = 200
+
+[[redirects]]
+  from = "/reserveren/"
+  to = "/reserveren.html"
   status = 200
 
 [[redirects]]
