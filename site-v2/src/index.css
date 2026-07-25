@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+  body { @apply bg-canvas text-ink font-sans; }
+  h1, h2, h3, h4 { @apply font-head; }
+  ::selection { background: #1B8A5B; color: #fff; }
+  :focus-visible { outline: 3px solid #1B8A5B; outline-offset: 2px; border-radius: 6px; }
+}
+
+@layer components {
+  .container-x { @apply max-w-content mx-auto px-5 sm:px-6 lg:px-8; }
+  .eyebrow { @apply text-green font-semibold text-sm tracking-wide uppercase; }
+  .h-display { @apply font-head font-bold tracking-tight text-ink; }
+}
