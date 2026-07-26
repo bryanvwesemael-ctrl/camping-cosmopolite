@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Standaard branding — wordt at runtime overschreven per klant-site
+   (SiteProvider zet --brand-* uit wb_sites.branding). */
+:root {
+  --brand-primary: #1B8A5B;
+  --brand-dark: #0D5035;
+  --brand-accent: #C77A11;
+  --brand-bg: #FAFAF7;
+  --brand-ink: #202124;
+  --brand-muted: #5B6470;
+  --brand-hairline: #E9EAE4;
+  --brand-soft: color-mix(in srgb, var(--brand-primary) 12%, white);
+  --font-head: Poppins, system-ui, sans-serif;
+  --font-body: Inter, system-ui, sans-serif;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+  body { @apply bg-canvas text-ink font-sans; }
+  h1, h2, h3, h4 { @apply font-head; }
+  ::selection { background: var(--brand-primary); color: #fff; }
+  :focus-visible { outline: 3px solid var(--brand-primary); outline-offset: 2px; border-radius: 6px; }
+}
+
+@layer components {
+  .container-x { @apply max-w-content mx-auto px-5 sm:px-6 lg:px-8; }
+  .eyebrow { @apply text-brand font-semibold text-sm tracking-wide uppercase; }
+  .h-display { @apply font-head font-bold tracking-tight text-ink; }
+}
