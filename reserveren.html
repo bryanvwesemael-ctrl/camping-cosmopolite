@@ -913,6 +913,15 @@ async function submitForm(){
     if(bookErr && bookErr.code==='23505'){ _abandoned=false; showConfirm('—', fmt(totaalNow)); return; }
     if(bookErr) throw bookErr;
 
+    // 2b. Opgegeven kentekens ook los in booking_kentekens zetten, zodat ze
+    // meteen in de slagboom-tracker staan (naast het vrije tekstveld op de
+    // klant zelf). Blijft in het dashboard altijd bewerkbaar/aanvinkbaar.
+    const platen=plaat.split(/[,;\n]/).map(p=>p.trim()).filter(Boolean);
+    if(platen.length){
+      const {error:platenErr}=await sb.from('booking_kentekens').insert(platen.map(p=>({booking_id:bookingId,plaat:p})));
+      if(platenErr) console.error('booking_kentekens insert faalde',platenErr);
+    }
+
     // 3. Identiteitsdocumenten uploaden (verplicht, één per persoon). GEEN AI hier.
     btn.textContent=`📷 ${idDocs.length} document${idDocs.length>1?'en':''} uploaden…`;
     const documents=[];
