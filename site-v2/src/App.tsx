@@ -2,9 +2,11 @@ import { lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { SiteLayout } from './layouts/SiteLayout';
 import { ScrollToTop } from './components/ScrollToTop';
+import { CmsPage } from './cms/CmsPage';
 
-// Code-splitting: elke pagina wordt lui geladen (React.lazy + Suspense in de
-// layout) → kleinere initiële bundel, betere Lighthouse-score.
+// Elke pagina wordt lui geladen (code-splitting). De CmsPage-wrapper toont
+// Karens CMS-blokken indien aanwezig, en valt anders terug op het handgemaakte
+// premium ontwerp — zo is de site altijd mooi én volledig door Karen bewerkbaar.
 const Home = lazy(() => import('./pages/Home'));
 const Activiteiten = lazy(() => import('./pages/Activiteiten'));
 const Huuropties = lazy(() => import('./pages/Huuropties'));
@@ -19,13 +21,13 @@ export default function App() {
     <SiteLayout>
       <ScrollToTop />
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/activiteiten" element={<Activiteiten />} />
-        <Route path="/huuropties" element={<Huuropties />} />
-        <Route path="/scoutsweide" element={<Scoutsweide />} />
-        <Route path="/tarieven" element={<Tarieven />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/over-ons" element={<OverOns />} />
+        <Route path="/" element={<CmsPage slug="home" metaKey="home" path="/" fallback={<Home />} />} />
+        <Route path="/activiteiten" element={<CmsPage slug="activiteiten" metaKey="activiteiten" path="/activiteiten" fallback={<Activiteiten />} />} />
+        <Route path="/huuropties" element={<CmsPage slug="huuropties" metaKey="huuropties" path="/huuropties" fallback={<Huuropties />} />} />
+        <Route path="/scoutsweide" element={<CmsPage slug="scoutsweide" metaKey="scoutsweide" path="/scoutsweide" fallback={<Scoutsweide />} />} />
+        <Route path="/tarieven" element={<CmsPage slug="tarieven" metaKey="tarieven" path="/tarieven" fallback={<Tarieven />} />} />
+        <Route path="/contact" element={<CmsPage slug="contact" metaKey="contact" path="/contact" fallback={<Contact />} />} />
+        <Route path="/over-ons" element={<CmsPage slug="overons" metaKey="overons" path="/over-ons" fallback={<OverOns />} />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </SiteLayout>
