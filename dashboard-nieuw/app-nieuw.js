@@ -1997,20 +1997,80 @@ async function exportRegisterCSV(){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   toast('⬇️ CSV gedownload (incl. alle gasten)');
 }
+/* Inkomsten per betaalmethode — periode blijft onthouden tussen renders
+   (bv. na het wisselen van tab), default "deze maand". */
+let _omzetPeriode={type:'maand',van:'',tot:''};
+function omzetPeriodeRange(p){
+  const now=new Date();
+  const iso=d=>d.toISOString().slice(0,10);
+  if(p.type==='maand'){
+    return {van:iso(new Date(now.getFullYear(),now.getMonth(),1)),tot:iso(new Date(now.getFullYear(),now.getMonth()+1,1))};
+  }
+  if(p.type==='jaar'){
+    return {van:iso(new Date(now.getFullYear(),0,1)),tot:iso(new Date(now.getFullYear()+1,0,1))};
+  }
+  if(p.type==='aangepast'&&p.van&&p.tot){
+    return {van:p.van,tot:iso(new Date(new Date(p.tot).getTime()+86400000))};
+  }
+  return {van:null,tot:null}; // alles
+}
+function setOmzetPeriode(type){ _omzetPeriode={type,van:_omzetPeriode.van,tot:_omzetPeriode.tot}; renderBeheerAnalytics(); }
+function applyOmzetPeriodeAangepast(){
+  const van=document.getElementById('omzetVan').value, tot=document.getElementById('omzetTot').value;
+  if(!van||!tot){toast('⚠️ Kies een start- en einddatum');return;}
+  if(van>tot){toast('⚠️ Startdatum ligt na einddatum');return;}
+  _omzetPeriode={type:'aangepast',van,tot};
+  renderBeheerAnalytics();
+}
 async function renderBeheerAnalytics(){
   const el=document.getElementById('beheerBody');
+  el.innerHTML='<div class="note-inline">Laden…</div>';
   const totBoekingen=bookings.length;
   const aanwezigNu=inFolder('aanwezig').length;
   const omzet=bookings.reduce((s,b)=>s+Number(b.bedrag||0),0);
   const openTotaal=bookings.reduce((s,b)=>s+Math.max(0,openOf(b)),0);
   const perKanaal={};bookings.forEach(b=>{const k=b.bron||'onbekend';perKanaal[k]=(perKanaal[k]||0)+1;});
+
+  const range=omzetPeriodeRange(_omzetPeriode);
+  let q=sb.from('payments').select('bedrag,methode,created_at');
+  if(range.van)q=q.gte('created_at',range.van);
+  if(range.tot)q=q.lt('created_at',range.tot);
+  const {data:payRows,error:payErr}=await q;
+  const perMethode={cash:0,overschrijving:0,qr:0};
+  let terugbetaald=0;
+  (payRows||[]).forEach(p=>{
+    if(p.methode==='terugbetaling'){terugbetaald+=Number(p.bedrag||0);return;}
+    perMethode[p.methode]=(perMethode[p.methode]||0)+Number(p.bedrag||0);
+  });
+  const nettoTotaal=perMethode.cash+perMethode.overschrijving+perMethode.qr+terugbetaald;
+  const periodeLbl={maand:'deze maand',jaar:'dit jaar',alles:'alles',aangepast:'aangepaste periode'}[_omzetPeriode.type];
+  const pbtn=(type,lbl)=>'<div class="sbtn'+(_omzetPeriode.type===type?' act':'')+'" onclick="setOmzetPeriode(\''+type+'\')">'+lbl+'</div>';
+
   el.innerHTML='<div class="kpis" style="grid-template-columns:repeat(2,1fr);">'+
     '<div class="kpi"><div class="kv">'+totBoekingen+'</div><div class="kk">Totaal boekingen</div></div>'+
     '<div class="kpi"><div class="kv b">'+aanwezigNu+'</div><div class="kk">Nu aanwezig</div></div>'+
     '<div class="kpi"><div class="kv g">'+money(omzet)+'</div><div class="kk">Totale omzet</div></div>'+
     '<div class="kpi"><div class="kv" style="color:var(--amber)">'+money(openTotaal)+'</div><div class="kk">Totaal openstaand</div></div></div>'+
     '<div class="sec-lbl">Boekingen per kanaal</div><div class="card taskcard">'+
-    Object.keys(perKanaal).map(k=>'<div class="row"><span class="rl">'+({mail:'📧 E-mail',website:'🌐 Website',telefoon:'☎️ Telefoon'}[k]||k)+'</span><span class="rv">'+perKanaal[k]+'</span></div>').join('')+'</div>';
+    Object.keys(perKanaal).map(k=>'<div class="row"><span class="rl">'+({mail:'📧 E-mail',website:'🌐 Website',telefoon:'☎️ Telefoon'}[k]||k)+'</span><span class="rv">'+perKanaal[k]+'</span></div>').join('')+'</div>'+
+    '<div class="sec-lbl">💰 Inkomsten per betaalmethode</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">'+
+      pbtn('maand','Deze maand')+pbtn('jaar','Dit jaar')+pbtn('alles','Alles')+pbtn('aangepast','Aangepast')+
+    '</div>'+
+    (_omzetPeriode.type==='aangepast'?
+      '<div class="fld2">'+
+        '<div class="fld"><label>Van</label><input type="date" id="omzetVan" value="'+esc(_omzetPeriode.van||'')+'"></div>'+
+        '<div class="fld"><label>Tot</label><input type="date" id="omzetTot" value="'+esc(_omzetPeriode.tot||'')+'"></div>'+
+      '</div><div class="sbtn act" style="margin-bottom:10px;" onclick="applyOmzetPeriodeAangepast()">Toepassen</div>'
+    :'')+
+    (payErr?'<div class="note-inline" style="color:var(--red);">⚠️ '+esc(payErr.message)+'</div>':
+    '<div class="card payhist">'+
+      '<div class="row"><span class="rl">💵 Cash</span><span class="rv" style="color:var(--green)">'+money(perMethode.cash)+'</span></div>'+
+      '<div class="row"><span class="rl">🏦 Overschrijving</span><span class="rv" style="color:var(--green)">'+money(perMethode.overschrijving)+'</span></div>'+
+      '<div class="row"><span class="rl">📱 QR-code</span><span class="rv" style="color:var(--green)">'+money(perMethode.qr)+'</span></div>'+
+      (terugbetaald<0?'<div class="row"><span class="rl">↩️ Terugbetaald</span><span class="rv" style="color:var(--blue)">'+money(terugbetaald)+'</span></div>':'')+
+      '<div class="row" style="font-weight:800;border-top:1px solid var(--sep);padding-top:8px;"><span class="rl">Netto ontvangen ('+periodeLbl+')</span><span class="rv">'+money(nettoTotaal)+'</span></div>'+
+    '</div>');
 }
 
 /* ---------- toast ---------- */
