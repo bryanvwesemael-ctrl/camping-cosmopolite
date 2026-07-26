@@ -1430,6 +1430,12 @@ async function saveNewBooking(){
       bron:document.getElementById('nbBron').value, bedrag_totaal:Number(r.totaal||0), status:'bevestigd',
     }).select('id').single();
     if(bErr)throw new Error(bErr.message);
+    // Opgegeven kentekens ook los in booking_kentekens zetten (slagboom-tracker),
+    // naast het vrije tekstveld op de klant. Blijft in de fiche altijd bewerkbaar.
+    const nbPlaten=(document.getElementById('nbPlaat').value||'').split(/[,;\n]/).map(p=>p.trim()).filter(Boolean);
+    if(nbPlaten.length){
+      await sb.from('booking_kentekens').insert(nbPlaten.map(p=>({booking_id:booking.id,plaat:p})));
+    }
     // ID-foto's die tijdens het aanmaken werden toegevoegd, meteen koppelen.
     for(let i=0;i<nbIdFotos.length;i++){
       const g=nbIdFotos[i];
