@@ -292,15 +292,22 @@ function renderDagbord(){
        '<div class="at"><div class="a1">'+postvak.length+' aanvra'+(postvak.length===1?'ag':'gen')+' in Postvak</div>'+
        '<div class="a2">Nog te controleren en te bevestigen</div></div><div class="ar">›</div></div>';
   }
-  const kentekensOpenSom=aanwezig.reduce((s,b)=>s+kentekensOpen(b),0);
+  // Kentekens horen er te zijn vóór de gast door de slagboom rijdt, dus we
+  // tellen zowel de aankomsten van vandaag (nog niet ingecheckt) als de
+  // aanwezige gasten (vangnet voor gemiste/laattijdig toegevoegde platen).
+  const kentekensOpenSom=aankomst.reduce((s,b)=>s+kentekensOpen(b),0)+aanwezig.reduce((s,b)=>s+kentekensOpen(b),0);
   if(kentekensOpenSom){
-    h+='<div class="alert" onclick="setFolder(\'aanwezig\')"><div class="ai">🚧</div>'+
+    h+='<div class="alert" onclick="dbScrollTo(\'dbAankomstSec\')"><div class="ai">🚧</div>'+
        '<div class="at"><div class="a1">'+kentekensOpenSom+' kenteken'+(kentekensOpenSom===1?'':'s')+' nog niet in de slagboom</div>'+
-       '<div class="a2">Zie 🚧 bij de betrokken boekingen in Aanwezig</div></div><div class="ar">›</div></div>';
+       '<div class="a2">Zie 🚧 bij aankomst vandaag en bij Aanwezig</div></div><div class="ar">›</div></div>';
   }
   h+='<div id="draftsAlertBox"></div>';
   h+='<div class="sec-lbl" id="dbAankomstSec">🟢 Aankomst vandaag</div>';
-  h+=aankomst.length?'<div class="card taskcard">'+aankomst.map(b=>rowHtml(b,esc(verblijf(b))+' · '+b.personen+' pers.','<span class="pill p-arr">AANKOMST</span>')).join('')+'</div>':emptyCard('Geen aankomsten vandaag');
+  h+=aankomst.length?'<div class="card taskcard">'+aankomst.map(b=>{
+       let pill='<span class="pill p-arr">AANKOMST</span>';
+       if(kentekensOpen(b)>0)pill='<span title="'+kentekensOpen(b)+' kenteken(s) nog niet in de slagboom" style="margin-right:6px;">🚧</span>'+pill;
+       return rowHtml(b,esc(verblijf(b))+' · '+b.personen+' pers.',pill);
+     }).join('')+'</div>':emptyCard('Geen aankomsten vandaag');
   h+='<div class="sec-lbl" id="dbVertrekSec">🔴 Vertrek vandaag</div>';
   h+=vertrek.length?'<div class="card taskcard">'+vertrek.map(b=>rowHtml(b,esc(verblijf(b)),'<span class="pill p-dep">VERTREK</span>')).join('')+'</div>':emptyCard('Geen vertrekken vandaag');
   h+='<div class="sec-lbl">💰 Openstaande betalingen</div>';
