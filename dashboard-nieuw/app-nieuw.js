@@ -136,8 +136,11 @@ function mapBooking(row){
     aiDraft:!!row.ai_draft, aiParsed:row.ai_parsed||null,
     nota:row.nota||'', honden:row.honden||0, autos:row.autos||1, elektriciteit:!!row.elektriciteit,
     waarborgOntvangenAt:row.waarborg_ontvangen_at||null, waarborgTeruggegevenAt:row.waarborg_teruggegeven_at||null,
+    kentekens:(row.booking_kentekens||[]).map(k=>({id:k.id,plaat:k.plaat,slagboomIngegeven:!!k.slagboom_ingegeven})),
   };
 }
+// Aantal kentekens van een boeking dat nog niet in de slagboom staat.
+function kentekensOpen(b){ return (b.kentekens||[]).filter(k=>!k.slagboomIngegeven).length; }
 /* ---------- offline-cache (lezen zonder internet) ----------
    Vervolg-punt: op de weide moet je tussen bestaande boekingen kunnen
    wisselen zonder verbinding. Optie A (besproken en gekozen): na elke
@@ -185,7 +188,7 @@ async function loadData(){
     const cs=await sb.from('club_settings').select('key,value');
     clubCfg={};(cs.data||[]).forEach(r=>{clubCfg[r.key]=r.value;});
     await loadPrices(); // PRICES/accTypes altijd fris — nodig voor de prijsopbouw in elke fiche
-    const res=await sb.from('bookings').select('*,clients(*)').order('aankomst',{ascending:true});
+    const res=await sb.from('bookings').select('*,clients(*),booking_kentekens(*)').order('aankomst',{ascending:true});
     if(res.error)throw new Error(res.error.message);
     bookings=(res.data||[]).map(mapBooking);
     paidByBooking={};
@@ -289,6 +292,12 @@ function renderDagbord(){
        '<div class="at"><div class="a1">'+postvak.length+' aanvra'+(postvak.length===1?'ag':'gen')+' in Postvak</div>'+
        '<div class="a2">Nog te controleren en te bevestigen</div></div><div class="ar">›</div></div>';
   }
+  const kentekensOpenSom=aanwezig.reduce((s,b)=>s+kentekensOpen(b),0);
+  if(kentekensOpenSom){
+    h+='<div class="alert" onclick="setFolder(\'aanwezig\')"><div class="ai">🚧</div>'+
+       '<div class="at"><div class="a1">'+kentekensOpenSom+' kenteken'+(kentekensOpenSom===1?'':'s')+' nog niet in de slagboom</div>'+
+       '<div class="a2">Zie 🚧 bij de betrokken boekingen in Aanwezig</div></div><div class="ar">›</div></div>';
+  }
   h+='<div id="draftsAlertBox"></div>';
   h+='<div class="sec-lbl" id="dbAankomstSec">🟢 Aankomst vandaag</div>';
   h+=aankomst.length?'<div class="card taskcard">'+aankomst.map(b=>rowHtml(b,esc(verblijf(b))+' · '+b.personen+' pers.','<span class="pill p-arr">AANKOMST</span>')).join('')+'</div>':emptyCard('Geen aankomsten vandaag');
@@ -316,6 +325,7 @@ function renderFolders(){
       let pill=c.pill;
       if(f==='postvak'&&b.status!=='aanvraag')pill='<span class="pill p-conf">'+esc(b.status)+'</span>';
       else if(f==='postvak'&&b.aiDraft)pill='<span class="pill p-draft">🤖 AI-concept</span>';
+      if(f==='aanwezig'&&kentekensOpen(b)>0)pill='<span title="'+kentekensOpen(b)+' kenteken(s) nog niet in de slagboom" style="margin-right:6px;">🚧</span>'+pill;
       return rowHtml(b,sub,pill);
     }).join('');
     el.innerHTML=(c.list.length?'<div class="card taskcard">'+rows+'</div>':emptyCard('Geen reserveringen in deze map'))+'<div class="list-hint">'+c.hint+'</div>';
@@ -421,6 +431,26 @@ function renderFiche(b){
       '<div class="row" style="background:var(--green-soft);"><span class="rl" style="color:var(--green);font-weight:700;">Totaal</span><span class="rv" style="color:var(--green);font-weight:800;">'+money(b.bedrag)+'</span></div>'+
       '</div>';
     if(b.nota)x+='<div class="sec-lbl">Opmerking</div><div class="card"><div class="row" style="justify-content:flex-start;"><span class="rl">'+esc(b.nota)+'</span></div></div>';
+
+    // Kentekens in de slagboom — apart systeem zonder koppeling, dus enkel
+    // handmatig aan te vinken. Meerdere kentekens per boeking mogelijk (bv.
+    // meerdere auto's).
+    x+='<div class="sec-lbl">🚧 Kentekens (slagboom)</div><div class="card" style="padding:10px;">'+
+      ((b.kentekens||[]).length?(b.kentekens||[]).map(k=>
+        '<div class="row" style="align-items:center;">'+
+        '<label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;">'+
+        '<input type="checkbox" '+(k.slagboomIngegeven?'checked':'')+' onchange="toggleKentekenSlagboom(\''+k.id+'\',this.checked)">'+
+        '<span style="'+(k.slagboomIngegeven?'text-decoration:line-through;color:var(--ink-3);':'font-weight:700;')+'">'+esc(k.plaat)+'</span>'+
+        '</label>'+
+        '<span onclick="delKenteken(\''+k.id+'\')" style="color:var(--red);cursor:pointer;font-size:15px;padding:6px;">🗑</span>'+
+        '</div>'
+      ).join(''):'<div class="note-inline" style="padding:6px 0;">Nog geen kentekens toegevoegd</div>')+
+      '</div>'+
+      '<div style="display:flex;gap:8px;margin:8px 0 12px;">'+
+      '<input id="kentekenInput" placeholder="Nieuw kenteken" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:13px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addKenteken(\''+b.id+'\');}">'+
+      '<button class="sbtn" style="flex:0 0 auto;" onclick="addKenteken(\''+b.id+'\')">➕ Toevoegen</button>'+
+      '</div>';
+
     x+='<button class="sbtn" style="width:100%;margin-top:12px;" onclick="editGegevens(\''+b.id+'\')">✏️ Gegevens bewerken</button>';
     gp.innerHTML=x;
   }
@@ -505,6 +535,30 @@ async function actWaarborgTeruggegeven(id){
   if(error){toast('⚠️ '+error.message);return;}
   toast('↩️ Waarborg geregistreerd als teruggegeven (cash)'); await loadData();
 }
+
+/* ---------- kentekens in de slagboom (punt: apart systeem, geen koppeling) ----------
+   Meerdere kentekens per boeking mogelijk. Handmatig aan te vinken zodra het
+   kenteken effectief is ingegeven in de slagboom-software. */
+async function addKenteken(bookingId){
+  const inp=document.getElementById('kentekenInput');
+  const plaat=(inp&&inp.value||'').trim();
+  if(!plaat){toast('⚠️ Geef een kenteken op');return;}
+  const {error}=await sb.from('booking_kentekens').insert({booking_id:bookingId,plaat});
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('🚗 Kenteken toegevoegd'); await loadData();
+}
+async function toggleKentekenSlagboom(id,checked){
+  const {error}=await sb.from('booking_kentekens').update({slagboom_ingegeven:checked,slagboom_ingegeven_at:checked?new Date().toISOString():null}).eq('id',id);
+  if(error){toast('⚠️ '+error.message);return;}
+  await loadData();
+}
+async function delKenteken(id){
+  if(!confirm('Dit kenteken verwijderen?'))return;
+  const {error}=await sb.from('booking_kentekens').delete().eq('id',id);
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('🗑 Kenteken verwijderd'); await loadData();
+}
+
 /* ---------- factuur (printbaar, geen aparte PDF-lib nodig) ----------
    Optie 1 uit het overleg met Bryan: on-demand vanuit de fiche zelf, geen
    apart Beheer-scherm en geen doorlopende nummering (dat kan later als er
