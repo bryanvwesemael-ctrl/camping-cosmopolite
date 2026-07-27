@@ -43,7 +43,10 @@ async function checkSession(){
   if(session && session.user){ currentUser=session.user; showApp(); await loadData(); }
   else showLogin();
 }
-sb.auth.onAuthStateChange(function(){ checkSession(); });
+sb.auth.onAuthStateChange(function(event){
+  if(event==='PASSWORD_RECOVERY'){showPasswordRecoveryScreen();return;}
+  checkSession();
+});
 
 async function doLogin(){
   const email=(document.getElementById('nlEmail').value||'').trim();
@@ -53,6 +56,45 @@ async function doLogin(){
   msg.style.color='var(--ink-2)';msg.textContent='Bezig…';
   const {error}=await sb.auth.signInWithPassword({email,password:pw});
   if(error){msg.style.color='var(--red)';msg.textContent=(error.message==='Invalid login credentials')?'Ongeldig e-mailadres of wachtwoord':error.message;}
+}
+async function forgotPassword(){
+  const email=(document.getElementById('nlEmail').value||'').trim();
+  const msg=document.getElementById('nlMsg');
+  if(!email||!email.includes('@')){msg.style.color='var(--red)';msg.textContent='Vul eerst je e-mailadres in';return;}
+  msg.style.color='var(--ink-2)';msg.textContent='Herstelmail versturen…';
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:'https://camping-cosmopolite.netlify.app/dashboard-nieuw/'});
+  if(error){msg.style.color='var(--red)';msg.textContent='⚠️ '+error.message;}
+  else{msg.style.color='var(--green)';msg.textContent='✅ Herstelmail verzonden. Check je inbox (en spam).';}
+}
+// supabase-js detecteert de recovery-token in de URL (#access_token=...&type=recovery)
+// en vuurt dan PASSWORD_RECOVERY i.p.v. gewoon in te loggen — vang dit apart op zodat
+// de gebruiker eerst een nieuw wachtwoord MOET instellen i.p.v. zomaar het dashboard
+// te zien.
+function showPasswordRecoveryScreen(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='none';
+  document.getElementById('pwRecoveryScreen').style.display='flex';
+}
+async function submitPasswordRecovery(){
+  const pw1=document.getElementById('recoveryPw1').value;
+  const pw2=document.getElementById('recoveryPw2').value;
+  const msg=document.getElementById('recoveryMsg');
+  const btn=document.getElementById('recoverySubmitBtn');
+  if(!pw1||pw1.length<8){msg.style.color='var(--red)';msg.textContent='⚠️ Minstens 8 tekens';return;}
+  if(pw1!==pw2){msg.style.color='var(--red)';msg.textContent='⚠️ Wachtwoorden komen niet overeen';return;}
+  msg.style.color='var(--ink-2)';msg.textContent='';
+  btn.textContent='Bezig…';btn.disabled=true;
+  const {error}=await sb.auth.updateUser({password:pw1});
+  if(error){
+    msg.style.color='var(--red)';msg.textContent='⚠️ '+error.message;
+    btn.textContent='Wachtwoord instellen →';btn.disabled=false;
+    return;
+  }
+  msg.style.color='var(--green)';msg.textContent='✅ Wachtwoord gewijzigd! Je wordt ingelogd…';
+  setTimeout(()=>{
+    document.getElementById('pwRecoveryScreen').style.display='none';
+    checkSession();
+  },1200);
 }
 let currentRole='staff';
 async function loadRole(){
