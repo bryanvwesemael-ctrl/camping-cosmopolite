@@ -9,7 +9,7 @@
  * Leunt op globals uit app-nieuw.js: sb, SUPABASE_URL, esc, toast, PRICES,
  * accTypes. Reordenen gebruikt SortableJS (CDN). Enkel admins zien deze tab.
  * ========================================================================== */
-let wbPaginas = [], wbSlug = null, wbBlokken = [], wbLang = 'nl', wbSortable = null;
+let wbPaginas = [], wbSlug = null, wbBlokken = [], wbLang = 'nl', wbSortable = null, wbDirty = false;
 
 async function renderBeheerWebsite() {
   const el = document.getElementById('beheerBody');
@@ -20,6 +20,7 @@ async function renderBeheerWebsite() {
   if (!wbSlug || !wbPaginas.find(p => p.slug === wbSlug)) wbSlug = wbPaginas.length ? wbPaginas[0].slug : null;
   const cur = wbPaginas.find(p => p.slug === wbSlug);
   wbBlokken = cur ? JSON.parse(JSON.stringify(cur.blokken || [])) : [];
+  wbDirty = false;
 
   const tabs = wbPaginas.map(p =>
     '<button class="ft' + (p.slug === wbSlug ? ' on' : '') + '" onclick="wbSelectPagina(\'' + p.slug + '\')">' +
@@ -34,7 +35,8 @@ async function renderBeheerWebsite() {
     '<div class="sbtn' + (wbLang === 'fr' ? ' act' : '') + '" onclick="wbSetLang(\'fr\')">🇫🇷 FR</div>' +
     '</div>' +
     '<button class="sbtn" style="flex:0 0 auto;" onclick="wbPreview()">👁️ Voorbeeld</button>' +
-    '<label style="font-size:12.5px;color:var(--ink-2);display:flex;align-items:center;gap:6px;margin-left:auto;"><input type="checkbox" id="wbZichtbaar" ' + (cur && cur.zichtbaar ? 'checked' : '') + '> Zichtbaar op site</label>' +
+    '<span id="wbDirtyBadge" class="wb-dirty"><span class="dot"></span>niet opgeslagen</span>' +
+    '<label style="font-size:12.5px;color:var(--ink-2);display:flex;align-items:center;gap:6px;margin-left:auto;"><input type="checkbox" id="wbZichtbaar" ' + (cur && cur.zichtbaar ? 'checked' : '') + ' onchange="wbMarkDirty()"> Zichtbaar op site</label>' +
     '</div>' +
     '<div id="wbBlokken"></div>' +
     wbPalette() +
@@ -44,7 +46,16 @@ async function renderBeheerWebsite() {
   wbRenderBlokken();
 }
 
-function wbSelectPagina(slug) { wbSlug = slug; renderBeheerWebsite(); }
+function wbMarkDirty() {
+  wbDirty = true;
+  const el = document.getElementById('wbDirtyBadge');
+  if (el) el.classList.add('on');
+}
+
+function wbSelectPagina(slug) {
+  if (wbDirty && !confirm('Niet-opgeslagen wijzigingen op deze pagina gaan verloren. Toch wisselen?')) return;
+  wbSlug = slug; renderBeheerWebsite();
+}
 function wbSetLang(l) { wbLang = l; renderBeheerWebsite(); }
 
 const WB_TYPES = [
@@ -65,16 +76,16 @@ function wbAddBlok(type) {
   if (type === 'kaarten') nieuw.items = [{ emoji: '⭐', titel_nl: '', titel_fr: '', tekst_nl: '', tekst_fr: '' }];
   if (type === 'nieuws') nieuw.items = [{ datum: '', titel_nl: '', titel_fr: '', tekst_nl: '', tekst_fr: '' }];
   if (type === 'galerij') nieuw.urls = [];
-  wbBlokken.push(nieuw); wbRenderBlokken();
+  wbBlokken.push(nieuw); wbMarkDirty(); wbRenderBlokken();
   const c = document.getElementById('wbBlokken'); if (c) c.lastElementChild && c.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
-function wbDelBlok(i) { if (!confirm('Dit blok verwijderen?')) return; wbBlokken.splice(i, 1); wbRenderBlokken(); }
+function wbDelBlok(i) { if (!confirm('Dit blok verwijderen?')) return; wbBlokken.splice(i, 1); wbMarkDirty(); wbRenderBlokken(); }
 
 // Tweetalig tekstveld: bewerkt _nl of _fr afhankelijk van de taalknop bovenaan.
 function wbTxt(i, veld, label, ph) {
   const b = wbBlokken[i], k = veld + '_' + wbLang;
   return '<div class="fld"><label>' + esc(label) + ' <span style="color:var(--ink-3);">(' + wbLang.toUpperCase() + ')</span></label>' +
-    '<input value="' + esc(b[k] || '') + '" placeholder="' + esc(ph || '') + '" oninput="wbBlokken[' + i + '][\'' + k + '\']=this.value"></div>';
+    '<input value="' + esc(b[k] || '') + '" placeholder="' + esc(ph || '') + '" oninput="wbBlokken[' + i + '][\'' + k + '\']=this.value;wbMarkDirty()"></div>';
 }
 function wbRich(i, label) {
   const b = wbBlokken[i], k = 'html_' + wbLang;
@@ -86,7 +97,7 @@ function wbRich(i, label) {
     '<button type="button" class="sbtn" style="flex:0 0 auto;padding:4px 9px;" onmousedown="event.preventDefault();document.execCommand(\'insertUnorderedList\')">• Lijst</button>' +
     '<button type="button" class="sbtn" style="flex:0 0 auto;padding:4px 9px;" onmousedown="event.preventDefault();var u=prompt(\'Link (https://...)\');if(u)document.execCommand(\'createLink\',false,u)">🔗</button>' +
     '</div>' +
-    '<div contenteditable="true" class="wb-rich" oninput="wbBlokken[' + i + '][\'' + k + '\']=this.innerHTML" ' +
+    '<div contenteditable="true" class="wb-rich" oninput="wbBlokken[' + i + '][\'' + k + '\']=this.innerHTML;wbMarkDirty()" ' +
     'style="min-height:70px;padding:10px;border:1px solid var(--sep);border-radius:9px;background:var(--card-2);color:var(--ink);font-size:14px;">' + (b[k] || '') + '</div></div>';
 }
 function wbFotoVeld(i, veld, label) {
@@ -94,7 +105,7 @@ function wbFotoVeld(i, veld, label) {
   return '<div class="fld"><label>' + esc(label) + '</label>' +
     (url ? '<img src="' + esc(url) + '" style="width:100%;max-height:150px;object-fit:cover;border-radius:9px;margin-bottom:6px;">' : '') +
     '<input type="file" accept="image/*" onchange="wbUpload(this,' + i + ',\'' + veld + '\')" style="font-size:12px;">' +
-    (url ? '<button class="sbtn" style="margin-top:6px;" onclick="wbBlokken[' + i + '].' + veld + '=\'\';wbRenderBlokken()">Foto verwijderen</button>' : '') +
+    (url ? '<button class="sbtn" style="margin-top:6px;" onclick="wbBlokken[' + i + '].' + veld + '=\'\';wbMarkDirty();wbRenderBlokken()">Foto verwijderen</button>' : '') +
     '</div>';
 }
 
@@ -109,13 +120,13 @@ function wbBlokEditor(b, i) {
     case 'kaarten': inner = wbItemsEditor(b, i, 'kaart'); break;
     case 'nieuws': inner = wbItemsEditor(b, i, 'nieuws'); break;
     case 'knop': inner = wbTxt(i, 'tekst', 'Knoptekst', 'Reserveer nu') +
-      '<div class="fld"><label>Link</label><input value="' + esc(b.url || '') + '" placeholder="/reserveren/" oninput="wbBlokken[' + i + '].url=this.value"></div>'; break;
+      '<div class="fld"><label>Link</label><input value="' + esc(b.url || '') + '" placeholder="/reserveren/" oninput="wbBlokken[' + i + '].url=this.value;wbMarkDirty()"></div>'; break;
     case 'tarieven': inner = '<div class="note-inline">Toont automatisch de actuele tarieven uit Beheer → Tarieven. Niets in te vullen.</div>'; break;
     case 'contact': inner = '<div class="note-inline" style="margin-bottom:8px;">Leeg laten = gebruikt de standaard campinggegevens. Vul in om te overschrijven.</div>' +
-      '<div class="fld"><label>Adres</label><input value="' + esc(b.adres || '') + '" oninput="wbBlokken[' + i + '].adres=this.value"></div>' +
-      '<div class="fld"><label>Telefoon</label><input value="' + esc(b.tel || '') + '" oninput="wbBlokken[' + i + '].tel=this.value"></div>' +
-      '<div class="fld"><label>E-mail</label><input value="' + esc(b.email || '') + '" oninput="wbBlokken[' + i + '].email=this.value"></div>' +
-      '<div class="fld"><label>Instagram (zonder @)</label><input value="' + esc(b.instagram || '') + '" oninput="wbBlokken[' + i + '].instagram=this.value"></div>'; break;
+      '<div class="fld"><label>Adres</label><input value="' + esc(b.adres || '') + '" oninput="wbBlokken[' + i + '].adres=this.value;wbMarkDirty()"></div>' +
+      '<div class="fld"><label>Telefoon</label><input value="' + esc(b.tel || '') + '" oninput="wbBlokken[' + i + '].tel=this.value;wbMarkDirty()"></div>' +
+      '<div class="fld"><label>E-mail</label><input value="' + esc(b.email || '') + '" oninput="wbBlokken[' + i + '].email=this.value;wbMarkDirty()"></div>' +
+      '<div class="fld"><label>Instagram (zonder @)</label><input value="' + esc(b.instagram || '') + '" oninput="wbBlokken[' + i + '].instagram=this.value;wbMarkDirty()"></div>'; break;
     case 'ruimte': inner = '<div class="note-inline">Lege ruimte tussen blokken.</div>'; break;
     default: inner = '<div class="note-inline">Onbekend blok.</div>';
   }
@@ -123,49 +134,50 @@ function wbBlokEditor(b, i) {
   return '<div class="card wb-blok" style="padding:12px;margin-bottom:10px;">' +
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">' +
     '<span class="wb-drag" style="cursor:grab;font-size:18px;color:var(--ink-3);" title="Versleep">⠿</span>' +
-    '<b style="flex:1;font-size:13px;">' + esc(lbl) + '</b>' +
-    '<button onclick="wbDelBlok(' + i + ')" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;">🗑</button>' +
+    '<span class="wb-badge"><b>' + esc(lbl) + '</b></span>' +
+    '<button onclick="wbDelBlok(' + i + ')" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>' +
     '</div>' + inner + '</div>';
 }
 function wbGalerijEditor(b, i) {
   const imgs = (b.urls || []).map((u, j) =>
     '<div style="position:relative;"><img src="' + esc(u) + '" style="width:70px;height:70px;object-fit:cover;border-radius:8px;">' +
-    '<button onclick="wbBlokken[' + i + '].urls.splice(' + j + ',1);wbRenderBlokken()" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;">✕</button></div>'
+    '<button onclick="wbBlokken[' + i + '].urls.splice(' + j + ',1);wbMarkDirty();wbRenderBlokken()" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;">✕</button></div>'
   ).join('');
-  return '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">' + imgs + '</div>' +
-    '<input type="file" accept="image/*" multiple onchange="wbUploadGalerij(this,' + i + ')" style="font-size:12px;">';
+  return (imgs ? '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">' + imgs + '</div>' : '') +
+    '<div class="fld" style="margin-bottom:0;"><label>Foto\'s toevoegen</label>' +
+    '<input type="file" accept="image/*" multiple onchange="wbUploadGalerij(this,' + i + ')" style="font-size:12px;"></div>';
 }
 function wbItemsEditor(b, i, soort) {
   const items = (b.items || []).map((it, j) => {
     const kt = 'titel_' + wbLang, kx = 'tekst_' + wbLang;
-    let velden = '';
-    if (soort === 'kaart') velden = '<input value="' + esc(it.emoji || '') + '" placeholder="emoji" oninput="wbBlokken[' + i + '].items[' + j + '].emoji=this.value" style="width:60px;">';
-    if (soort === 'nieuws') velden = '<input value="' + esc(it.datum || '') + '" placeholder="datum (bv. 12 aug)" oninput="wbBlokken[' + i + '].items[' + j + '].datum=this.value" style="flex:1;">';
+    let kopVeld = '';
+    if (soort === 'kaart') kopVeld = '<div class="fld" style="flex:0 0 70px;margin-bottom:0;"><label>Emoji</label><input value="' + esc(it.emoji || '') + '" oninput="wbBlokken[' + i + '].items[' + j + '].emoji=this.value;wbMarkDirty()"></div>';
+    if (soort === 'nieuws') kopVeld = '<div class="fld" style="flex:1;margin-bottom:0;"><label>Datum</label><input value="' + esc(it.datum || '') + '" placeholder="bv. 12 aug" oninput="wbBlokken[' + i + '].items[' + j + '].datum=this.value;wbMarkDirty()"></div>';
     return '<div class="card" style="padding:10px;margin-bottom:8px;background:var(--card-2);">' +
-      '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">' + velden +
-      '<button onclick="wbBlokken[' + i + '].items.splice(' + j + ',1);wbRenderBlokken()" style="margin-left:auto;background:var(--red-soft);color:var(--red);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;">🗑</button></div>' +
-      '<input value="' + esc(it[kt] || '') + '" placeholder="Titel (' + wbLang.toUpperCase() + ')" oninput="wbBlokken[' + i + '].items[' + j + '][\'' + kt + '\']=this.value" style="width:100%;margin-bottom:6px;">' +
-      '<input value="' + esc(it[kx] || '') + '" placeholder="Tekst (' + wbLang.toUpperCase() + ')" oninput="wbBlokken[' + i + '].items[' + j + '][\'' + kx + '\']=this.value" style="width:100%;">' +
+      '<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-end;">' + kopVeld +
+      '<button onclick="wbBlokken[' + i + '].items.splice(' + j + ',1);wbMarkDirty();wbRenderBlokken()" style="margin-left:auto;background:var(--red-soft);color:var(--red);border:none;border-radius:7px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button></div>' +
+      '<div class="fld"><label>Titel (' + wbLang.toUpperCase() + ')</label><input value="' + esc(it[kt] || '') + '" oninput="wbBlokken[' + i + '].items[' + j + '][\'' + kt + '\']=this.value;wbMarkDirty()"></div>' +
+      '<div class="fld" style="margin-bottom:0;"><label>Tekst (' + wbLang.toUpperCase() + ')</label><input value="' + esc(it[kx] || '') + '" oninput="wbBlokken[' + i + '].items[' + j + '][\'' + kx + '\']=this.value;wbMarkDirty()"></div>' +
       '</div>';
   }).join('');
   const leeg = soort === 'kaart' ? { emoji: '⭐', titel_nl: '', titel_fr: '', tekst_nl: '', tekst_fr: '' } : { datum: '', titel_nl: '', titel_fr: '', tekst_nl: '', tekst_fr: '' };
-  return items + '<button class="sbtn" onclick="wbBlokken[' + i + '].items=wbBlokken[' + i + '].items||[];wbBlokken[' + i + '].items.push(' + JSON.stringify(leeg).replace(/"/g, '&quot;') + ');wbRenderBlokken()">➕ Item toevoegen</button>';
+  return items + '<button class="sbtn" onclick="wbBlokken[' + i + '].items=wbBlokken[' + i + '].items||[];wbBlokken[' + i + '].items.push(' + JSON.stringify(leeg).replace(/"/g, '&quot;') + ');wbMarkDirty();wbRenderBlokken()">➕ Item toevoegen</button>';
 }
 
 function wbRenderBlokken() {
   const c = document.getElementById('wbBlokken'); if (!c) return;
   c.innerHTML = wbBlokken.length ? wbBlokken.map((b, i) => wbBlokEditor(b, i)).join('') :
-    '<div class="note-inline" style="padding:14px;text-align:center;">Nog geen blokken — voeg er hieronder een toe.</div>';
+    '<div class="wb-empty"><span class="e-icon">🧱</span><div class="e-title">Nog geen blokken op deze pagina</div>Voeg er hieronder een toe om te beginnen.</div>';
   // Verslepen om te herordenen (SortableJS).
   if (window.Sortable) {
     if (wbSortable) { try { wbSortable.destroy(); } catch (e) {} }
     wbSortable = new Sortable(c, {
-      handle: '.wb-drag', animation: 150,
+      handle: '.wb-drag', animation: 150, ghostClass: 'wb-ghost', chosenClass: 'wb-chosen',
       onEnd: function (e) {
         if (e.oldIndex === e.newIndex) return;
         const m = wbBlokken.splice(e.oldIndex, 1)[0];
         wbBlokken.splice(e.newIndex, 0, m);
-        wbRenderBlokken();
+        wbMarkDirty(); wbRenderBlokken();
       }
     });
   }
@@ -173,13 +185,13 @@ function wbRenderBlokken() {
 
 async function wbUpload(input, i, veld) {
   const f = input.files && input.files[0]; if (!f) return;
-  const url = await wbUploadNaarBucket(f); if (url) { wbBlokken[i][veld] = url; wbRenderBlokken(); }
+  const url = await wbUploadNaarBucket(f); if (url) { wbBlokken[i][veld] = url; wbMarkDirty(); wbRenderBlokken(); }
 }
 async function wbUploadGalerij(input, i) {
   const files = Array.from(input.files || []);
   wbBlokken[i].urls = wbBlokken[i].urls || [];
   for (const f of files) { const url = await wbUploadNaarBucket(f); if (url) wbBlokken[i].urls.push(url); }
-  wbRenderBlokken();
+  wbMarkDirty(); wbRenderBlokken();
 }
 async function wbUploadNaarBucket(file) {
   try {
@@ -201,6 +213,8 @@ async function wbSave() {
       blokken: wbBlokken, zichtbaar, updated_by: session.user.id
     }).eq('slug', wbSlug);
     if (error) throw new Error(error.message);
+    wbDirty = false;
+    const badge = document.getElementById('wbDirtyBadge'); if (badge) badge.classList.remove('on');
     msg.style.color = 'var(--green)'; msg.textContent = '✅ Opgeslagen — meteen live op de website';
   } catch (e) { msg.style.color = 'var(--red)'; msg.textContent = '⚠️ ' + e.message; }
 }
@@ -208,7 +222,18 @@ async function wbSave() {
 function wbPreview() {
   const ctx = { prices: (typeof PRICES !== 'undefined' ? PRICES : {}), accTypes: (typeof accTypes !== 'undefined' ? accTypes : []) };
   const html = window.CampingWebsite ? CampingWebsite.renderPagina(wbBlokken, wbLang, ctx) : '<p>Renderer niet geladen</p>';
+  const pad = wbSlug === 'home' ? '' : wbSlug + '/';
   openModal('👁️ Voorbeeld (' + wbLang.toUpperCase() + ')',
-    '<div class="cw-root"><div class="cw-wrap">' + html + '</div></div>' +
+    '<div class="wb-browserframe">' +
+    '<div class="wb-bf-top">' +
+    '<span class="wb-bf-dot" style="background:#ff5f57;"></span>' +
+    '<span class="wb-bf-dot" style="background:#febc2e;"></span>' +
+    '<span class="wb-bf-dot" style="background:#28c840;"></span>' +
+    '<span class="wb-bf-url">🔒 cosmopolite-camping.be/' + esc(pad) + '</span>' +
+    '</div>' +
+    '<div class="wb-bf-body"><div class="cw-root"><div class="cw-wrap">' + html + '</div></div></div>' +
+    '</div>' +
     '<div class="note-inline" style="margin-top:10px;">Zo ziet deze pagina er live uit. Sluit dit venster om verder te bewerken.</div>');
+  const card = document.querySelector('.modal-card');
+  if (card) card.style.maxWidth = '760px';
 }
