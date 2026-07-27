@@ -574,8 +574,10 @@ async function delKenteken(id){
    rechtstreeks kan afdrukken of via de browser als PDF kan bewaren. */
 async function openFactuur(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
-  const {data}=await sb.from('settings').select('key,value').in('key',['kbo','btw_nummer','adres']);
-  const cfg={};(data||[]).forEach(r=>cfg[r.key]=r.value);
+  // Factuurgegevens komen uit club_settings (gedeelde bron, ingevuld bij
+  // Beheer → Tarieven), niet uit de oude per-gebruiker settings-tabel —
+  // die laatste gaf enkel iets terug voor wie ze zelf had ingevuld.
+  const cfg=clubCfg;
   const nn=nights(b.aankomst,b.vertrek);
   const perDag=nn>0?Math.round((Number(b.bedrag||0)/nn)*100)/100:0;
   const betaald=paidOf(b), open=openOf(b);
@@ -584,9 +586,9 @@ async function openFactuur(id){
   w.document.write('<html><head><title>Factuur #'+(b.volgnummer||'—')+'</title></head>'+
     '<body style="font-family:sans-serif;padding:32px;max-width:640px;margin:0 auto;color:#1c1c1e;">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;">'+
-    '<div><div style="font-size:20px;font-weight:800;">🏕️ Camping Cosmopolite</div>'+
-    '<div style="font-size:12px;color:#666;margin-top:4px;">'+esc(cfg.adres||'')+'</div>'+
-    '<div style="font-size:12px;color:#666;">KBO: '+esc(cfg.kbo||'—')+' · BTW: '+esc(cfg.btw_nummer||'—')+'</div></div>'+
+    '<div>'+(cfg.logo_url?'<img src="'+esc(cfg.logo_url)+'" style="max-height:48px;max-width:200px;display:block;margin-bottom:8px;">':'<div style="font-size:20px;font-weight:800;">🏕️ Camping Cosmopolite</div>')+
+    '<div style="font-size:12px;color:#666;margin-top:4px;white-space:pre-line;">'+esc(cfg.adres||'')+'</div>'+
+    '<div style="font-size:12px;color:#666;">KBO: '+esc(cfg.kbo_nummer||'—')+' · BTW: '+esc(cfg.btw_nummer||'—')+'</div></div>'+
     '<div style="text-align:right;"><div style="font-size:22px;font-weight:800;">FACTUUR</div>'+
     '<div style="font-size:12px;color:#666;">Nr. FACT-'+(b.volgnummer||'—')+'</div>'+
     '<div style="font-size:12px;color:#666;">Datum: '+fmtDateLong(TODAY)+'</div></div></div>'+
@@ -1670,6 +1672,24 @@ async function renderBeheerTarieven(){
     '</div>'+
     '<div id="ibanFeedback" style="font-size:11.5px;margin:0 0 18px;padding:0 2px;"></div>'+
 
+    secLbl('🧾 Factuurgegevens')+
+    '<div class="card" style="padding:14px;margin-bottom:18px;">'+
+    '<div class="fld"><label>BTW-nummer</label><input id="bBtw" value="'+esc(clubCfg.btw_nummer||'')+'" placeholder="BE0123.456.789"></div>'+
+    '<div class="fld"><label>KBO-nummer <span style="font-weight:400;color:var(--ink-3);">(optioneel, vaak gelijk aan BTW-nummer)</span></label><input id="bKbo" value="'+esc(clubCfg.kbo_nummer||'')+'" placeholder="0123.456.789"></div>'+
+    '<div class="fld"><label>Adres op factuur</label><textarea id="bAdres" rows="2" placeholder="Straat 1, 1234 Gemeente">'+esc(clubCfg.adres||'')+'</textarea></div>'+
+    '<div class="fld" style="margin-bottom:0;"><label>Logo op factuur</label>'+
+    '<div style="display:flex;align-items:center;gap:12px;">'+
+    '<div onclick="document.getElementById(\'bLogoFile\').click()" style="width:60px;height:60px;border-radius:12px;border:1.5px dashed var(--sep);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:var(--card-2);flex-shrink:0;">'+
+    (clubCfg.logo_url?'<img src="'+esc(clubCfg.logo_url)+'" style="width:100%;height:100%;object-fit:contain;">':'<span style="font-size:22px;">🖼️</span>')+
+    '</div>'+
+    '<div style="flex:1;">'+
+    '<span class="sbtn" onclick="document.getElementById(\'bLogoFile\').click()" style="display:inline-block;margin-right:6px;">'+(clubCfg.logo_url?'Wijzigen':'Uploaden')+'</span>'+
+    (clubCfg.logo_url?'<span class="sbtn" onclick="verwijderLogo()" style="display:inline-block;color:var(--red);">Verwijderen</span>':'')+
+    '<input type="file" id="bLogoFile" accept="image/*" style="display:none;" onchange="onLogoFileSelected(this)">'+
+    '</div></div>'+
+    '<div id="logoMsg" style="font-size:11.5px;margin-top:6px;"></div>'+
+    '</div></div>'+
+
     secLbl('📦 Vrije kostenposten')+
     '<div id="extraTarList"></div>'+
     '<button class="sbtn" style="width:100%;margin-bottom:18px;" onclick="voegExtraTariefToe()">➕ Kostenpost toevoegen (bv. Waarborg)</button>'+
@@ -1680,6 +1700,32 @@ async function renderBeheerTarieven(){
   renderAccTypesList();
   renderExtraTarList();
   renderBeheerIbanFeedback(clubCfg.iban||'');
+}
+/* Logo wordt meteen geüpload/verwijderd (net als afbeeldingen in de
+   website-builder) — geen aparte 'opslaan'-stap nodig voor het bestand
+   zelf, enkel voor de tekstvelden ernaast. */
+async function onLogoFileSelected(input){
+  const f=input.files&&input.files[0];if(!f)return;
+  const msg=document.getElementById('logoMsg');
+  msg.style.color='var(--ink-2)';msg.textContent='Bezig met uploaden…';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const ext=(f.name.split('.').pop()||'png').toLowerCase();
+    const path='factuur/logo_'+Date.now()+'.'+ext;
+    const {error:upErr}=await sb.storage.from('website-media').upload(path,f,{upsert:true,contentType:f.type});
+    if(upErr)throw new Error(upErr.message);
+    const url=sb.storage.from('website-media').getPublicUrl(path).data.publicUrl;
+    await sb.from('club_settings').upsert({key:'logo_url',value:url,updated_by:session.user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
+    clubCfg.logo_url=url;
+    toast('🖼️ Logo opgeslagen'); renderBeheerTarieven();
+  }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
+}
+async function verwijderLogo(){
+  if(!confirm('Logo verwijderen van de factuur?'))return;
+  const {data:{session}}=await sb.auth.getSession();
+  await sb.from('club_settings').upsert({key:'logo_url',value:'',updated_by:session.user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
+  clubCfg.logo_url='';
+  toast('🗑 Logo verwijderd'); renderBeheerTarieven();
 }
 function onBeheerIbanInput(v){
   renderBeheerIbanFeedback(String(v||'').replace(/\s+/g,'').toUpperCase());
@@ -1748,11 +1794,13 @@ async function saveBeheerTarieven(){
       ['prijs_elektriciteit',g('bElek')],['prijs_afval_per_6',g('bAfval')],['toeristentaks',g('bTaks')],['max_plaatsen',g('bMax')||'0'],
       ['accommodatie_types',JSON.stringify(accTypes.filter(t=>(t.naam||'').trim()))],
       ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>(t.naam||'').trim()))],
-      ['iban',ibanClean],['rekeninghouder',g('bRekeninghouder').trim()],['bic',g('bBic').trim()]];
+      ['iban',ibanClean],['rekeninghouder',g('bRekeninghouder').trim()],['bic',g('bBic').trim()],
+      ['btw_nummer',g('bBtw').trim()],['kbo_nummer',g('bKbo').trim()],['adres',g('bAdres').trim()]];
     for(const [key,value] of pairs){
       await sb.from('club_settings').upsert({key,value:String(value),updated_by:session.user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
     }
     clubCfg.iban=ibanClean; clubCfg.rekeninghouder=g('bRekeninghouder').trim(); clubCfg.bic=g('bBic').trim();
+    clubCfg.btw_nummer=g('bBtw').trim(); clubCfg.kbo_nummer=g('bKbo').trim(); clubCfg.adres=g('bAdres').trim();
     msg.style.color='var(--green)';msg.textContent='✅ Opgeslagen — meteen zichtbaar bij Nieuwe reservering en op het publieke formulier'; maxPlaatsen=parseInt(g('bMax'))||0;
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
 }
