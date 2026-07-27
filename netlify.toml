@@ -1,6 +1,15 @@
 [build]
   publish = "."
 
+# Websitewerk (nieuwe publieke site op root index.html) ligt tijdelijk on
+# hold — de code blijft gewoon staan, maar de homepage wijst terug naar het
+# reserveringsformulier (zoals vóór "website fase C"). Verwijder deze regel
+# om de website terug op / te zetten.
+[[redirects]]
+  from = "/"
+  to = "/reserveren.html"
+  status = 200
+
 # De nieuwe publieke website staat op / (root index.html). Het
 # reserveringsformulier verhuisde naar reserveren.html; beide URL-vormen
 # (met en zonder trailing slash) wijzen ernaar. Assets in het formulier
