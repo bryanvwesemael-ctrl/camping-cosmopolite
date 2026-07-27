@@ -1022,7 +1022,7 @@ function openModal(title,html){
   document.getElementById('modalBody').innerHTML=html;
   document.getElementById('modal').classList.add('on');
 }
-function closeModal(){document.getElementById('modal').classList.remove('on');document.getElementById('modalBody').innerHTML='';}
+function closeModal(){document.getElementById('modal').classList.remove('on');document.getElementById('modalBody').innerHTML='';const c=document.querySelector('.modal-card');if(c)c.style.maxWidth='';}
 
 /* ---------- gegevens bewerken — zelfde modal-stijl als "Nieuwe reservering" ----------
    Punt 11: Bryan wil hetzelfde scherm als bij het aanmaken (steppers voor

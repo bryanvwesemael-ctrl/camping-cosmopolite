@@ -260,6 +260,29 @@
   .pricebox .pb2{font-size:12px;color:var(--ink-2);margin-top:3px;}
   .modal-save{width:100%;padding:14px;border-radius:12px;background:var(--green);color:#fff;border:none;font-weight:700;font-size:15px;cursor:pointer;font-family:var(--f);margin-top:6px;}
   .scanbtn{width:100%;padding:12px;border-radius:11px;background:var(--green-soft);border:1.5px dashed var(--green);color:var(--green);font-weight:700;font-size:13px;cursor:pointer;font-family:var(--f);margin-bottom:12px;}
+
+  /* ---------- website-bouwer (Beheer → Website) ---------- */
+  .wb-blok{border:1px solid var(--sep);transition:border-color .15s,box-shadow .15s;}
+  .wb-blok:hover{border-color:color-mix(in srgb,var(--green) 35%, var(--sep));}
+  .wb-blok.wb-chosen{box-shadow:0 10px 26px rgba(0,0,0,.14);}
+  .wb-blok.wb-ghost{opacity:.35;}
+  .wb-drag{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;flex-shrink:0;}
+  .wb-drag:hover{background:var(--card-2);color:var(--ink);}
+  .wb-drag:active{cursor:grabbing;}
+  .wb-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--ink-2);background:var(--card-2);border:1px solid var(--sep);padding:5px 11px;border-radius:20px;flex:1;min-width:0;}
+  .wb-badge b{font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .wb-dirty{display:none;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--amber);}
+  .wb-dirty.on{display:inline-flex;}
+  .wb-dirty .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);animation:wbPulse 1.3s infinite;}
+  @keyframes wbPulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+  .wb-empty{padding:36px 20px;text-align:center;border:1.5px dashed var(--sep);border-radius:14px;color:var(--ink-3);}
+  .wb-empty .e-icon{font-size:34px;margin-bottom:8px;display:block;}
+  .wb-empty .e-title{font-size:14px;font-weight:700;color:var(--ink-2);margin-bottom:4px;}
+  .wb-browserframe{border:1px solid var(--sep);border-radius:14px;overflow:hidden;background:var(--card);box-shadow:var(--shadow);}
+  .wb-bf-top{display:flex;align-items:center;gap:9px;padding:10px 14px;background:var(--card-2);border-bottom:1px solid var(--sep);}
+  .wb-bf-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .wb-bf-url{flex:1;background:var(--card);border:1px solid var(--sep);border-radius:8px;padding:5px 12px;font-size:11.5px;color:var(--ink-3);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .wb-bf-body{max-height:60vh;overflow-y:auto;}
 </style>
 </head>
 <body>
@@ -465,7 +488,7 @@
 <script src="../shared/payment.js?v=20260715c"></script>
 <script src="../shared/pricing.js?v=20260715c"></script>
 <script src="../shared/website-render.js?v=20260719a"></script>
-<script src="app-nieuw.js?v=20260726y"></script>
-<script src="website-builder.js?v=20260719a"></script>
+<script src="app-nieuw.js?v=20260726z"></script>
+<script src="website-builder.js?v=20260726a"></script>
 </body>
 </html>
