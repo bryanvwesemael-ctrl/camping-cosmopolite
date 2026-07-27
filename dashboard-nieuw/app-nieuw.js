@@ -1596,15 +1596,13 @@ function setBeheer(tab){
   if(currentRole!=='admin'){toast('⚠️ Enkel voor beheerders');return;}
   _beheerTab=tab;
   document.querySelectorAll('#scr-beheer .foldertabs .ft').forEach(b=>b.classList.toggle('on',b.getAttribute('data-beh')===tab));
-  const fns={tarieven:renderBeheerTarieven,gebruikers:renderBeheerGebruikers,idarchief:renderBeheerIdArchief,register:renderBeheerRegister,analytics:renderBeheerAnalytics,mail:renderBeheerMail,website:(typeof renderBeheerWebsite==='function'?renderBeheerWebsite:renderBeheerTarieven)};
+  const fns={tarieven:renderBeheerTarieven,gebruikers:renderBeheerGebruikers,idarchief:renderBeheerIdArchief,register:renderBeheerRegister,analytics:renderBeheerAnalytics,mail:renderBeheerMail,website:(typeof renderBeheerWebsite==='function'?renderBeheerWebsite:renderBeheerTarieven),instellingen:renderBeheerInstellingen};
   (fns[tab]||renderBeheerTarieven)();
 }
 async function renderBeheerTarieven(){
   const el=document.getElementById('beheerBody');
   el.innerHTML='<div class="note-inline">Laden…</div>';
   await loadPrices();
-  const {data:mp}=await sb.from('club_settings').select('value').eq('key','max_plaatsen').limit(1);
-  const maxP=(mp&&mp.length)?mp[0].value:'0';
 
   // grote prijs-kaart (tent/camper) — zelfde stijl als het oude systeem
   const bigCard=(id,val,emoji,lbl)=>'<div class="card" style="padding:14px 10px;text-align:center;">'+
@@ -1659,6 +1657,24 @@ async function renderBeheerTarieven(){
     iconRow('bTaks',PRICES.toeristentaks,'🏛️','Toeristentaks','per volwassene per nacht — BTW-vrij',true)+
     '</div>'+
 
+    secLbl('📦 Vrije kostenposten')+
+    '<div id="extraTarList"></div>'+
+    '<button class="sbtn" style="width:100%;margin-bottom:18px;" onclick="voegExtraTariefToe()">➕ Kostenpost toevoegen (bv. Waarborg)</button>'+
+
+    '<button class="modal-save" onclick="saveBeheerTarieven()">💾 Tarieven opslaan</button>'+
+    '<div id="tarMsg" class="note-inline"></div>';
+
+  renderAccTypesList();
+  renderExtraTarList();
+}
+async function renderBeheerInstellingen(){
+  const el=document.getElementById('beheerBody');
+  el.innerHTML='<div class="note-inline">Laden…</div>';
+  const {data:mp}=await sb.from('club_settings').select('value').eq('key','max_plaatsen').limit(1);
+  const maxP=(mp&&mp.length)?mp[0].value:'0';
+  const secLbl=t=>'<div class="sec-lbl">'+t+'</div>';
+
+  el.innerHTML=
     secLbl('🔢 Capaciteit')+
     '<div class="card" style="padding:14px;margin-bottom:18px;">'+
     '<div class="fld" style="margin-bottom:0;"><label>Max. boekingen per dag (0 = geen limiet) — elke boeking telt als 1, ongeacht aantal personen</label><input id="bMax" type="number" min="0" value="'+maxP+'"></div>'+
@@ -1690,15 +1706,9 @@ async function renderBeheerTarieven(){
     '<div id="logoMsg" style="font-size:11.5px;margin-top:6px;"></div>'+
     '</div></div>'+
 
-    secLbl('📦 Vrije kostenposten')+
-    '<div id="extraTarList"></div>'+
-    '<button class="sbtn" style="width:100%;margin-bottom:18px;" onclick="voegExtraTariefToe()">➕ Kostenpost toevoegen (bv. Waarborg)</button>'+
+    '<button class="modal-save" onclick="saveBeheerInstellingen()">💾 Instellingen opslaan</button>'+
+    '<div id="instMsg" class="note-inline"></div>';
 
-    '<button class="modal-save" onclick="saveBeheerTarieven()">💾 Tarieven opslaan</button>'+
-    '<div id="tarMsg" class="note-inline"></div>';
-
-  renderAccTypesList();
-  renderExtraTarList();
   renderBeheerIbanFeedback(clubCfg.iban||'');
 }
 /* Logo wordt meteen geüpload/verwijderd (net als afbeeldingen in de
@@ -1717,7 +1727,7 @@ async function onLogoFileSelected(input){
     const url=sb.storage.from('website-media').getPublicUrl(path).data.publicUrl;
     await sb.from('club_settings').upsert({key:'logo_url',value:url,updated_by:session.user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
     clubCfg.logo_url=url;
-    toast('🖼️ Logo opgeslagen'); renderBeheerTarieven();
+    toast('🖼️ Logo opgeslagen'); renderBeheerInstellingen();
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
 }
 async function verwijderLogo(){
@@ -1725,7 +1735,7 @@ async function verwijderLogo(){
   const {data:{session}}=await sb.auth.getSession();
   await sb.from('club_settings').upsert({key:'logo_url',value:'',updated_by:session.user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
   clubCfg.logo_url='';
-  toast('🗑 Logo verwijderd'); renderBeheerTarieven();
+  toast('🗑 Logo verwijderd'); renderBeheerInstellingen();
 }
 function onBeheerIbanInput(v){
   renderBeheerIbanFeedback(String(v||'').replace(/\s+/g,'').toUpperCase());
@@ -1785,15 +1795,28 @@ async function saveBeheerTarieven(){
   try{
     const {data:{session}}=await sb.auth.getSession();
     const g=id=>document.getElementById(id).value;
+    const pairs=[['prijs_tent',g('bTent')],['prijs_camper',g('bCamper')],['prijs_volwassene',g('bVolw')],
+      ['prijs_kind',g('bKind')],['prijs_baby',g('bBaby')],['prijs_hond',g('bHond')],['prijs_extra_auto',g('bAuto')],
+      ['prijs_elektriciteit',g('bElek')],['prijs_afval_per_6',g('bAfval')],['toeristentaks',g('bTaks')],
+      ['accommodatie_types',JSON.stringify(accTypes.filter(t=>(t.naam||'').trim()))],
+      ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>(t.naam||'').trim()))]];
+    for(const [key,value] of pairs){
+      await sb.from('club_settings').upsert({key,value:String(value),updated_by:session.user.id,updated_at:new Date().toISOString()},{onConflict:'key'});
+    }
+    msg.style.color='var(--green)';msg.textContent='✅ Opgeslagen — meteen zichtbaar bij Nieuwe reservering en op het publieke formulier';
+  }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
+}
+async function saveBeheerInstellingen(){
+  const msg=document.getElementById('instMsg');
+  msg.textContent='Opslaan…';msg.style.color='var(--ink-2)';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const g=id=>document.getElementById(id).value;
     const ibanClean=g('bIban').replace(/\s+/g,'').toUpperCase();
     if(ibanClean&&window.CampingPayment&&!CampingPayment.isValidIban(ibanClean)){
       msg.style.color='var(--red)';msg.textContent='⚠️ Het IBAN-nummer lijkt niet correct — controleer de cijfers voor je opslaat';return;
     }
-    const pairs=[['prijs_tent',g('bTent')],['prijs_camper',g('bCamper')],['prijs_volwassene',g('bVolw')],
-      ['prijs_kind',g('bKind')],['prijs_baby',g('bBaby')],['prijs_hond',g('bHond')],['prijs_extra_auto',g('bAuto')],
-      ['prijs_elektriciteit',g('bElek')],['prijs_afval_per_6',g('bAfval')],['toeristentaks',g('bTaks')],['max_plaatsen',g('bMax')||'0'],
-      ['accommodatie_types',JSON.stringify(accTypes.filter(t=>(t.naam||'').trim()))],
-      ['extra_tarieven',JSON.stringify(extraTarieven.filter(t=>(t.naam||'').trim()))],
+    const pairs=[['max_plaatsen',g('bMax')||'0'],
       ['iban',ibanClean],['rekeninghouder',g('bRekeninghouder').trim()],['bic',g('bBic').trim()],
       ['btw_nummer',g('bBtw').trim()],['kbo_nummer',g('bKbo').trim()],['adres',g('bAdres').trim()]];
     for(const [key,value] of pairs){
@@ -1801,7 +1824,8 @@ async function saveBeheerTarieven(){
     }
     clubCfg.iban=ibanClean; clubCfg.rekeninghouder=g('bRekeninghouder').trim(); clubCfg.bic=g('bBic').trim();
     clubCfg.btw_nummer=g('bBtw').trim(); clubCfg.kbo_nummer=g('bKbo').trim(); clubCfg.adres=g('bAdres').trim();
-    msg.style.color='var(--green)';msg.textContent='✅ Opgeslagen — meteen zichtbaar bij Nieuwe reservering en op het publieke formulier'; maxPlaatsen=parseInt(g('bMax'))||0;
+    maxPlaatsen=parseInt(g('bMax'))||0;
+    msg.style.color='var(--green)';msg.textContent='✅ Opgeslagen';
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
 }
 
