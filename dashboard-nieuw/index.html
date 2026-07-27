@@ -226,6 +226,13 @@
     .app.mobileFiche .content{overflow:auto;}
     .greet .g1{font-size:24px;}
     .kpis{max-width:640px;}
+    /* volwaardig scherm i.p.v. een smal "kaartje" op een grote monitor */
+    .stage{padding:0;}
+    .intro{display:none;}
+    .app{max-width:none; width:100%; height:100vh; min-height:100vh; border-radius:0; border:none; box-shadow:none;}
+  }
+  @media(min-width:1400px){
+    .kpis{max-width:900px;}
   }
   @media(max-width:859px){
     /* mobile: when a fiche is open, hide list/tabs, show only detail + back */
