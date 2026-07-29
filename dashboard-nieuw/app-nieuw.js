@@ -19,7 +19,7 @@ const AV = ['#3B7DD8', '#1B8A5B', '#5A57C4', '#C77A11', '#B23F2A', '#2C8F87', '#
 const MO = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 const FOLDER_LABEL = { postvak: '📥 Postvak', booking: '📂 Booking', aanwezig: '📂 Aanwezig', vertrokken: '📂 Vertrokken' };
 
-let bookings = [], paidByBooking = {}, maxPlaatsen = 0, currentUser = null, selectedId = null, clubCfg = {};
+let bookings = [], paidByBooking = {}, facturenByBooking = {}, maxPlaatsen = 0, currentUser = null, selectedId = null, clubCfg = {};
 const MAIL_SJABLONEN = {
   bevestiging: { onderwerp: 'Bevestiging reservatie — Camping Cosmopolite #{{volgnummer}}', inhoud: 'Beste {{voornaam}},\n\nJe reservatie is bevestigd.\nAankomst: {{aankomst}}\nVertrek: {{vertrek}}\nPersonen: {{personen}}\nTotaal: {{bedrag}}\n\nTot binnenkort!\n{{from_name}}' },
   herinnering: { onderwerp: 'Herinnering — Camping Cosmopolite #{{volgnummer}}', inhoud: 'Beste {{voornaam}},\n\nEen vriendelijke herinnering aan je verblijf van {{aankomst}} tot {{vertrek}}.\n\nTot binnenkort!\n{{from_name}}' },
@@ -249,6 +249,11 @@ async function loadData(){
     paidByBooking={};
     const pays=await sb.from('payments').select('booking_id,bedrag,status');
     (pays.data||[]).filter(p=>p.status==='paid').forEach(p=>{paidByBooking[p.booking_id]=(paidByBooking[p.booking_id]||0)+Number(p.bedrag||0);});
+    // Uitgereikte facturen (zonder de snapshot — die halen we pas op bij openen,
+    // anders sleep je bij elke refresh alle factuurinhoud mee).
+    facturenByBooking={};
+    const fac=await sb.from('facturen').select('id,booking_id,factuurnummer,factuurdatum,bedrag_incl,is_creditnota').order('volgnr');
+    (fac.data||[]).forEach(f=>{(facturenByBooking[f.booking_id]=facturenByBooking[f.booking_id]||[]).push(f);});
     renderAll();
     saveOfflineSnapshot();
   }catch(e){
@@ -554,7 +559,16 @@ async function loadBetPane(b){
     '<div class="pt"><div class="a">'+money(betaald)+' <span style="font-size:13px;color:var(--ink-3);font-weight:600;">/ '+money(totaal)+'</span></div>'+
     '<div class="b" style="color:'+statusKleur+';font-weight:700;">'+statusLbl+(!volledig&&betaald>0?' · nog '+money(open):'')+'</div></div></div></div>';
 
-  h+='<button class="sbtn" style="width:100%;margin-bottom:12px;" onclick="openFactuur(\''+b.id+'\')">🧾 Factuur openen (printen / als PDF bewaren)</button>';
+  // Reeds uitgereikte facturen: onveranderlijk, dus enkel opnieuw te openen.
+  const fact=(facturenByBooking[b.id]||[]);
+  h+='<div class="sec-lbl">🧾 Facturen</div>';
+  h+=fact.length
+    ? '<div class="card payhist" style="margin-bottom:8px;">'+fact.map(f=>
+        '<div class="row" style="cursor:pointer;" onclick="bekijkFactuur(\''+f.id+'\')">'+
+        '<span class="rl">'+(f.is_creditnota?'↩️ Creditnota ':'🧾 ')+esc(f.factuurnummer)+' · '+fmtDateLong(f.factuurdatum)+'</span>'+
+        '<span class="rv">'+money(f.bedrag_incl)+' ›</span></div>').join('')+'</div>'
+    : '<div class="note-inline" style="padding:8px 0;">Nog geen factuur uitgereikt voor deze boeking</div>';
+  h+='<button class="sbtn" style="width:100%;margin-bottom:12px;" onclick="maakFactuur(\''+b.id+'\')">➕ Factuur aanmaken'+(fact.length?' (extra)':'')+'</button>';
   h+='<div class="sec-lbl">Registreer betaling</div>';
   h+='<div class="statusgrid" style="padding:0;">'+
      '<div class="sbtn" onclick="actBetaling(\''+b.id+'\',\'cash\')">💵 Cash</div>'+
@@ -632,42 +646,81 @@ async function delKenteken(id){
    veel vraag naar komt). Gebruikt window.print() — zelfde patroon als het
    bestaande register/calamiteiten-export — zodat Karen of de klant het
    rechtstreeks kan afdrukken of via de browser als PDF kan bewaren. */
-async function openFactuur(id){
-  const b=bookings.find(x=>x.id===id);if(!b)return;
-  // Factuurgegevens komen uit club_settings (gedeelde bron, ingevuld bij
-  // Beheer → Tarieven), niet uit de oude per-gebruiker settings-tabel —
-  // die laatste gaf enkel iets terug voor wie ze zelf had ingevuld.
-  const cfg=clubCfg;
+/* Een factuur is een MOMENTOPNAME, geen weergave. Bij het aanmaken bevriezen
+   we alles wat erop staat — bedrijfsgegevens, klant, lijnen, bedragen — in een
+   snapshot. Wijzigt de boeking daarna (extra dagen, extra geld), dan blijft de
+   uitgereikte factuur ongemoeid. Corrigeren gebeurt met een creditnota, nooit
+   door de factuur zelf aan te passen. */
+function factuurSnapshot(b){
   const nn=nights(b.aankomst,b.vertrek);
-  const perDag=nn>0?Math.round((Number(b.bedrag||0)/nn)*100)/100:0;
-  const betaald=paidOf(b), open=openOf(b);
-  const w=window.open('','_blank');
-  if(!w){toast('⚠️ Sta pop-ups toe om de factuur te openen');return;}
-  w.document.write('<html><head><title>Factuur #'+(b.volgnummer||'—')+'</title></head>'+
+  const totaal=Number(b.bedrag||0);
+  const perDag=nn>0?Math.round((totaal/nn)*100)/100:0;
+  return {
+    verkoper:{naam:'Camping Cosmopolite',adres:clubCfg.adres||'',kbo:clubCfg.kbo_nummer||'',
+              btw:clubCfg.btw_nummer||'',logo_url:clubCfg.logo_url||''},
+    klant:{naam:b.naam||'',email:b.email||''},
+    boeking:{volgnummer:b.volgnummer||null,aankomst:b.aankomst,vertrek:b.vertrek,
+             nachten:nn,verblijfstype:verblijf(b)},
+    lijnen:[{omschrijving:verblijf(b)+' · '+fmt(b.aankomst)+' – '+fmt(b.vertrek)+' ('+nn+' nacht'+(nn===1?'':'en')+')',
+             detail:'€'+perDag.toFixed(2)+'/nacht × '+nn, bedrag:totaal}],
+    totaal:totaal,
+    betaald_bij_uitgifte:paidOf(b),
+    openstaand_bij_uitgifte:openOf(b),
+    btw_percent:12,
+    voetnoot:'Prijzen incl. 12% BTW (campingdiensten) en toeristentaks. Waarborg (indien van toepassing) is niet in deze factuur inbegrepen — cash geregeld ter plaatse.'
+  };
+}
+function renderFactuurHtml(snap,nummer,datum,isCredit){
+  const v=snap.verkoper||{},k=snap.klant||{},lijnen=snap.lijnen||[];
+  const titel=isCredit?'CREDITNOTA':'FACTUUR';
+  return '<html><head><title>'+titel+' '+esc(nummer)+'</title></head>'+
     '<body style="font-family:sans-serif;padding:32px;max-width:640px;margin:0 auto;color:#1c1c1e;">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;">'+
-    '<div>'+(cfg.logo_url?'<img src="'+esc(cfg.logo_url)+'" style="max-height:48px;max-width:200px;display:block;margin-bottom:8px;">':'<div style="font-size:20px;font-weight:800;">🏕️ Camping Cosmopolite</div>')+
-    '<div style="font-size:12px;color:#666;margin-top:4px;white-space:pre-line;">'+esc(cfg.adres||'')+'</div>'+
-    '<div style="font-size:12px;color:#666;">KBO: '+esc(cfg.kbo_nummer||'—')+' · BTW: '+esc(cfg.btw_nummer||'—')+'</div></div>'+
-    '<div style="text-align:right;"><div style="font-size:22px;font-weight:800;">FACTUUR</div>'+
-    '<div style="font-size:12px;color:#666;">Nr. FACT-'+(b.volgnummer||'—')+'</div>'+
-    '<div style="font-size:12px;color:#666;">Datum: '+fmtDateLong(TODAY)+'</div></div></div>'+
+    '<div>'+(v.logo_url?'<img src="'+esc(v.logo_url)+'" style="max-height:48px;max-width:200px;display:block;margin-bottom:8px;">':'<div style="font-size:20px;font-weight:800;">🏕️ '+esc(v.naam||'Camping Cosmopolite')+'</div>')+
+    '<div style="font-size:12px;color:#666;margin-top:4px;white-space:pre-line;">'+esc(v.adres||'')+'</div>'+
+    '<div style="font-size:12px;color:#666;">KBO: '+esc(v.kbo||'—')+' · BTW: '+esc(v.btw||'—')+'</div></div>'+
+    '<div style="text-align:right;"><div style="font-size:22px;font-weight:800;">'+titel+'</div>'+
+    '<div style="font-size:12px;color:#666;">Nr. '+esc(nummer)+'</div>'+
+    '<div style="font-size:12px;color:#666;">Datum: '+fmtDateLong(datum)+'</div></div></div>'+
     '<div style="margin-bottom:24px;"><div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.05em;">Klant</div>'+
-    '<div style="font-size:14px;font-weight:700;">'+esc(b.naam)+'</div>'+
-    (b.email?'<div style="font-size:12.5px;color:#666;">'+esc(b.email)+'</div>':'')+'</div>'+
+    '<div style="font-size:14px;font-weight:700;">'+esc(k.naam||'')+'</div>'+
+    (k.email?'<div style="font-size:12.5px;color:#666;">'+esc(k.email)+'</div>':'')+'</div>'+
     '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;">'+
     '<tr style="border-bottom:1.5px solid #ddd;text-align:left;"><th style="padding:8px 4px;">Omschrijving</th><th style="padding:8px 4px;text-align:right;">Bedrag</th></tr>'+
-    '<tr style="border-bottom:.5px solid #eee;"><td style="padding:8px 4px;">'+esc(verblijf(b))+' · '+fmt(b.aankomst)+' – '+fmt(b.vertrek)+' ('+nn+' nacht'+(nn===1?'':'en')+')<br>'+
-    '<span style="font-size:11px;color:#999;">€'+perDag.toFixed(2)+'/nacht × '+nn+'</span></td><td style="padding:8px 4px;text-align:right;vertical-align:top;">'+money(b.bedrag)+'</td></tr>'+
-    '<tr style="border-top:1.5px solid #1c1c1e;font-weight:800;"><td style="padding:10px 4px;">Totaal</td><td style="padding:10px 4px;text-align:right;">'+money(b.bedrag)+'</td></tr>'+
+    lijnen.map(l=>'<tr style="border-bottom:.5px solid #eee;"><td style="padding:8px 4px;">'+esc(l.omschrijving)+
+      (l.detail?'<br><span style="font-size:11px;color:#999;">'+esc(l.detail)+'</span>':'')+
+      '</td><td style="padding:8px 4px;text-align:right;vertical-align:top;">'+money(l.bedrag)+'</td></tr>').join('')+
+    '<tr style="border-top:1.5px solid #1c1c1e;font-weight:800;"><td style="padding:10px 4px;">Totaal</td><td style="padding:10px 4px;text-align:right;">'+money(snap.totaal)+'</td></tr>'+
     '</table>'+
     '<div style="font-size:12.5px;line-height:1.8;">'+
-    '<div>Reeds betaald: <b>'+money(betaald)+'</b></div>'+
-    (open>0.005?'<div>Nog te betalen: <b style="color:#CC7700;">'+money(open)+'</b></div>':'<div style="color:#1B8A5B;font-weight:700;">✅ Volledig betaald</div>')+
+    '<div>Reeds betaald: <b>'+money(snap.betaald_bij_uitgifte)+'</b></div>'+
+    (Number(snap.openstaand_bij_uitgifte)>0.005?'<div>Nog te betalen: <b style="color:#CC7700;">'+money(snap.openstaand_bij_uitgifte)+'</b></div>':'<div style="color:#1B8A5B;font-weight:700;">✅ Volledig betaald</div>')+
     '</div>'+
-    '<div style="margin-top:28px;font-size:10.5px;color:#999;">Prijzen incl. 12% BTW (campingdiensten) en toeristentaks. Waarborg (indien van toepassing) is niet in deze factuur inbegrepen — cash geregeld ter plaatse.</div>'+
-    '<script>window.onload=function(){window.print()}<\/script></body></html>');
-  w.document.close();
+    '<div style="margin-top:28px;font-size:10.5px;color:#999;">'+esc(snap.voetnoot||'')+'</div>'+
+    '<script>window.onload=function(){window.print()}<\/script></body></html>';
+}
+function drukFactuurAf(html){
+  const w=window.open('','_blank');
+  if(!w){toast('⚠️ Sta pop-ups toe om de factuur te openen');return;}
+  w.document.write(html); w.document.close();
+}
+async function maakFactuur(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  if(!confirm('Factuur aanmaken voor '+b.naam+' — '+money(b.bedrag)+'?\n\nZe krijgt een definitief nummer en kan daarna niet meer gewijzigd worden. Corrigeren gebeurt met een creditnota.'))return;
+  const snap=factuurSnapshot(b);
+  const {data,error}=await sb.rpc('maak_factuur',{
+    p_booking_id:id, p_snapshot:snap, p_bedrag_incl:snap.totaal, p_btw_percent:12
+  });
+  if(error){toast('⚠️ '+error.message);return;}
+  const f=Array.isArray(data)?data[0]:data;
+  toast('🧾 Factuur '+f.factuurnummer+' aangemaakt');
+  drukFactuurAf(renderFactuurHtml(snap,f.factuurnummer,f.factuurdatum,false));
+  await loadData();
+}
+async function bekijkFactuur(factuurId){
+  const {data,error}=await sb.from('facturen').select('*').eq('id',factuurId).maybeSingle();
+  if(error||!data){toast('⚠️ Factuur niet gevonden');return;}
+  drukFactuurAf(renderFactuurHtml(data.snapshot,data.factuurnummer,data.factuurdatum,data.is_creditnota));
 }
 function toggleQR(id){
   const box=document.getElementById('qrBox');if(!box)return;
@@ -1675,7 +1728,7 @@ function setBeheer(tab){
   if(currentRole!=='admin'){toast('⚠️ Enkel voor beheerders');return;}
   _beheerTab=tab;
   document.querySelectorAll('#scr-beheer .foldertabs .ft').forEach(b=>b.classList.toggle('on',b.getAttribute('data-beh')===tab));
-  const fns={tarieven:renderBeheerTarieven,gebruikers:renderBeheerGebruikers,idarchief:renderBeheerIdArchief,register:renderBeheerRegister,analytics:renderBeheerAnalytics,mail:renderBeheerMail,website:(typeof renderBeheerWebsite==='function'?renderBeheerWebsite:renderBeheerTarieven),instellingen:renderBeheerInstellingen};
+  const fns={tarieven:renderBeheerTarieven,gebruikers:renderBeheerGebruikers,idarchief:renderBeheerIdArchief,register:renderBeheerRegister,analytics:renderBeheerAnalytics,mail:renderBeheerMail,website:(typeof renderBeheerWebsite==='function'?renderBeheerWebsite:renderBeheerTarieven),instellingen:renderBeheerInstellingen,facturen:renderBeheerFacturen};
   (fns[tab]||renderBeheerTarieven)();
 }
 async function renderBeheerTarieven(){
@@ -2150,6 +2203,63 @@ async function exportRegisterCSV(){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   toast('⬇️ CSV gedownload (incl. alle gasten)');
 }
+/* ---------- beheer: facturenboek ----------
+   Alle uitgereikte facturen op één plek. Bewust alleen-lezen: een factuur
+   corrigeren doe je met een creditnota, en de database weigert wijzigen of
+   verwijderen sowieso (zie migratie 032). */
+let _facJaar=null;
+function setFacJaar(j){_facJaar=(j==='alle')?null:parseInt(j,10);renderBeheerFacturen();}
+async function renderBeheerFacturen(){
+  const el=document.getElementById('beheerBody');
+  el.innerHTML='<div class="note-inline">Laden…</div>';
+  const {data,error}=await sb.from('facturen')
+    .select('id,booking_id,factuurnummer,factuurdatum,bedrag_incl,is_creditnota,jaar,snapshot')
+    .order('jaar',{ascending:false}).order('volgnr',{ascending:false});
+  if(error){el.innerHTML='<div class="note-inline" style="color:var(--red)">⚠️ '+esc(error.message)+'</div>';return;}
+  const alle=data||[];
+  const jaren=[...new Set(alle.map(f=>f.jaar))].sort((a,b)=>b-a);
+  const lijst=_facJaar?alle.filter(f=>f.jaar===_facJaar):alle;
+  const totaal=lijst.reduce((s,f)=>s+Number(f.bedrag_incl||0),0);
+  const nCredit=lijst.filter(f=>f.is_creditnota).length;
+
+  const jbtn=(val,lbl)=>'<div class="sbtn'+((_facJaar===null&&val==='alle')||_facJaar===val?' act':'')+'" onclick="setFacJaar(\''+val+'\')">'+lbl+'</div>';
+
+  el.innerHTML=
+    '<div class="kpis" style="grid-template-columns:repeat(3,1fr);">'+
+    '<div class="kpi"><div class="kv">'+lijst.length+'</div><div class="kk">Facturen</div></div>'+
+    '<div class="kpi"><div class="kv g" style="font-size:19px;">'+money(totaal)+'</div><div class="kk">Totaal gefactureerd</div></div>'+
+    '<div class="kpi"><div class="kv" style="color:var(--blue)">'+nCredit+'</div><div class="kk">Creditnota\'s</div></div>'+
+    '</div>'+
+    (jaren.length>1?'<div style="display:grid;grid-template-columns:repeat('+(jaren.length+1)+',1fr);gap:6px;margin:12px 0;">'+
+      jbtn('alle','Alle')+jaren.map(j=>jbtn(j,String(j))).join('')+'</div>':'<div style="height:10px;"></div>')+
+    (lijst.length?'<div class="card payhist">'+lijst.map(f=>{
+      const kl=(f.snapshot&&f.snapshot.klant&&f.snapshot.klant.naam)||'—';
+      return '<div class="row" style="cursor:pointer;" onclick="bekijkFactuur(\''+f.id+'\')">'+
+        '<span class="rl">'+(f.is_creditnota?'↩️ ':'🧾 ')+'<b>'+esc(f.factuurnummer)+'</b> · '+esc(kl)+
+        '<br><span style="font-size:11px;color:var(--ink-3);">'+fmtDateLong(f.factuurdatum)+'</span></span>'+
+        '<span class="rv" style="color:'+(f.is_creditnota?'var(--blue)':'var(--green)')+'">'+money(f.bedrag_incl)+' ›</span></div>';
+    }).join('')+'</div>':'<div class="note-inline" style="padding:20px;">Nog geen facturen uitgereikt</div>')+
+    (lijst.length?'<button class="sbtn" style="width:100%;margin-top:12px;" onclick="exportFacturenCSV()">⬇️ Exporteren naar CSV (voor de boekhouder)</button>':'')+
+    '<div class="note-inline" style="margin-top:10px;">Facturen liggen vast zodra ze aangemaakt zijn. Corrigeren gebeurt met een creditnota.</div>';
+}
+async function exportFacturenCSV(){
+  const {data,error}=await sb.from('facturen')
+    .select('factuurnummer,factuurdatum,bedrag_incl,btw_percent,btw_bedrag,bedrag_excl,is_creditnota,jaar,snapshot')
+    .order('jaar').order('volgnr');
+  if(error){toast('⚠️ '+error.message);return;}
+  const rows=(data||[]).filter(f=>!_facJaar||f.jaar===_facJaar);
+  const csv=[['Factuurnummer','Datum','Klant','Bedrag incl','BTW %','BTW bedrag','Bedrag excl','Creditnota']]
+    .concat(rows.map(f=>[f.factuurnummer,f.factuurdatum,
+      (f.snapshot&&f.snapshot.klant&&f.snapshot.klant.naam)||'',
+      f.bedrag_incl,f.btw_percent??'',f.btw_bedrag??'',f.bedrag_excl??'',f.is_creditnota?'ja':'nee']))
+    .map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='facturen_'+(_facJaar||'alle')+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('⬇️ '+rows.length+' facturen geëxporteerd');
+}
+
 /* Inkomsten per betaalmethode — periode blijft onthouden tussen renders
    (bv. na het wisselen van tab), default "deze maand". */
 let _omzetPeriode={type:'maand',van:'',tot:''};
