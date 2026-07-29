@@ -676,7 +676,8 @@ function toggleQR(id){
     '<div><b>IBAN:</b> '+esc(CampingPayment.formatIban(iban))+'</div>'+
     '<div><b>Bedrag:</b> '+money(open)+'</div>'+
     '<div><b>Mededeling:</b> '+esc(ref)+'</div></div>'+
-    '<div class="note-inline">Laat de gast scannen met de bankapp</div></div>';
+    '<button class="modal-save" style="margin-top:14px;" onclick="bevestigQrBetaling(\''+b.id+'\','+open+')">✅ Betaling ontvangen — registreer '+money(open)+'</button>'+
+    '<div class="note-inline">Laat de gast scannen met de bankapp · klik hierboven zodra de betaling bevestigd is</div></div>';
 }
 
 /* gasten — lezen + toevoegen + verwijderen, met AI ID-scan */
@@ -988,6 +989,20 @@ async function actUitchecken(id){
   if(error){toast('⚠️ '+error.message);return;}
   toast('👋 Uitgecheckt → Vertrokken'); await loadData();
 }
+/* Eén plek waar een betaling effectief wordt weggeschreven — gebruikt door
+   zowel de handmatige knoppen als de één-klik-bevestiging in het QR-venster,
+   zodat die twee nooit uit elkaar kunnen lopen. */
+async function registreerBetaling(id,bedrag,methode){
+  const b=bookings.find(x=>x.id===id);if(!b)return false;
+  const {error}=await sb.from('payments').insert({booking_id:id,bedrag:bedrag,status:'paid',methode:methode});
+  if(error){toast('⚠️ '+error.message);return false;}
+  const nieuwBetaald=(paidByBooking[id]||0)+bedrag;
+  if(nieuwBetaald>=Number(b.bedrag||0)-0.005 && b.status!=='ingecheckt'){
+    await sb.from('bookings').update({status:'betaald'}).eq('id',id);
+  }
+  toast('💰 '+money(bedrag)+' geregistreerd'); await loadData();
+  return true;
+}
 async function actBetaling(id,methode){
   const b=bookings.find(x=>x.id===id);if(!b)return;
   const open=openOf(b);
@@ -996,13 +1011,17 @@ async function actBetaling(id,methode){
   if(inp===null)return;
   const bedrag=Math.round(parseFloat(String(inp).replace(',','.'))*100)/100;
   if(!(bedrag>0)){toast('⚠️ Ongeldig bedrag');return;}
-  const {error}=await sb.from('payments').insert({booking_id:id,bedrag:bedrag,status:'paid',methode:methode});
-  if(error){toast('⚠️ '+error.message);return;}
-  const nieuwBetaald=(paidByBooking[id]||0)+bedrag;
-  if(nieuwBetaald>=Number(b.bedrag||0)-0.005 && b.status!=='ingecheckt'){
-    await sb.from('bookings').update({status:'betaald'}).eq('id',id);
-  }
-  toast('💰 '+money(bedrag)+' geregistreerd'); await loadData();
+  await registreerBetaling(id,bedrag,methode);
+}
+/* Bevestiging vanuit het QR-venster. Het bedrag zit al ín de QR-code, dus
+   hoeft niemand het nog over te typen: één klik zodra de gast betaald heeft.
+   Bewust niet automatisch bij het TONEN van de QR — dan zou een boeking als
+   betaald staan terwijl de gast nog moet scannen (of afhaakt). */
+async function bevestigQrBetaling(id,bedrag){
+  const bd=Math.round(Number(bedrag)*100)/100;
+  if(!(bd>0)){toast('⚠️ Ongeldig bedrag');return;}
+  const ok=await registreerBetaling(id,bd,'qr');
+  if(ok){const box=document.getElementById('qrBox');if(box){box.style.display='none';box.innerHTML='';}}
 }
 async function actTerugbetaling(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
