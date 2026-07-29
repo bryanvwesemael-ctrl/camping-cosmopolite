@@ -183,6 +183,19 @@ function mapBooking(row){
 }
 // Aantal kentekens van een boeking dat nog niet in de slagboom staat.
 function kentekensOpen(b){ return (b.kentekens||[]).filter(k=>!k.slagboomIngegeven).length; }
+// Hoeveel dagen vóór aankomst een kenteken al in de takenlijst verschijnt.
+// Instelbaar in Beheer → Instellingen; 999 = praktisch "vanaf de boekingsdatum".
+function kentekenHorizonDagen(){
+  const n=parseInt(clubCfg.kenteken_horizon_dagen,10);
+  return (isFinite(n)&&n>=0)?n:14;
+}
+// Bevestigde boekingen die nog moeten aankomen en binnen de horizon vallen.
+// Aankomsten van vandaag zitten al in hun eigen lijst, dus die sluiten we uit
+// om dubbeltellen te vermijden.
+function kentekenKomende(){
+  const grens=new Date(Date.now()+kentekenHorizonDagen()*86400000).toISOString().split('T')[0];
+  return bookings.filter(b=>folderOf(b)==='booking'&&b.aankomst>TODAY&&b.aankomst<=grens);
+}
 /* ---------- offline-cache (lezen zonder internet) ----------
    Vervolg-punt: op de weide moet je tussen bestaande boekingen kunnen
    wisselen zonder verbinding. Optie A (besproken en gekozen): na elke
@@ -334,14 +347,19 @@ function renderDagbord(){
        '<div class="at"><div class="a1">'+postvak.length+' aanvra'+(postvak.length===1?'ag':'gen')+' in Postvak</div>'+
        '<div class="a2">Nog te controleren en te bevestigen</div></div><div class="ar">›</div></div>';
   }
-  // Kentekens horen er te zijn vóór de gast door de slagboom rijdt, dus we
-  // tellen zowel de aankomsten van vandaag (nog niet ingecheckt) als de
-  // aanwezige gasten (vangnet voor gemiste/laattijdig toegevoegde platen).
-  const kentekensOpenSom=aankomst.reduce((s,b)=>s+kentekensOpen(b),0)+aanwezig.reduce((s,b)=>s+kentekensOpen(b),0);
+  // Kentekens horen in de slagboom vóór de gast er doorrijdt. We tellen niet
+  // enkel de aankomsten van vandaag, maar alles wat binnen de horizon valt
+  // (standaard 14 dagen) — anders zie je een plaat pas op de dag zelf, terwijl
+  // hij vaak al weken bekend is. Aanwezig blijft als vangnet meetellen.
+  const komende=kentekenKomende();
+  const kentekensOpenSom=aankomst.reduce((s,b)=>s+kentekensOpen(b),0)
+    +komende.reduce((s,b)=>s+kentekensOpen(b),0)
+    +aanwezig.reduce((s,b)=>s+kentekensOpen(b),0);
   if(kentekensOpenSom){
-    h+='<div class="alert" onclick="dbScrollTo(\'dbAankomstSec\')"><div class="ai">🚧</div>'+
+    const nKomend=komende.reduce((s,b)=>s+kentekensOpen(b),0);
+    h+='<div class="alert" onclick="'+(nKomend?'setFolder(\'booking\')':'dbScrollTo(\'dbAankomstSec\')')+'"><div class="ai">🚧</div>'+
        '<div class="at"><div class="a1">'+kentekensOpenSom+' kenteken'+(kentekensOpenSom===1?'':'s')+' nog niet in de slagboom</div>'+
-       '<div class="a2">Zie 🚧 bij aankomst vandaag en bij Aanwezig</div></div><div class="ar">›</div></div>';
+       '<div class="a2">Zie 🚧 bij aankomst vandaag, in Booking'+(kentekenHorizonDagen()<999?' (komende '+kentekenHorizonDagen()+' dagen)':'')+' en bij Aanwezig</div></div><div class="ar">›</div></div>';
   }
   h+='<div id="draftsAlertBox"></div>';
   h+='<div class="sec-lbl" id="dbAankomstSec">🟢 Aankomst vandaag</div>';
@@ -374,7 +392,7 @@ function renderFolders(){
       let pill=c.pill;
       if(f==='postvak'&&b.status!=='aanvraag')pill='<span class="pill p-conf">'+esc(b.status)+'</span>';
       else if(f==='postvak'&&b.aiDraft)pill='<span class="pill p-draft">🤖 AI-concept</span>';
-      if(f==='aanwezig'&&kentekensOpen(b)>0)pill='<span title="'+kentekensOpen(b)+' kenteken(s) nog niet in de slagboom" style="margin-right:6px;">🚧</span>'+pill;
+      if((f==='aanwezig'||f==='booking')&&kentekensOpen(b)>0)pill='<span title="'+kentekensOpen(b)+' kenteken(s) nog niet in de slagboom" style="margin-right:6px;">🚧</span>'+pill;
       return rowHtml(b,sub,pill);
     }).join('');
     el.innerHTML=(c.list.length?'<div class="card taskcard">'+rows+'</div>':emptyCard('Geen reserveringen in deze map'))+'<div class="list-hint">'+c.hint+'</div>';
@@ -1738,7 +1756,8 @@ async function renderBeheerInstellingen(){
   el.innerHTML=
     secLbl('🔢 Capaciteit')+
     '<div class="card" style="padding:14px;margin-bottom:18px;">'+
-    '<div class="fld" style="margin-bottom:0;"><label>Max. boekingen per dag (0 = geen limiet) — elke boeking telt als 1, ongeacht aantal personen</label><input id="bMax" type="number" min="0" value="'+maxP+'"></div>'+
+    '<div class="fld"><label>Max. boekingen per dag (0 = geen limiet) — elke boeking telt als 1, ongeacht aantal personen</label><input id="bMax" type="number" min="0" value="'+maxP+'"></div>'+
+    '<div class="fld" style="margin-bottom:0;"><label>🚧 Kentekens tonen vanaf hoeveel dagen vóór aankomst — 999 = meteen vanaf de boeking</label><input id="bKentHor" type="number" min="0" value="'+kentekenHorizonDagen()+'"></div>'+
     '</div>'+
 
     secLbl('🏦 Bankgegevens (voor betaal-QR)')+
@@ -1877,7 +1896,7 @@ async function saveBeheerInstellingen(){
     if(ibanClean&&window.CampingPayment&&!CampingPayment.isValidIban(ibanClean)){
       msg.style.color='var(--red)';msg.textContent='⚠️ Het IBAN-nummer lijkt niet correct — controleer de cijfers voor je opslaat';return;
     }
-    const pairs=[['max_plaatsen',g('bMax')||'0'],
+    const pairs=[['max_plaatsen',g('bMax')||'0'],['kenteken_horizon_dagen',g('bKentHor')||'14'],
       ['iban',ibanClean],['rekeninghouder',g('bRekeninghouder').trim()],['bic',g('bBic').trim()],
       ['btw_nummer',g('bBtw').trim()],['kbo_nummer',g('bKbo').trim()],['adres',g('bAdres').trim()]];
     for(const [key,value] of pairs){
@@ -1885,6 +1904,7 @@ async function saveBeheerInstellingen(){
     }
     clubCfg.iban=ibanClean; clubCfg.rekeninghouder=g('bRekeninghouder').trim(); clubCfg.bic=g('bBic').trim();
     clubCfg.btw_nummer=g('bBtw').trim(); clubCfg.kbo_nummer=g('bKbo').trim(); clubCfg.adres=g('bAdres').trim();
+    clubCfg.kenteken_horizon_dagen=g('bKentHor')||'14';
     maxPlaatsen=parseInt(g('bMax'))||0;
     msg.style.color='var(--green)';msg.textContent='✅ Opgeslagen';
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;}
