@@ -383,12 +383,68 @@ function renderDagbord(){
 }
 
 /* ---------- render: mappen ---------- */
+/* ---------- archieffilter (map Vertrokken) ----------
+   Een camping denkt in seizoenen, niet in één doorlopende lijst. Vandaar eerst
+   een jaarkeuze en daarbinnen de maanden. Enkel maanden die effectief boekingen
+   bevatten krijgen een knop, met hun aantal erbij — dan zie je in één oogopslag
+   waar het druk was. */
+let _archJaar=null, _archMaand=null;
+function archJaren(){
+  return [...new Set(inFolder('vertrokken').map(b=>(b.vertrek||'').slice(0,4)).filter(Boolean))]
+    .sort((a,b)=>b.localeCompare(a));
+}
+function archHuidigJaar(){
+  const jaren=archJaren(); if(!jaren.length) return null;
+  if(_archJaar && (_archJaar==='alle' || jaren.includes(_archJaar))) return _archJaar;
+  const nu=String(new Date().getFullYear());
+  return jaren.includes(nu)?nu:jaren[0];     // val terug op het recentste jaar mét data
+}
+function archLijst(){
+  const jaar=archHuidigJaar();
+  let l=inFolder('vertrokken');
+  if(jaar && jaar!=='alle') l=l.filter(b=>(b.vertrek||'').slice(0,4)===jaar);
+  if(_archMaand)            l=l.filter(b=>(b.vertrek||'').slice(5,7)===_archMaand);
+  return l.sort(byVertrekDesc);
+}
+function setArchJaar(j){ _archJaar=j; _archMaand=null; renderFolders(); }
+function setArchMaand(m){ _archMaand=(_archMaand===m?null:m); renderFolders(); }
+function archFilterHtml(){
+  const jaren=archJaren();
+  if(!jaren.length) return '';
+  const jaar=archHuidigJaar();
+  const knop=(actief,label,onclick,titel)=>
+    '<div class="sbtn'+(actief?' act':'')+'" style="flex:0 0 auto;padding:6px 12px;font-size:12.5px;"'+
+    (titel?' title="'+titel+'"':'')+' onclick="'+onclick+'">'+label+'</div>';
+
+  let h='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">'+
+    jaren.map(j=>knop(jaar===j,j,'setArchJaar(\''+j+'\')')).join('')+
+    knop(jaar==='alle','Alle jaren','setArchJaar(\'alle\')')+
+    '</div>';
+
+  // Maanden enkel binnen één gekozen jaar — over alle jaren heen is dat betekenisloos.
+  if(jaar!=='alle'){
+    const perMaand={};
+    inFolder('vertrokken').filter(b=>(b.vertrek||'').slice(0,4)===jaar)
+      .forEach(b=>{const m=(b.vertrek||'').slice(5,7); if(m) perMaand[m]=(perMaand[m]||0)+1;});
+    const maanden=Object.keys(perMaand).sort();
+    if(maanden.length>1){
+      h+='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">'+
+        maanden.map(m=>knop(_archMaand===m,
+          MO[parseInt(m,10)-1]+' <span style="opacity:.6;">'+perMaand[m]+'</span>',
+          'setArchMaand(\''+m+'\')',
+          perMaand[m]+' vertrokken in '+MO[parseInt(m,10)-1]+' '+jaar)).join('')+
+        '</div>';
+    }
+  }
+  return h;
+}
+
 function renderFolders(){
   const conf={
     postvak:{list:inFolder('postvak').sort(byAankomst),pill:'<span class="pill p-req">controleren</span>',hint:'nieuwe aanvragen · nog te bevestigen'},
     booking:{list:inFolder('booking').sort(byAankomst),pill:'<span class="pill p-conf">bevestigd</span>',hint:'binnen, nog niet gearriveerd'},
     aanwezig:{list:inFolder('aanwezig').sort(byAankomst),pill:'<span class="pill p-in">aanwezig</span>',hint:'staan nu op de camping · dit is "wie is er"'},
-    vertrokken:{list:inFolder('vertrokken').sort(byVertrekDesc),pill:'<span class="pill p-out">afgesloten</span>',hint:'archief · doorzoekbaar'},
+    vertrokken:{list:archLijst(),pill:'<span class="pill p-out">afgesloten</span>',hint:'archief · gefilterd per seizoen'},
   };
   Object.keys(conf).forEach(f=>{
     const c=conf[f];const el=document.getElementById('fc-'+f);if(!el)return;
@@ -400,7 +456,11 @@ function renderFolders(){
       if((f==='aanwezig'||f==='booking')&&kentekensOpen(b)>0)pill='<span title="'+kentekensOpen(b)+' kenteken(s) nog niet in de slagboom" style="margin-right:6px;">🚧</span>'+pill;
       return rowHtml(b,sub,pill);
     }).join('');
-    el.innerHTML=(c.list.length?'<div class="card taskcard">'+rows+'</div>':emptyCard('Geen reserveringen in deze map'))+'<div class="list-hint">'+c.hint+'</div>';
+    const leeg=f==='vertrokken'?'Geen vertrokken boekingen in deze periode':'Geen reserveringen in deze map';
+    const filter=f==='vertrokken'?archFilterHtml():'';
+    const teller=f==='vertrokken'&&c.list.length?' · '+c.list.length+' boeking'+(c.list.length===1?'':'en'):'';
+    el.innerHTML=filter+(c.list.length?'<div class="card taskcard">'+rows+'</div>':emptyCard(leeg))+
+      '<div class="list-hint">'+c.hint+teller+'</div>';
   });
 }
 function byAankomst(a,b){return (a.aankomst||'').localeCompare(b.aankomst||'');}
