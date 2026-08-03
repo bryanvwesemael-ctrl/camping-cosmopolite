@@ -1370,6 +1370,8 @@ async function saveGegevens(id){
     if(egState.camper>0)parts.push(egState.camper+'× Camper');
     const extraTypeUnits=accTypes.filter(t=>(egState.custom[t.id]||0)>0).map(t=>({...t,count:egState.custom[t.id]}));
     extraTypeUnits.forEach(t=>parts.push(t.count+'× '+t.naam));
+    const eenhedenCheck=vulEenhedenIn(extraTypeUnits,aan||b.aankomst,ver||b.vertrek,id);
+    if(eenhedenCheck.error){msg.style.color='var(--red)';msg.textContent='⚠️ '+eenhedenCheck.error;if(btn){btn.disabled=false;btn.textContent='✓ Opslaan';}return;}
     const cErr=(await sb.from('clients').update({
       naam:(g('eNaam').value||'').trim()||b.naam,
       email:(g('eEmail').value||'').trim()||null,
@@ -1712,6 +1714,8 @@ async function saveNewBooking(){
     if(nbState.camper>0)parts.push(nbState.camper+'× Camper');
     const extraTypeUnits=accTypes.filter(t=>(nbState.custom[t.id]||0)>0).map(t=>({...t,count:nbState.custom[t.id]}));
     extraTypeUnits.forEach(t=>parts.push(t.count+'× '+t.naam));
+    const eenhedenCheck=vulEenhedenIn(extraTypeUnits,aan,ver,null);
+    if(eenhedenCheck.error){msg.style.color='var(--red)';msg.textContent='⚠️ '+eenhedenCheck.error;btn.disabled=false;btn.textContent='Reservering opslaan → Booking';return;}
     const {data:client,error:cErr}=await sb.from('clients').insert({naam,email,nummerplaten:(document.getElementById('nbPlaat').value||'').trim()||null}).select('id').single();
     if(cErr)throw new Error(cErr.message);
     const {data:booking,error:bErr}=await sb.from('bookings').insert({
@@ -1784,6 +1788,65 @@ function calShift(dir){
 // Types zonder "aantal" (bv. Moto/backpacker, een per-persoon prijscategorie
 // zonder fysieke eenheid) blijven hier bewust buiten beeld.
 function verhuurTypes(){ return (accTypes||[]).filter(t=>Number(t.aantal)>0); }
+// Boekingen van een verhuurtype die de weergegeven maand raken — voor de
+// nette lijst onder de kleurenkalender in het Verhuur-tabblad.
+function bookingsForTypeInMonth(accTypeId,year,month){
+  const first=year+'-'+String(month+1).padStart(2,'0')+'-01';
+  const last=new Date(year,month+1,0).toISOString().split('T')[0];
+  return bookings.filter(b=>{
+    if(b.status==='geannuleerd')return false;
+    if(!(b.extraTypeUnits||[]).some(u=>u.id===accTypeId))return false;
+    return b.aankomst<=last&&b.vertrek>=first;
+  }).sort((a,b)=>a.aankomst<b.aankomst?-1:1);
+}
+// Voorbereiding op meerdere fysieke eenheden per verhuurtype (bv. 2
+// safaritenten): wijst specifieke eenheidnummers (1..aantal) toe aan een
+// boeking voor een periode, zodat we later per eenheid apart kunnen tonen
+// wie waar zit. Met aantal=1 wijst dit altijd gewoon eenheid 1 toe — bij
+// uitbreiding werkt dezelfde functie zonder verdere aanpassing.
+function wijsEenhedenToe(accType,aankomst,vertrek,aantalNodig,excludeBookingId){
+  const totaal=Number(accType.aantal)||0;
+  if(totaal<=0||aantalNodig<=0)return [];
+  const bezet=new Set();
+  bookings.forEach(b=>{
+    if(b.id===excludeBookingId||b.status==='geannuleerd')return;
+    if(!(b.aankomst<vertrek&&b.vertrek>aankomst))return; // overlapt deze periode
+    const unit=(b.extraTypeUnits||[]).find(u=>u.id===accType.id);
+    if(unit&&Array.isArray(unit.eenheden))unit.eenheden.forEach(e=>bezet.add(e));
+  });
+  const vrij=[];
+  for(let n=1;n<=totaal&&vrij.length<aantalNodig;n++)if(!bezet.has(n))vrij.push(n);
+  return vrij; // korter dan aantalNodig als er niet genoeg vrij is
+}
+// Vult "eenheden" in op elk extraTypeUnits-item dat een echte verhuureenheid
+// is (aantal>0). Geeft null terug (en zet een foutmelding) als er voor een
+// type niet genoeg vrije eenheden meer zijn in de opgegeven periode.
+function vulEenhedenIn(extraTypeUnits,aankomst,vertrek,excludeBookingId){
+  for(const item of extraTypeUnits){
+    const accType=accTypes.find(t=>t.id===item.id);
+    if(!accType||!(Number(accType.aantal)>0))continue;
+    const vrij=wijsEenhedenToe(accType,aankomst,vertrek,item.count,excludeBookingId);
+    if(vrij.length<item.count){
+      return {error:'Geen '+(item.count>1?item.count+' vrije eenheden':'vrije eenheid')+' meer voor '+(item.naam||'dit type')+' in deze periode (nog maar '+vrij.length+' van de '+item.count+' beschikbaar).'};
+    }
+    item.eenheden=vrij;
+  }
+  return {error:null};
+}
+function bezetEenheidOpDag(dateStr,accTypeId,eenheid){
+  return bookings.some(b=>{
+    if(b.status==='geannuleerd'||b.aankomst>dateStr||b.vertrek<=dateStr)return false;
+    const unit=(b.extraTypeUnits||[]).find(u=>u.id===accTypeId);
+    return !!(unit&&Array.isArray(unit.eenheden)&&unit.eenheden.includes(eenheid));
+  });
+}
+function bookingVoorEenheidOpDag(dateStr,accTypeId,eenheid){
+  return bookings.find(b=>{
+    if(b.status==='geannuleerd'||b.aankomst>dateStr||b.vertrek<=dateStr)return false;
+    const unit=(b.extraTypeUnits||[]).find(u=>u.id===accTypeId);
+    return !!(unit&&Array.isArray(unit.eenheden)&&unit.eenheden.includes(eenheid));
+  });
+}
 function bezetOpDag(dateStr,accTypeId){
   return bookings.reduce((sum,b)=>{
     if(b.status==='geannuleerd'||b.aankomst>dateStr||b.vertrek<=dateStr)return sum;
@@ -1813,12 +1876,16 @@ function renderKalender(){
       const dateStr=calAnchor.getFullYear()+'-'+String(calAnchor.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
       const cnt=bookingsOnDay(dateStr).length;
       const isToday=dateStr===TODAY;
-      const stipjes=vTypes.filter(t=>bezetOpDag(dateStr,t.id)>0)
-        .map(t=>'<span title="'+esc(t.naam||'')+' bezet" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+(t.kleur||'var(--ink-3)')+';"></span>').join('');
-      cells+='<div onclick="calOpenDay(\''+dateStr+'\')" style="aspect-ratio:1;border:1px solid var(--sep);border-radius:8px;padding:5px;cursor:pointer;background:'+(isToday?'var(--green-soft)':'var(--card)')+';display:flex;flex-direction:column;">'+
+      const labels=vTypes.map(t=>{
+        const bezet=bezetOpDag(dateStr,t.id);
+        if(!bezet)return '';
+        const suffix=Number(t.aantal)>1?' '+bezet+'/'+t.aantal:'';
+        return '<div title="'+esc(t.naam||'')+suffix+' bezet" style="font-size:8.5px;font-weight:700;line-height:1.25;color:'+(t.kleur||'var(--ink-3)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(t.naam||'')+suffix+'</div>';
+      }).join('');
+      cells+='<div onclick="calOpenDay(\''+dateStr+'\')" style="min-height:66px;border:1px solid var(--sep);border-radius:8px;padding:5px;cursor:pointer;background:'+(isToday?'var(--green-soft)':'var(--card)')+';display:flex;flex-direction:column;overflow:hidden;">'+
         '<span style="font-size:11px;font-weight:'+(isToday?'800':'600')+';color:'+(isToday?'var(--green)':'var(--ink)')+';">'+day+'</span>'+
-        (stipjes?'<div style="display:flex;gap:3px;margin-top:3px;">'+stipjes+'</div>':'')+
-        (cnt?'<span style="margin-top:auto;font-size:9.5px;background:var(--blue-soft);color:var(--blue);border-radius:5px;padding:1px 4px;text-align:center;">'+cnt+'</span>':'')+
+        (labels?'<div style="margin-top:2px;">'+labels+'</div>':'')+
+        (cnt?'<span style="margin-top:auto;font-size:9.5px;background:var(--blue-soft);color:var(--blue);border-radius:5px;padding:1px 4px;text-align:center;align-self:flex-start;">'+cnt+'</span>':'')+
         '</div>';
     }
     wrap.innerHTML='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;">'+cells+'</div>';
@@ -1831,29 +1898,67 @@ function renderKalender(){
       const first=new Date(calAnchor.getFullYear(),calAnchor.getMonth(),1);
       const startOffset=(first.getDay()+6)%7;
       const daysInMonth=new Date(calAnchor.getFullYear(),calAnchor.getMonth()+1,0).getDate();
+      const year=calAnchor.getFullYear(), month=calAnchor.getMonth();
       let h='';
-      types.forEach(t=>{
+      types.forEach((t,ti)=>{
         const kleur=t.kleur||'var(--ink-3)';
-        h+='<div style="margin-bottom:22px;">'+
-           '<div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:6px;">'+(t.emoji||'🏕️')+' '+esc(t.naam||'Type')+
-           '<span style="font-weight:400;color:var(--ink-3);"> · '+t.aantal+' beschikbaar</span></div>'+
-           '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
-        DGN.forEach(d=>h+='<div style="text-align:center;font-size:9.5px;color:var(--ink-3);font-family:var(--f-mono);">'+d+'</div>');
+        const vandaagBezet=bezetOpDag(TODAY,t.id);
+        const vandaagVol=vandaagBezet>=Number(t.aantal);
+        h+='<div class="card" style="padding:14px;margin-bottom:14px;">'+
+           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">'+
+             '<div style="font-size:13.5px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:7px;">'+
+               '<span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:'+kleur+';flex-shrink:0;"></span>'+
+               (t.emoji||'🏕️')+' '+esc(t.naam||'Type')+
+             '</div>'+
+             '<span class="pill '+(vandaagVol?'p-out':'p-in')+'" style="font-size:10.5px;">'+(vandaagVol?'Vandaag volzet':'Vandaag '+(Number(t.aantal)-vandaagBezet)+'/'+t.aantal+' vrij')+'</span>'+
+           '</div>'+
+           '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:10px;">';
+        DGN.forEach(d=>h+='<div style="text-align:center;font-size:9px;color:var(--ink-3);font-family:var(--f-mono);">'+d+'</div>');
         for(let i=0;i<startOffset;i++)h+='<div></div>';
         for(let day=1;day<=daysInMonth;day++){
-          const dateStr=calAnchor.getFullYear()+'-'+String(calAnchor.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+          const dateStr=year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
           const bezet=bezetOpDag(dateStr,t.id);
           const ratio=Math.min(1,bezet/Number(t.aantal));
           const isToday=dateStr===TODAY;
-          const bg=bezet>0?kleur:'var(--card)';
-          const opac=bezet>0?(0.35+0.65*ratio):1;
-          h+='<div onclick="calOpenDay(\''+dateStr+'\')" title="'+day+' '+MND[calAnchor.getMonth()]+' — '+bezet+'/'+t.aantal+' bezet" '+
-             'style="aspect-ratio:1;border:1px solid '+(bezet>0?kleur:'var(--sep)')+';border-radius:6px;cursor:pointer;background:'+bg+';opacity:'+opac+';'+(isToday?'outline:2px solid var(--ink);':'')+'display:flex;align-items:center;justify-content:center;">'+
-             '<span style="font-size:10px;font-weight:600;color:'+(bezet>0?'#fff':'var(--ink-2)')+';">'+day+'</span></div>';
+          const bg=bezet>0?kleur:'var(--card-2)';
+          const opac=bezet>0?(0.4+0.6*ratio):1;
+          h+='<div onclick="calOpenDay(\''+dateStr+'\')" title="'+day+' '+MND[month]+' — '+bezet+'/'+t.aantal+' bezet" '+
+             'style="aspect-ratio:1;border-radius:5px;cursor:pointer;background:'+bg+';opacity:'+opac+';'+(isToday?'outline:2px solid var(--ink);outline-offset:1px;':'')+'display:flex;align-items:center;justify-content:center;">'+
+             '<span style="font-size:9.5px;font-weight:600;color:'+(bezet>0?'#fff':'var(--ink-3)')+';">'+day+'</span></div>';
         }
-        h+='</div></div>';
+        h+='</div>';
+        // Zodra er meer dan 1 fysieke eenheid van dit type is, tonen we ook
+        // een dunne strook per eenheid — zo zie je welke specifieke tent/
+        // caravan bezet is, niet enkel de totale bezetting. Bij aantal=1
+        // (de huidige situatie) verschijnt dit niet — geen extra rompslomp
+        // zolang het niet nodig is.
+        if(Number(t.aantal)>1){
+          h+='<div style="margin-bottom:10px;">';
+          for(let eenheid=1;eenheid<=Number(t.aantal);eenheid++){
+            h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'+
+               '<span style="font-size:9.5px;color:var(--ink-3);width:52px;flex-shrink:0;">Eenheid '+eenheid+'</span>'+
+               '<div style="display:flex;gap:1px;flex:1;">';
+            for(let day=1;day<=daysInMonth;day++){
+              const dateStr=year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+              const bez=bezetEenheidOpDag(dateStr,t.id,eenheid);
+              const bk=bez?bookingVoorEenheidOpDag(dateStr,t.id,eenheid):null;
+              h+='<div onclick="calOpenDay(\''+dateStr+'\')" title="'+day+' '+MND[month]+(bk?' — '+esc(bk.naam):' — vrij')+'" '+
+                 'style="flex:1;height:14px;border-radius:2px;cursor:pointer;background:'+(bez?kleur:'var(--card-2)')+';"></div>';
+            }
+            h+='</div></div>';
+          }
+          h+='</div>';
+        }
+        const lijst=bookingsForTypeInMonth(t.id,year,month);
+        h+='<div style="font-size:10.5px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em;margin-bottom:5px;">Boekingen deze maand ('+lijst.length+')</div>';
+        h+=lijst.length?lijst.map(b=>{
+          const unit=(b.extraTypeUnits||[]).find(u=>u.id===t.id);
+          const aantalDeze=unit?unit.count:1;
+          return rowHtml(b,fmt(b.aankomst)+' – '+fmt(b.vertrek)+(aantalDeze>1?' · '+aantalDeze+'×':''),'');
+        }).join(''):'<div class="note-inline" style="padding:8px 0;">Geen boekingen deze maand</div>';
+        h+='</div>';
       });
-      h+='<div style="font-size:11px;color:var(--ink-3);">Lichte cel = vrij · volle kleur = volzet · lichtere tint van de kleur = deels bezet</div>';
+      h+='<div style="font-size:11px;color:var(--ink-3);">Lichte cel = vrij · volle kleur = volzet · lichtere tint = deels bezet</div>';
       wrap.innerHTML=h;
     }
   } else if(calMode==='week'){
