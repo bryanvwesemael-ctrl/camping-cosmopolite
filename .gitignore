@@ -7,3 +7,12 @@ Thumbs.db
 # Bevat inloggegevens (wachtwoord) — nooit naar versiebeheer
 handleiding/Snelstart-Karen.html
 handleiding/Snelstart-Karen.pdf
+
+# Local Netlify folder
+.netlify
+
+# Dependencies — never commit, reinstall via npm install
+node_modules/
+
+# Local Claude Code config
+.claude/

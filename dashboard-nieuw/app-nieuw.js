@@ -1682,10 +1682,22 @@ function setCalView(m){
 }
 function calShift(dir){
   const d=new Date(calAnchor);
-  if(calMode==='maand')d.setMonth(d.getMonth()+dir);
+  if(calMode==='maand'||calMode==='verhuur')d.setMonth(d.getMonth()+dir);
   else if(calMode==='week')d.setDate(d.getDate()+dir*7);
   else d.setDate(d.getDate()+dir);
   calAnchor=d; renderKalender();
+}
+// Verhuureenheden: accTypes met "aantal" > 0 zijn fysieke units (bv. 1
+// safaritent, 1 stacaravan) die op de Verhuur-tijdlijn getoond worden.
+// Types zonder "aantal" (bv. Moto/backpacker, een per-persoon prijscategorie
+// zonder fysieke eenheid) blijven hier bewust buiten beeld.
+function verhuurTypes(){ return (accTypes||[]).filter(t=>Number(t.aantal)>0); }
+function bezetOpDag(dateStr,accTypeId){
+  return bookings.reduce((sum,b)=>{
+    if(b.status==='geannuleerd'||b.aankomst>dateStr||b.vertrek<=dateStr)return sum;
+    const unit=(b.extraTypeUnits||[]).find(u=>u.id===accTypeId);
+    return sum+(unit?(Number(unit.count)||0):0);
+  },0);
 }
 function calToday(){calAnchor=new Date();renderKalender();}
 function bookingsOnDay(dateStr){
@@ -1714,6 +1726,37 @@ function renderKalender(){
         '</div>';
     }
     wrap.innerHTML='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;">'+cells+'</div>';
+  } else if(calMode==='verhuur'){
+    lbl.textContent=MND[calAnchor.getMonth()]+' '+calAnchor.getFullYear();
+    const types=verhuurTypes();
+    if(!types.length){
+      wrap.innerHTML=emptyCard('Nog geen verhuureenheden ingesteld. Zet bij Beheer → Tarieven het "Aantal beschikbaar" van bv. Safaritent of Stacaravan op 1 of meer.');
+    }else{
+      const daysInMonth=new Date(calAnchor.getFullYear(),calAnchor.getMonth()+1,0).getDate();
+      let h='';
+      types.forEach(t=>{
+        h+='<div style="margin-bottom:16px;">'+
+           '<div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:6px;">'+(t.emoji||'🏕️')+' '+esc(t.naam||'Type')+
+           '<span style="font-weight:400;color:var(--ink-3);"> · '+t.aantal+' beschikbaar</span></div>'+
+           '<div style="display:grid;grid-template-columns:repeat('+daysInMonth+',1fr);gap:2px;">';
+        for(let day=1;day<=daysInMonth;day++){
+          const dateStr=calAnchor.getFullYear()+'-'+String(calAnchor.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+          const bezet=bezetOpDag(dateStr,t.id);
+          const vol=bezet>=Number(t.aantal);
+          const deels=bezet>0&&!vol;
+          const kleur=vol?'var(--red)':(deels?'var(--amber,#c9861e)':'var(--green)');
+          const isToday=dateStr===TODAY;
+          h+='<div onclick="calOpenDay(\''+dateStr+'\')" title="'+day+' '+MND[calAnchor.getMonth()]+' — '+bezet+'/'+t.aantal+' bezet" '+
+             'style="aspect-ratio:1;border-radius:3px;cursor:pointer;background:'+kleur+';'+(isToday?'outline:2px solid var(--ink);':'')+'"></div>';
+        }
+        h+='</div></div>';
+      });
+      h+='<div style="display:flex;gap:14px;font-size:11px;color:var(--ink-3);margin-top:4px;">'+
+         '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--green);margin-right:4px;"></span>vrij</span>'+
+         '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--amber,#c9861e);margin-right:4px;"></span>deels bezet</span>'+
+         '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--red);margin-right:4px;"></span>volzet</span></div>';
+      wrap.innerHTML=h;
+    }
   } else if(calMode==='week'){
     const day0=(calAnchor.getDay()+6)%7;
     const monday=new Date(calAnchor); monday.setDate(monday.getDate()-day0);
@@ -1965,10 +2008,14 @@ function renderAccTypesList(){
     '<label style="font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:3px;">Omschrijving (optioneel)</label>'+
     inp(t.beschrijving||'','accTypes['+i+'].beschrijving=this.value',null,'bv. Inclusief afvalbijdrage')+
     '<label style="font-size:11.5px;color:var(--ink-2);display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="checkbox" '+(t.allIn?'checked':'')+' onchange="accTypes['+i+'].allIn=this.checked;renderAccTypesList();"> All-in vaste prijs — geen afvalkost, geen toeristenbelasting, geen aparte personenprijs bovenop (bv. Moto/Backpacker)</label>'+
+    '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft,var(--sep));display:flex;gap:8px;align-items:flex-end;">'+
+    fld('Aantal beschikbaar',inp(t.aantal||0,'accTypes['+i+'].aantal=parseInt(this.value)||0','number'))+
+    '<div style="flex:2;font-size:10.5px;color:var(--ink-3);padding-bottom:9px;">0 = niet bijgehouden op de Verhuur-kalender. Zet op 1 (of meer) voor een fysieke verhuureenheid zoals een safaritent of stacaravan.</div>'+
+    '</div>'+
     '</div>'
   ).join(''):'<div class="note-inline" style="padding:6px 0;">Nog geen eigen types — standaard zijn Tent en Camper</div>';
 }
-function voegAccTypeToe(){accTypes.push({id:'custom_'+Date.now(),emoji:'🏕️',naam:'',prijs:0,maxPersonen:0,waarborgBedrag:0,allIn:false,beschrijving:''});renderAccTypesList();}
+function voegAccTypeToe(){accTypes.push({id:'custom_'+Date.now(),emoji:'🏕️',naam:'',prijs:0,maxPersonen:0,waarborgBedrag:0,allIn:false,beschrijving:'',aantal:0});renderAccTypesList();}
 function renderExtraTarList(){
   const el=document.getElementById('extraTarList');if(!el)return;
   el.innerHTML=extraTarieven.length?extraTarieven.map((t,i)=>
