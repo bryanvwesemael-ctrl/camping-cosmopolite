@@ -867,15 +867,21 @@ function openAddGuest(bookingId){
     '<input type="file" id="gScanFile" accept="image/*" style="display:none;" onchange="scanGuestFile(this)">'+
     '<img id="gScanPreview" style="display:none;width:100%;max-height:200px;object-fit:contain;border-radius:10px;border:1px solid var(--sep);margin-bottom:8px;background:var(--card-2);">'+
     '<div id="gScanHint" class="note-inline" style="min-height:14px;"></div>'+
-    '<div class="fld"><label>Naam *</label><input id="gNaam" placeholder="Volledige naam"></div>'+
+    '<div class="fld"><label>Naam *</label><input id="gNaam" placeholder="Volledige naam — AI vult dit in na de foto"></div>'+
+    '<div style="margin:2px 0 10px;">'+
+    '<a href="#" onclick="event.preventDefault();const el=document.getElementById(\'gMeerVelden\');const open=el.style.display!==\'none\';el.style.display=open?\'none\':\'block\';this.textContent=open?\'▸ Meer gegevens (optioneel — AI vult dit al in)\':\'▾ Meer gegevens verbergen\';" style="font-size:12px;color:var(--ink-3);text-decoration:none;">▸ Meer gegevens (optioneel — AI vult dit al in)</a>'+
+    '</div>'+
+    '<div id="gMeerVelden" style="display:none;">'+
     '<div class="fld2"><div class="fld"><label>Geboortedatum</label><input id="gGeb" type="date"></div>'+
     '<div class="fld"><label>Nationaliteit</label><input id="gNat" placeholder="BE"></div></div>'+
     '<div class="fld2"><div class="fld"><label>ID-nummer</label><input id="gIdnr" placeholder="documentnummer"></div>'+
     '<div class="fld"><label>Nummerplaat</label><input id="gPlaat" placeholder="1-ABC-123"></div></div>'+
+    '</div>'+
     '<div class="toggle-row" style="margin-bottom:13px;"><span class="sl">Hoofdgast</span><input type="checkbox" id="gHoofd" style="width:20px;height:20px;"></div>'+
     '<div id="gAddMsg" class="note-inline" style="min-height:14px;"></div>'+
     '<button class="modal-save" id="gSaveBtn" onclick="saveNewGuest(\''+bookingId+'\')">Gast opslaan</button>');
   window._scanFileCache=null;
+  window._scanBusy=false;
 }
 async function scanGuestFile(input){
   const file=input.files&&input.files[0]; if(!file)return;
@@ -889,50 +895,118 @@ async function scanGuestFile(input){
     preview.src=url; preview.dataset.blobUrl=url; preview.style.display='block';
   }
   const hint=document.getElementById('gScanHint');
-  hint.style.color='var(--ink-2)'; hint.textContent='🔎 AI leest de kaart…';
-  try{
-    const b64=await _fileToB64(file);
-    const {data:{session}}=await sb.auth.getSession();
-    const res=await fetch(SUPABASE_URL+'/functions/v1/scan-id',{
-      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
-      body:JSON.stringify({image_base64:b64,media_type:file.type||'image/jpeg'}),
-    });
-    const d=await res.json();
-    if(d.error){hint.style.color='var(--red)';hint.textContent='⚠️ '+d.error;return;}
-    const naam=d.naam||[d.voornaam,d.achternaam].filter(Boolean).join(' ');
-    if(naam)document.getElementById('gNaam').value=naam;
-    if(d.geboortedatum)document.getElementById('gGeb').value=d.geboortedatum;
-    if(d.nationaliteit)document.getElementById('gNat').value=d.nationaliteit;
-    if(d.documentnummer)document.getElementById('gIdnr').value=d.documentnummer;
-    hint.style.color='var(--green)';hint.textContent='✅ Ingevuld — controleer de gegevens';
-  }catch(e){hint.style.color='var(--red)';hint.textContent='⚠️ AI-herkenning mislukt — vul handmatig in';}
+  hint.style.color='var(--ink-2)'; hint.textContent='🔎 AI leest de kaart — je mag ondertussen al opslaan';
+  // Opslaan hoeft NIET te wachten op de AI (zie saveNewGuest): de scan loopt
+  // hier op de achtergrond door en vult het formulier aan zodra hij klaar is.
+  // window._scanPromise wordt door saveNewGuest gebruikt om de gast nadien
+  // alsnog aan te vullen als het opslaan sneller was dan de AI.
+  window._scanPromise=(async()=>{
+    try{
+      const b64=await _fileToB64(file);
+      const {data:{session}}=await sb.auth.getSession();
+      const res=await fetch(SUPABASE_URL+'/functions/v1/scan-id',{
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+        body:JSON.stringify({image_base64:b64,media_type:file.type||'image/jpeg'}),
+      });
+      const d=await res.json();
+      if(d.error){hint.style.color='var(--red)';hint.textContent='⚠️ '+d.error;return null;}
+      const naam=d.naam||[d.voornaam,d.achternaam].filter(Boolean).join(' ');
+      const gNaamEl=document.getElementById('gNaam');
+      if(naam&&gNaamEl)gNaamEl.value=naam;
+      if(d.geboortedatum&&document.getElementById('gGeb'))document.getElementById('gGeb').value=d.geboortedatum;
+      if(d.nationaliteit&&document.getElementById('gNat'))document.getElementById('gNat').value=d.nationaliteit;
+      if(d.documentnummer&&document.getElementById('gIdnr'))document.getElementById('gIdnr').value=d.documentnummer;
+      if(hint){hint.style.color='var(--green)';hint.textContent='✅ Ingevuld — controleer de gegevens';}
+      return {naam,geboortedatum:d.geboortedatum||null,nationaliteit:d.nationaliteit||null,id_nummer:d.documentnummer||null};
+    }catch(e){
+      if(hint){hint.style.color='var(--red)';hint.textContent='⚠️ AI-herkenning mislukt — vul zelf aan indien nodig';}
+      return null;
+    }
+  })();
 }
+// Foto nemen moet meteen kunnen opslaan — niet wachten tot de AI de kaart
+// uitgelezen heeft. We slaan meteen op met wat er nu is (naam mag leeg zijn,
+// dan komt er een tijdelijke placeholder), en vullen de gast nadien alsnog
+// aan zodra de AI-scan (die al op de achtergrond liep) binnenkomt.
 async function saveNewGuest(bookingId){
-  const naam=(document.getElementById('gNaam').value||'').trim();
   const msg=document.getElementById('gAddMsg');
-  if(!naam){msg.style.color='var(--red)';msg.textContent='Naam is verplicht';return;}
+  const naamVeld=(document.getElementById('gNaam').value||'').trim();
+  const pendingScan=window._scanPromise||null;
   const btn=document.getElementById('gSaveBtn'); btn.disabled=true; btn.textContent='Opslaan…';
   try{
-    const row={booking_id:bookingId, naam,
+    const row={booking_id:bookingId, naam:naamVeld||'Gast (foto in verwerking)',
       geboortedatum:document.getElementById('gGeb').value||null,
       nationaliteit:(document.getElementById('gNat').value||'').trim()||null,
       id_nummer:(document.getElementById('gIdnr').value||'').trim()||null,
       nummerplaat:(document.getElementById('gPlaat').value||'').trim()||null,
       is_hoofdgast:document.getElementById('gHoofd').checked };
-    const {data:ins,error}=await sb.from('gasten').insert(row).select('id').single();
-    if(error)throw new Error(error.message);
-    // ID-foto bewaren (indien gescand)
     const file=window._scanFileCache;
+    let ins,error;
+    try{
+      ({data:ins,error}=await sb.from('gasten').insert(row).select('id').single());
+    }catch(netErr){error=netErr;}
+    if(error){
+      // Waarschijnlijk geen internet — bewaar als concept, verwerk later.
+      await idbPutDraft({id:'gdraft_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+        type:'guest', bookingId, row, file:file||null, savedAt:new Date().toISOString()});
+      updateDraftsUI();
+      closeModal(); toast('📴 Geen verbinding — gast opgeslagen als concept, wordt verwerkt zodra er wifi is');
+      return;
+    }
+    // ID-foto bewaren (indien gescand)
     if(file&&ins&&ins.id){
       const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
       const path=bookingId+'/'+ins.id+'.'+ext;
       const {error:upErr}=await sb.storage.from('id-fotos').upload(path,file,{upsert:true,contentType:file.type});
       if(!upErr)await sb.from('gasten').update({foto_url:path}).eq('id',ins.id);
     }
-    closeModal(); toast('✅ Gast toegevoegd');
+    closeModal(); toast('✅ Gast toegevoegd'+(pendingScan?' — AI vult de gegevens zo aan':''));
     const b=bookings.find(x=>x.id===bookingId); if(b) loadGastPane(b);
+    // Als de AI-scan nog liep toen we al opsloegen: patch de gast zodra hij
+    // klaar is, maar enkel de velden die nog leeg waren (geen overschrijven
+    // van iets dat manueel al ingevuld/aangepast is).
+    if(pendingScan&&ins&&ins.id){
+      pendingScan.then(async d=>{
+        if(!d)return;
+        const patch={};
+        if(!naamVeld&&d.naam)patch.naam=d.naam;
+        if(!row.geboortedatum&&d.geboortedatum)patch.geboortedatum=d.geboortedatum;
+        if(!row.nationaliteit&&d.nationaliteit)patch.nationaliteit=d.nationaliteit;
+        if(!row.id_nummer&&d.id_nummer)patch.id_nummer=d.id_nummer;
+        if(Object.keys(patch).length){
+          await sb.from('gasten').update(patch).eq('id',ins.id);
+          const bb=bookings.find(x=>x.id===bookingId); if(bb) loadGastPane(bb);
+        }
+      });
+    }
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;btn.disabled=false;btn.textContent='Gast opslaan';}
 }
+// Verwerkt een offline opgeslagen gast-concept: alsnog invoegen + foto
+// uploaden zodra er weer wifi is.
+async function verwerkGastDraft(id){
+  const draft=await idbGetDraft(id); if(!draft)return;
+  try{
+    const {data:ins,error}=await sb.from('gasten').insert(draft.row).select('id').single();
+    if(error)throw new Error(error.message);
+    if(draft.file&&ins&&ins.id){
+      const ext=(draft.file.name.split('.').pop()||'jpg').toLowerCase();
+      const path=draft.bookingId+'/'+ins.id+'.'+ext;
+      const {error:upErr}=await sb.storage.from('id-fotos').upload(path,draft.file,{upsert:true,contentType:draft.file.type});
+      if(!upErr)await sb.from('gasten').update({foto_url:path}).eq('id',ins.id);
+    }
+    await idbDeleteDraft(id); updateDraftsUI();
+    toast('✅ Concept-gast alsnog verwerkt');
+    const b=bookings.find(x=>x.id===draft.bookingId); if(b) loadGastPane(b);
+  }catch(e){toast('⚠️ Nog steeds geen verbinding — concept blijft bewaard');}
+}
+// Zodra de browser weer online komt, meteen proberen alle openstaande
+// gast-concepten te verwerken — zo hoeft Karen er niet aan te denken.
+window.addEventListener('online',async()=>{
+  try{
+    const drafts=await idbGetAllDrafts();
+    for(const d of drafts.filter(x=>x.type==='guest'))await verwerkGastDraft(d.id);
+  }catch(e){}
+});
 
 /* communicatie — lezen + antwoorden/nieuwe mail versturen via Karens Gmail */
 async function loadCommPane(b){
@@ -1368,7 +1442,14 @@ async function idbPutDraft(record){
       tx.objectStore(DRAFTS_STORE).put(record);
       tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error);
     });
-  }catch(e){/* IndexedDB kan uitzonderlijk falen (privé-modus) — concept-opslag is een extra, geen vereiste */}
+    return true;
+  }catch(e){
+    // Kwam eerder stil voorbij — een foto/concept leek dan "verdwenen" zonder
+    // dat iemand het merkte. Nu wél melden, ook al is concept-opslag geen
+    // harde vereiste (bv. privé-modus of opslagquotum kan dit doen falen).
+    toast('⚠️ Concept (met foto\'s) kon niet lokaal bewaard worden — sla de reservering meteen af of probeer opnieuw');
+    return false;
+  }
 }
 async function idbDeleteDraft(id){
   try{
@@ -1438,9 +1519,20 @@ async function openDraftsList(){
   const drafts=(await idbGetAllDrafts()).sort((a,b)=>new Date(b.savedAt)-new Date(a.savedAt));
   if(!drafts.length){toast('Geen openstaande concepten');return;}
   const rows=drafts.map(d=>{
+    const when=new Date(d.savedAt).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    if(d.type==='guest'){
+      const naam=(d.row&&d.row.naam||'').trim()?esc(d.row.naam):'Naamloze gast';
+      return '<div class="card" style="padding:10px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">'+
+        '<div style="flex:1;min-width:0;">'+
+        '<div style="font-weight:700;font-size:13.5px;">🪪 '+naam+'</div>'+
+        '<div style="font-size:11px;color:var(--ink-3);">'+when+(d.file?' · met ID-foto':'')+' · nog toe te voegen aan een boeking</div>'+
+        '</div>'+
+        '<button class="sbtn" style="flex:0 0 auto;" onclick="verwerkGastDraft(\''+d.id+'\')">🔄 Verwerken</button>'+
+        '<button onclick="deleteDraftPrompt(\''+d.id+'\')" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>'+
+        '</div>';
+    }
     const naam=(d.naam||'').trim()?esc(d.naam):'Naamloos concept';
     const nFotos=(d.idFotos||[]).length;
-    const when=new Date(d.savedAt).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
     return '<div class="card" style="padding:10px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">'+
       '<div style="flex:1;min-width:0;">'+
       '<div style="font-weight:700;font-size:13.5px;">'+naam+'</div>'+
