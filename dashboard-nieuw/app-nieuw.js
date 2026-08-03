@@ -1716,12 +1716,16 @@ function renderKalender(){
     let cells='';
     DGN.forEach(d=>cells+='<div style="text-align:center;font-size:10.5px;color:var(--ink-3);font-family:var(--f-mono);padding:4px 0;">'+d+'</div>');
     for(let i=0;i<startOffset;i++)cells+='<div></div>';
+    const vTypes=verhuurTypes();
     for(let day=1;day<=daysInMonth;day++){
       const dateStr=calAnchor.getFullYear()+'-'+String(calAnchor.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
       const cnt=bookingsOnDay(dateStr).length;
       const isToday=dateStr===TODAY;
+      const stipjes=vTypes.filter(t=>bezetOpDag(dateStr,t.id)>0)
+        .map(t=>'<span title="'+esc(t.naam||'')+' bezet" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+(t.kleur||'var(--ink-3)')+';"></span>').join('');
       cells+='<div onclick="calOpenDay(\''+dateStr+'\')" style="aspect-ratio:1;border:1px solid var(--sep);border-radius:8px;padding:5px;cursor:pointer;background:'+(isToday?'var(--green-soft)':'var(--card)')+';display:flex;flex-direction:column;">'+
         '<span style="font-size:11px;font-weight:'+(isToday?'800':'600')+';color:'+(isToday?'var(--green)':'var(--ink)')+';">'+day+'</span>'+
+        (stipjes?'<div style="display:flex;gap:3px;margin-top:3px;">'+stipjes+'</div>':'')+
         (cnt?'<span style="margin-top:auto;font-size:9.5px;background:var(--blue-soft);color:var(--blue);border-radius:5px;padding:1px 4px;text-align:center;">'+cnt+'</span>':'')+
         '</div>';
     }
@@ -1730,31 +1734,34 @@ function renderKalender(){
     lbl.textContent=MND[calAnchor.getMonth()]+' '+calAnchor.getFullYear();
     const types=verhuurTypes();
     if(!types.length){
-      wrap.innerHTML=emptyCard('Nog geen verhuureenheden ingesteld. Zet bij Beheer → Tarieven het "Aantal beschikbaar" van bv. Safaritent of Stacaravan op 1 of meer.');
+      wrap.innerHTML=emptyCard('Nog geen verhuureenheden ingesteld. Zet bij Beheer → Tarieven het "Aantal beschikbaar" van bv. Safaritent of Stacaravan op 1 of meer, en kies er een kleur bij.');
     }else{
+      const first=new Date(calAnchor.getFullYear(),calAnchor.getMonth(),1);
+      const startOffset=(first.getDay()+6)%7;
       const daysInMonth=new Date(calAnchor.getFullYear(),calAnchor.getMonth()+1,0).getDate();
       let h='';
       types.forEach(t=>{
-        h+='<div style="margin-bottom:16px;">'+
+        const kleur=t.kleur||'var(--ink-3)';
+        h+='<div style="margin-bottom:22px;">'+
            '<div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:6px;">'+(t.emoji||'🏕️')+' '+esc(t.naam||'Type')+
            '<span style="font-weight:400;color:var(--ink-3);"> · '+t.aantal+' beschikbaar</span></div>'+
-           '<div style="display:grid;grid-template-columns:repeat('+daysInMonth+',1fr);gap:2px;">';
+           '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
+        DGN.forEach(d=>h+='<div style="text-align:center;font-size:9.5px;color:var(--ink-3);font-family:var(--f-mono);">'+d+'</div>');
+        for(let i=0;i<startOffset;i++)h+='<div></div>';
         for(let day=1;day<=daysInMonth;day++){
           const dateStr=calAnchor.getFullYear()+'-'+String(calAnchor.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
           const bezet=bezetOpDag(dateStr,t.id);
-          const vol=bezet>=Number(t.aantal);
-          const deels=bezet>0&&!vol;
-          const kleur=vol?'var(--red)':(deels?'var(--amber,#c9861e)':'var(--green)');
+          const ratio=Math.min(1,bezet/Number(t.aantal));
           const isToday=dateStr===TODAY;
+          const bg=bezet>0?kleur:'var(--card)';
+          const opac=bezet>0?(0.35+0.65*ratio):1;
           h+='<div onclick="calOpenDay(\''+dateStr+'\')" title="'+day+' '+MND[calAnchor.getMonth()]+' — '+bezet+'/'+t.aantal+' bezet" '+
-             'style="aspect-ratio:1;border-radius:3px;cursor:pointer;background:'+kleur+';'+(isToday?'outline:2px solid var(--ink);':'')+'"></div>';
+             'style="aspect-ratio:1;border:1px solid '+(bezet>0?kleur:'var(--sep)')+';border-radius:6px;cursor:pointer;background:'+bg+';opacity:'+opac+';'+(isToday?'outline:2px solid var(--ink);':'')+'display:flex;align-items:center;justify-content:center;">'+
+             '<span style="font-size:10px;font-weight:600;color:'+(bezet>0?'#fff':'var(--ink-2)')+';">'+day+'</span></div>';
         }
         h+='</div></div>';
       });
-      h+='<div style="display:flex;gap:14px;font-size:11px;color:var(--ink-3);margin-top:4px;">'+
-         '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--green);margin-right:4px;"></span>vrij</span>'+
-         '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--amber,#c9861e);margin-right:4px;"></span>deels bezet</span>'+
-         '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--red);margin-right:4px;"></span>volzet</span></div>';
+      h+='<div style="font-size:11px;color:var(--ink-3);">Lichte cel = vrij · volle kleur = volzet · lichtere tint van de kleur = deels bezet</div>';
       wrap.innerHTML=h;
     }
   } else if(calMode==='week'){
@@ -2008,14 +2015,19 @@ function renderAccTypesList(){
     '<label style="font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:3px;">Omschrijving (optioneel)</label>'+
     inp(t.beschrijving||'','accTypes['+i+'].beschrijving=this.value',null,'bv. Inclusief afvalbijdrage')+
     '<label style="font-size:11.5px;color:var(--ink-2);display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="checkbox" '+(t.allIn?'checked':'')+' onchange="accTypes['+i+'].allIn=this.checked;renderAccTypesList();"> All-in vaste prijs — geen afvalkost, geen toeristenbelasting, geen aparte personenprijs bovenop (bv. Moto/Backpacker)</label>'+
-    '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft,var(--sep));display:flex;gap:8px;align-items:flex-end;">'+
+    '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft,var(--sep));display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">'+
     fld('Aantal beschikbaar',inp(t.aantal||0,'accTypes['+i+'].aantal=parseInt(this.value)||0','number'))+
-    '<div style="flex:2;font-size:10.5px;color:var(--ink-3);padding-bottom:9px;">0 = niet bijgehouden op de Verhuur-kalender. Zet op 1 (of meer) voor een fysieke verhuureenheid zoals een safaritent of stacaravan.</div>'+
+    '<div style="flex:0 0 auto;"><label style="font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:3px;">Kleur op kalender</label>'+
+    '<div style="display:flex;gap:5px;">'+ACC_KLEUREN.map(k=>
+      '<button type="button" onclick="accTypes['+i+'].kleur=\''+k+'\';renderAccTypesList();" title="'+k+'" style="width:26px;height:26px;border-radius:6px;background:'+k+';cursor:pointer;border:2px solid '+((t.kleur||'')===k?'var(--ink)':'transparent')+';"></button>'
+    ).join('')+'</div></div>'+
+    '<div style="flex:2;font-size:10.5px;color:var(--ink-3);padding-bottom:2px;">"Aantal beschikbaar" op 0 = niet bijgehouden op de Verhuur-kalender. Zet op 1 (of meer) voor een fysieke verhuureenheid zoals een safaritent of stacaravan, en kies er een kleur bij.</div>'+
     '</div>'+
     '</div>'
   ).join(''):'<div class="note-inline" style="padding:6px 0;">Nog geen eigen types — standaard zijn Tent en Camper</div>';
 }
-function voegAccTypeToe(){accTypes.push({id:'custom_'+Date.now(),emoji:'🏕️',naam:'',prijs:0,maxPersonen:0,waarborgBedrag:0,allIn:false,beschrijving:'',aantal:0});renderAccTypesList();}
+const ACC_KLEUREN=['#e5484d','#1b8a5b','#3b6ec9','#c9861e','#8452d5'];
+function voegAccTypeToe(){accTypes.push({id:'custom_'+Date.now(),emoji:'🏕️',naam:'',prijs:0,maxPersonen:0,waarborgBedrag:0,allIn:false,beschrijving:'',aantal:0,kleur:ACC_KLEUREN[accTypes.length%ACC_KLEUREN.length]});renderAccTypesList();}
 function renderExtraTarList(){
   const el=document.getElementById('extraTarList');if(!el)return;
   el.innerHTML=extraTarieven.length?extraTarieven.map((t,i)=>
