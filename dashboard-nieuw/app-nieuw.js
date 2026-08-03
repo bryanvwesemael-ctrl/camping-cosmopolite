@@ -752,10 +752,6 @@ function renderFactuurHtml(snap,nummer,datum,isCredit){
       '</td><td style="padding:8px 4px;text-align:right;vertical-align:top;">'+money(l.bedrag)+'</td></tr>').join('')+
     '<tr style="border-top:1.5px solid #1c1c1e;font-weight:800;"><td style="padding:10px 4px;">Totaal</td><td style="padding:10px 4px;text-align:right;">'+money(snap.totaal)+'</td></tr>'+
     '</table>'+
-    '<div style="font-size:12.5px;line-height:1.8;">'+
-    '<div>Reeds betaald: <b>'+money(snap.betaald_bij_uitgifte)+'</b></div>'+
-    (Number(snap.openstaand_bij_uitgifte)>0.005?'<div>Nog te betalen: <b style="color:#CC7700;">'+money(snap.openstaand_bij_uitgifte)+'</b></div>':'<div style="color:#1B8A5B;font-weight:700;">✅ Volledig betaald</div>')+
-    '</div>'+
     '<div style="margin-top:28px;font-size:10.5px;color:#999;">'+esc(snap.voetnoot||'')+'</div>'+
     '<script>window.onload=function(){window.print()}<\/script></body></html>';
 }
@@ -781,6 +777,21 @@ async function bekijkFactuur(factuurId){
   const {data,error}=await sb.from('facturen').select('*').eq('id',factuurId).maybeSingle();
   if(error||!data){toast('⚠️ Factuur niet gevonden');return;}
   drukFactuurAf(renderFactuurHtml(data.snapshot,data.factuurnummer,data.factuurdatum,data.is_creditnota));
+}
+// Enkel de allerlaatste factuur van een jaar kan verwijderd worden (de
+// database-functie controleert dit ook zelf, dit is enkel de UI-kant) —
+// zo blijft de doorlopende nummering altijd gatenloos. Bedoeld om test- of
+// foutieve facturen op te ruimen, niet om echte, verstuurde facturen te
+// laten "verdwijnen" — daarvoor blijft een creditnota de juiste weg.
+async function verwijderFactuur(factuurId,factuurnummer){
+  const reden=prompt('Waarom verwijder je factuur '+factuurnummer+'?\n\nEnkel bedoeld voor test-/foutieve facturen die nooit aan een gast bezorgd zijn. Voor een echte, verstuurde factuur: gebruik een creditnota in plaats hiervan.');
+  if(reden===null)return;
+  if(!reden.trim()||reden.trim().length<3){toast('⚠️ Geef een korte reden op');return;}
+  if(!confirm('Factuur '+factuurnummer+' definitief verwijderen?\n\nDit kan niet ongedaan gemaakt worden.'))return;
+  const {error}=await sb.rpc('verwijder_laatste_factuur',{p_factuur_id:factuurId,p_reden:reden.trim()});
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('🗑 Factuur '+factuurnummer+' verwijderd');
+  renderBeheerFacturen(); await loadData();
 }
 function toggleQR(id){
   const box=document.getElementById('qrBox');if(!box)return;
@@ -2529,12 +2540,18 @@ async function renderBeheerFacturen(){
   const el=document.getElementById('beheerBody');
   el.innerHTML='<div class="note-inline">Laden…</div>';
   const {data,error}=await sb.from('facturen')
-    .select('id,booking_id,factuurnummer,factuurdatum,bedrag_incl,is_creditnota,jaar,snapshot')
+    .select('id,booking_id,factuurnummer,factuurdatum,bedrag_incl,is_creditnota,jaar,volgnr,snapshot')
     .order('jaar',{ascending:false}).order('volgnr',{ascending:false});
   if(error){el.innerHTML='<div class="note-inline" style="color:var(--red)">⚠️ '+esc(error.message)+'</div>';return;}
   const alle=data||[];
   const jaren=[...new Set(alle.map(f=>f.jaar))].sort((a,b)=>b-a);
   const lijst=_facJaar?alle.filter(f=>f.jaar===_facJaar):alle;
+  // Enkel de allerlaatste factuur van een jaar mag verwijderd worden — anders
+  // ontstaat er een gat in de doorlopende nummering. Vergelijk daarom tegen
+  // "alle" (niet de gefilterde lijst), zodat dit klopt ongeacht welk jaar
+  // getoond wordt.
+  const maxVolgnrPerJaar={};
+  alle.forEach(f=>{maxVolgnrPerJaar[f.jaar]=Math.max(maxVolgnrPerJaar[f.jaar]||0,f.volgnr||0);});
   const totaal=lijst.reduce((s,f)=>s+Number(f.bedrag_incl||0),0);
   const nCredit=lijst.filter(f=>f.is_creditnota).length;
 
@@ -2550,10 +2567,13 @@ async function renderBeheerFacturen(){
       jbtn('alle','Alle')+jaren.map(j=>jbtn(j,String(j))).join('')+'</div>':'<div style="height:10px;"></div>')+
     (lijst.length?'<div class="card payhist">'+lijst.map(f=>{
       const kl=(f.snapshot&&f.snapshot.klant&&f.snapshot.klant.naam)||'—';
-      return '<div class="row" style="cursor:pointer;" onclick="bekijkFactuur(\''+f.id+'\')">'+
-        '<span class="rl">'+(f.is_creditnota?'↩️ ':'🧾 ')+'<b>'+esc(f.factuurnummer)+'</b> · '+esc(kl)+
+      const magVerwijderen=f.volgnr===maxVolgnrPerJaar[f.jaar];
+      return '<div class="row" style="cursor:pointer;align-items:center;">'+
+        '<span onclick="bekijkFactuur(\''+f.id+'\')" style="flex:1;">'+(f.is_creditnota?'↩️ ':'🧾 ')+'<b>'+esc(f.factuurnummer)+'</b> · '+esc(kl)+
         '<br><span style="font-size:11px;color:var(--ink-3);">'+fmtDateLong(f.factuurdatum)+'</span></span>'+
-        '<span class="rv" style="color:'+(f.is_creditnota?'var(--blue)':'var(--green)')+'">'+money(f.bedrag_incl)+' ›</span></div>';
+        '<span class="rv" onclick="bekijkFactuur(\''+f.id+'\')" style="color:'+(f.is_creditnota?'var(--blue)':'var(--green)')+'">'+money(f.bedrag_incl)+' ›</span>'+
+        (magVerwijderen?'<button title="Enkel mogelijk zolang dit de laatste factuur van '+f.jaar+' is" onclick="event.stopPropagation();verwijderFactuur(\''+f.id+'\',\''+esc(f.factuurnummer)+'\')" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;margin-left:6px;">🗑</button>':'')+
+        '</div>';
     }).join('')+'</div>':'<div class="note-inline" style="padding:20px;">Nog geen facturen uitgereikt</div>')+
     (lijst.length?'<button class="sbtn" style="width:100%;margin-top:12px;" onclick="exportFacturenCSV()">⬇️ Exporteren naar CSV (voor de boekhouder)</button>':'')+
     '<div class="note-inline" style="margin-top:10px;">Facturen liggen vast zodra ze aangemaakt zijn. Corrigeren gebeurt met een creditnota.</div>';
