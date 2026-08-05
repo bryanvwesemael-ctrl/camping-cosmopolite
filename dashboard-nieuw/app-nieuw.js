@@ -572,7 +572,7 @@ function renderFiche(b){
         '<div class="row" style="align-items:center;">'+
         '<label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;">'+
         '<input type="checkbox" '+(k.slagboomIngegeven?'checked':'')+' onchange="toggleKentekenSlagboom(\''+k.id+'\',this.checked)">'+
-        '<span style="'+(k.slagboomIngegeven?'text-decoration:line-through;color:var(--ink-3);':'font-weight:700;')+'">'+esc(k.plaat)+'</span>'+
+        '<input value="'+esc(k.plaat)+'" onblur="wijzigKenteken(\''+k.id+'\',this)" onkeydown="if(event.key===\'Enter\')this.blur();" style="flex:1;min-width:0;border:none;background:transparent;padding:2px 0;font-size:13.5px;'+(k.slagboomIngegeven?'text-decoration:line-through;color:var(--ink-3);':'font-weight:700;color:var(--ink);')+'">'+
         '</label>'+
         '<span onclick="delKenteken(\''+k.id+'\')" style="color:var(--red);cursor:pointer;font-size:15px;padding:6px;">🗑</span>'+
         '</div>'
@@ -687,6 +687,15 @@ async function addKenteken(bookingId){
   const {error}=await sb.from('booking_kentekens').insert({booking_id:bookingId,plaat});
   if(error){toast('⚠️ '+error.message);return;}
   toast('🚗 Kenteken toegevoegd'); await loadData();
+}
+// Rechtstreeks wijzigen van een bestaand kenteken (i.p.v. eerst verwijderen
+// en dan opnieuw toevoegen) — bewaart automatisch zodra je het veld verlaat.
+async function wijzigKenteken(id,input){
+  const plaat=(input.value||'').trim();
+  if(!plaat){toast('⚠️ Kenteken mag niet leeg zijn');await loadData();return;}
+  const {error}=await sb.from('booking_kentekens').update({plaat}).eq('id',id);
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('✅ Kenteken bijgewerkt'); await loadData();
 }
 async function toggleKentekenSlagboom(id,checked){
   const {error}=await sb.from('booking_kentekens').update({slagboom_ingegeven:checked,slagboom_ingegeven_at:checked?new Date().toISOString():null}).eq('id',id);
@@ -833,8 +842,8 @@ async function loadGastPane(b){
     h+='<div class="card">'+real.map(g=>{
       const sub=[g.geboortedatum?'°'+String(g.geboortedatum).slice(0,4):'',g.nationaliteit||'',g.id_nummer?'ID ✓':''].filter(Boolean).join(' · ');
       const thumb=g.foto_url?'<div class="thumb" data-id-thumb="'+esc(g.foto_url)+'" style="cursor:pointer;" onclick="event.stopPropagation();bekijkIdFoto(\''+esc(g.foto_url)+'\')">···</div>':'<div class="thumb">🪪</div>';
-      return '<div class="guest">'+thumb+'<div class="gi"><div class="gn">'+esc(g.naam)+(g.is_hoofdgast?' <span class="pill p-conf" style="margin-left:4px;">Hoofd</span>':'')+'</div><div class="gd">'+(esc(sub)||'geen details')+'</div></div>'+
-        '<span onclick="delGast(\''+g.id+'\',\''+b.id+'\')" style="color:var(--red);cursor:pointer;font-size:15px;padding:6px;">🗑</span></div>';
+      return '<div class="guest" style="cursor:pointer;" onclick="openEditGast(\''+g.id+'\',\''+b.id+'\')">'+thumb+'<div class="gi"><div class="gn">'+esc(g.naam)+(g.is_hoofdgast?' <span class="pill p-conf" style="margin-left:4px;">Hoofd</span>':'')+'</div><div class="gd">'+(esc(sub)||'geen details')+'</div></div>'+
+        '<span onclick="event.stopPropagation();delGast(\''+g.id+'\',\''+b.id+'\')" style="color:var(--red);cursor:pointer;font-size:15px;padding:6px;">🗑</span></div>';
     }).join('')+'</div>';
   } else {
     h+=emptyCard('Nog geen gasten geregistreerd voor deze reservering');
@@ -864,6 +873,72 @@ async function delGast(gastId,bookingId){
   if(error){toast('⚠️ '+error.message);return;}
   toast('🗑 Gast verwijderd');
   const b=bookings.find(x=>x.id===bookingId); if(b) loadGastPane(b);
+}
+// Bewerken van een al opgeslagen gast — naam/geboortedatum/nationaliteit/
+// ID-nummer aanpassen, en desgewenst de ID-foto vervangen (bv. onduidelijke
+// scan of verkeerd persoon). Niet enkel tijdens het aanmaken, maar ook nadien
+// gewoon vanuit de fiche zelf.
+async function openEditGast(gastId,bookingId){
+  const {data:g,error}=await sb.from('gasten').select('*').eq('id',gastId).maybeSingle();
+  if(error||!g){toast('⚠️ Gast niet gevonden');return;}
+  window._egGastId=gastId; window._egBookingId=bookingId; window._egNieuweFoto=null;
+  let previewHtml='<div class="thumb" style="width:100%;height:120px;">🪪</div>';
+  openModal('Gast bewerken',
+    '<div id="egFotoBox">'+previewHtml+'</div>'+
+    '<div style="display:flex;gap:8px;margin:8px 0;">'+
+    '<button type="button" class="scanbtn" style="margin:0;flex:1;" onclick="document.getElementById(\'egGastCam\').click()">📷 Foto vervangen</button>'+
+    '<button type="button" class="scanbtn" style="margin:0;flex:1;background:var(--card-2);border-style:solid;border-color:var(--sep);color:var(--ink-2);" onclick="document.getElementById(\'egGastFile\').click()">🖼️ Bestand kiezen</button>'+
+    '</div>'+
+    '<input type="file" id="egGastCam" accept="image/*" capture="environment" style="display:none;" onchange="egGastFotoGekozen(this)">'+
+    '<input type="file" id="egGastFile" accept="image/*" style="display:none;" onchange="egGastFotoGekozen(this)">'+
+    '<div id="egGastHint" class="note-inline" style="min-height:14px;"></div>'+
+    '<div class="fld"><label>Naam *</label><input id="egGastNaam" value="'+esc(g.naam||'')+'"></div>'+
+    '<div class="fld2"><div class="fld"><label>Geboortedatum</label><input id="egGastGeb" type="date" value="'+esc(g.geboortedatum||'')+'"></div>'+
+    '<div class="fld"><label>Nationaliteit</label><input id="egGastNat" value="'+esc(g.nationaliteit||'')+'"></div></div>'+
+    '<div class="fld"><label>ID-nummer</label><input id="egGastIdnr" value="'+esc(g.id_nummer||'')+'"></div>'+
+    '<div class="toggle-row" style="margin-bottom:13px;"><span class="sl">Hoofdgast</span><input type="checkbox" id="egGastHoofd" '+(g.is_hoofdgast?'checked':'')+' style="width:20px;height:20px;"></div>'+
+    '<div id="egGastMsg" class="note-inline" style="min-height:14px;"></div>'+
+    '<button class="modal-save" id="egGastSaveBtn" onclick="saveEditGast()">Wijzigingen opslaan</button>');
+  if(g.foto_url){
+    try{
+      const {data:s}=await sb.storage.from('id-fotos').createSignedUrl(g.foto_url,300);
+      if(s&&s.signedUrl)document.getElementById('egFotoBox').innerHTML='<img src="'+s.signedUrl+'" style="width:100%;max-height:160px;object-fit:contain;border-radius:10px;border:1px solid var(--sep);background:var(--card-2);">';
+    }catch(e){/* bestaande foto niet gevonden — plaatshouder blijft staan */}
+  }
+}
+function egGastFotoGekozen(input){
+  const file=input.files&&input.files[0]; if(!file)return;
+  window._egNieuweFoto=file;
+  const box=document.getElementById('egFotoBox');
+  if(box)box.innerHTML='<img src="'+URL.createObjectURL(file)+'" style="width:100%;max-height:160px;object-fit:contain;border-radius:10px;border:1px solid var(--sep);background:var(--card-2);">';
+  const hint=document.getElementById('egGastHint');
+  if(hint){hint.style.color='var(--ink-2)';hint.textContent='Nieuwe foto gekozen — wordt bewaard bij opslaan';}
+}
+async function saveEditGast(){
+  const naam=(document.getElementById('egGastNaam').value||'').trim();
+  const msg=document.getElementById('egGastMsg');
+  if(!naam){msg.style.color='var(--red)';msg.textContent='Naam is verplicht';return;}
+  const btn=document.getElementById('egGastSaveBtn'); btn.disabled=true; btn.textContent='Opslaan…';
+  try{
+    const patch={
+      naam,
+      geboortedatum:document.getElementById('egGastGeb').value||null,
+      nationaliteit:(document.getElementById('egGastNat').value||'').trim()||null,
+      id_nummer:(document.getElementById('egGastIdnr').value||'').trim()||null,
+      is_hoofdgast:document.getElementById('egGastHoofd').checked,
+    };
+    const gastId=window._egGastId, bookingId=window._egBookingId, file=window._egNieuweFoto;
+    if(file){
+      const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+      const path=bookingId+'/'+gastId+'.'+ext;
+      const {error:upErr}=await sb.storage.from('id-fotos').upload(path,file,{upsert:true,contentType:file.type});
+      if(!upErr)patch.foto_url=path;
+    }
+    const {error}=await sb.from('gasten').update(patch).eq('id',gastId);
+    if(error)throw new Error(error.message);
+    closeModal(); toast('✅ Gast bijgewerkt');
+    const b=bookings.find(x=>x.id===bookingId); if(b) loadGastPane(b);
+  }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;btn.disabled=false;btn.textContent='Wijzigingen opslaan';}
 }
 function _fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
 
@@ -1569,6 +1644,7 @@ async function openNewBooking(resumeId){
   currentDraftId=resumeId||('draft_'+Date.now()+'_'+Math.random().toString(36).slice(2,8));
   nbState=draft?Object.assign({volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false,custom:{}},draft.state):{volw:2,kind:0,baby:0,tent:0,camper:1,honden:0,autos:1,elek:false,custom:{}};
   nbIdFotos=(draft&&draft.idFotos)?draft.idFotos.map(g=>({file:g.file,previewUrl:g.file?URL.createObjectURL(g.file):'',naam:g.naam||'',geboortedatum:g.geboortedatum||'',nationaliteit:g.nationaliteit||'',id_nummer:g.id_nummer||''})):[];
+  _nbOpenDetail={};
   accTypes.forEach(t=>{if(nbState.custom[t.id]==null)nbState.custom[t.id]=0;});
   const today=TODAY;
   // Prijs meteen zichtbaar naast elk veld — zelfde formaat als het oude
@@ -1607,8 +1683,10 @@ async function openNewBooking(resumeId){
     '<button type="button" class="scanbtn" style="margin:0;flex:1;" onclick="document.getElementById(\'nbCamInput\').click()">📷 Foto nemen</button>'+
     '<button type="button" class="scanbtn" style="margin:0;flex:1;background:var(--card-2);border-style:solid;border-color:var(--sep);color:var(--ink-2);" onclick="document.getElementById(\'nbFileInput\').click()">🖼️ Bestand kiezen</button>'+
     '</div>'+
+    '<button type="button" class="sbtn" style="width:100%;margin-bottom:10px;" onclick="nbAddNaamZonderFoto()">➕ Naam toevoegen (zonder foto)</button>'+
     '<input type="file" id="nbCamInput" accept="image/*" capture="environment" style="display:none;" onchange="nbAddIdFoto(this)">'+
     '<input type="file" id="nbFileInput" accept="image/*" multiple style="display:none;" onchange="nbAddIdFoto(this)">'+
+    '<input type="file" id="nbRetakeInput" accept="image/*" capture="environment" style="display:none;" onchange="nbRetakeIdFoto(this)">'+
     '<div id="nbIdFotoList"></div>'+
     '<div id="nbMsg" class="note-inline" style="min-height:14px;"></div>'+
     '<button class="modal-save" id="nbSaveBtn" onclick="saveNewBooking()">Reservering opslaan → Booking</button>'+
@@ -1693,18 +1771,61 @@ async function nbAddIdFoto(input){
   }
   input.value=''; nbSaveDraft();
 }
+// Overige gasten in de groep hebben niet allemaal een ID-scan nodig — enkel
+// de hoofdgast wordt aanbevolen. Deze knop voegt gewoon een naam toe zonder
+// foto; achteraf (of via 📷 in de rij) kan alsnog een foto toegevoegd worden.
+function nbAddNaamZonderFoto(){
+  nbIdFotos.push({file:null,previewUrl:'',naam:'',geboortedatum:'',nationaliteit:'',id_nummer:''});
+  renderNbIdFotoList(); nbSaveDraft();
+}
+let _nbOpenDetail={};
 function renderNbIdFotoList(){
   const el=document.getElementById('nbIdFotoList');if(!el)return;
-  el.innerHTML=nbIdFotos.map((g,i)=>
-    '<div class="card" style="padding:10px;margin-bottom:8px;display:flex;gap:8px;align-items:center;">'+
+  el.innerHTML=nbIdFotos.map((g,i)=>{
+    const open=!!_nbOpenDetail[i];
+    return '<div class="card" style="padding:10px;margin-bottom:8px;">'+
+    '<div style="display:flex;gap:8px;align-items:center;">'+
     (g.previewUrl?'<img src="'+g.previewUrl+'" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer;" onclick="window.open(\''+g.previewUrl+'\',\'_blank\')">':'<div class="thumb" style="flex-shrink:0;">🪪</div>')+
     '<div style="flex:1;min-width:0;">'+
     '<input value="'+esc(g.naam)+'" placeholder="Naam" oninput="nbIdFotos['+i+'].naam=this.value;nbSaveDraft();" style="width:100%;padding:7px 9px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12.5px;margin-bottom:5px;">'+
-    '<div style="font-size:10.5px;color:var(--ink-3);">'+(g.geboortedatum?fmt(g.geboortedatum)+' · ':'')+(g.nationaliteit||'AI leest…')+'</div>'+
+    '<div style="font-size:10.5px;color:var(--ink-3);cursor:pointer;" onclick="_nbOpenDetail['+i+']=!_nbOpenDetail['+i+'];renderNbIdFotoList();">'+(open?'▾ ':'▸ ')+(g.geboortedatum?fmt(g.geboortedatum)+' · ':'')+(g.nationaliteit||'AI leest…')+'</div>'+
     '</div>'+
+    '<button title="'+(g.file?'Foto opnieuw nemen':'Foto toevoegen')+'" onclick="nbRetakeIdx='+i+';document.getElementById(\'nbRetakeInput\').click();" style="background:var(--card-2);border:1px solid var(--sep);border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">📷</button>'+
     '<button onclick="if(nbIdFotos['+i+'].previewUrl)URL.revokeObjectURL(nbIdFotos['+i+'].previewUrl);nbIdFotos.splice('+i+',1);renderNbIdFotoList();nbSaveDraft();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>'+
-    '</div>'
-  ).join('');
+    '</div>'+
+    (open?'<div style="display:flex;gap:6px;margin-top:8px;">'+
+      '<input type="date" value="'+esc(g.geboortedatum||'')+'" oninput="nbIdFotos['+i+'].geboortedatum=this.value;nbSaveDraft();" style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12px;">'+
+      '<input value="'+esc(g.nationaliteit||'')+'" placeholder="Nationaliteit" oninput="nbIdFotos['+i+'].nationaliteit=this.value;nbSaveDraft();" style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12px;">'+
+      '<input value="'+esc(g.id_nummer||'')+'" placeholder="ID-nummer" oninput="nbIdFotos['+i+'].id_nummer=this.value;nbSaveDraft();" style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12px;">'+
+      '</div>':'')+
+    '</div>';
+  }).join('');
+}
+let nbRetakeIdx=-1;
+async function nbRetakeIdFoto(input){
+  const file=input.files&&input.files[0]; if(!file||nbRetakeIdx<0)return;
+  const i=nbRetakeIdx;
+  if(nbIdFotos[i].previewUrl)URL.revokeObjectURL(nbIdFotos[i].previewUrl);
+  nbIdFotos[i].file=file; nbIdFotos[i].previewUrl=URL.createObjectURL(file);
+  renderNbIdFotoList();
+  try{
+    const b64=await _fileToB64(file);
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(SUPABASE_URL+'/functions/v1/scan-id',{
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body:JSON.stringify({image_base64:b64,media_type:file.type||'image/jpeg'}),
+    });
+    const d=await res.json();
+    if(!d.error){
+      const naam=d.naam||[d.voornaam,d.achternaam].filter(Boolean).join(' ');
+      if(naam)nbIdFotos[i].naam=naam;
+      if(d.geboortedatum)nbIdFotos[i].geboortedatum=d.geboortedatum;
+      if(d.nationaliteit)nbIdFotos[i].nationaliteit=d.nationaliteit;
+      if(d.documentnummer)nbIdFotos[i].id_nummer=d.documentnummer;
+    }
+  }catch(e){/* AI-herkenning mislukt — blijft manueel aanpasbaar */}
+  renderNbIdFotoList(); nbSaveDraft();
+  input.value=''; nbRetakeIdx=-1;
 }
 async function saveNewBooking(){
   const naam=(document.getElementById('nbNaam').value||'').trim();
@@ -1754,6 +1875,7 @@ async function saveNewBooking(){
           id_nummer:g.id_nummer||null, is_hoofdgast:i===0,
         }).select('id').single();
         if(gErr||!gast)continue;
+        if(!g.file)continue; // naam zonder foto toegevoegd — niets te uploaden
         const ext=(g.file.name.split('.').pop()||'jpg').toLowerCase();
         const path=booking.id+'/'+gast.id+'.'+ext;
         const {error:upErr}=await sb.storage.from('id-fotos').upload(path,g.file,{upsert:true,contentType:g.file.type});
