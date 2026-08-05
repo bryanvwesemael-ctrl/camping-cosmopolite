@@ -849,6 +849,7 @@ async function loadGastPane(b){
     h+=emptyCard('Nog geen gasten geregistreerd voor deze reservering');
   }
   h+='<button class="ai-btn" onclick="openAddGuest(\''+b.id+'\')">➕ Gast toevoegen · 🤖 met AI-scan</button>';
+  h+='<button class="sbtn" style="width:100%;margin-top:8px;" onclick="openBulkAddGuests(\''+b.id+'\')">👥 Meerdere gasten toevoegen</button>';
   h+='<div class="note-inline">wettelijk register · '+real.length+' gast'+(real.length===1?'':'en')+' geregistreerd</div>';
   el.innerHTML=h;
   // ID-thumbnails asynchroon inladen (signed URLs), blokkeert de lijst niet.
@@ -939,6 +940,135 @@ async function saveEditGast(){
     closeModal(); toast('✅ Gast bijgewerkt');
     const b=bookings.find(x=>x.id===bookingId); if(b) loadGastPane(b);
   }catch(e){msg.style.color='var(--red)';msg.textContent='⚠️ '+e.message;btn.disabled=false;btn.textContent='Wijzigingen opslaan';}
+}
+
+/* ---------- meerdere gasten in één keer toevoegen aan een bestaande boeking ----------
+   Zelfde concept als bij Nieuwe reservering: elke rij is een naam, met
+   optioneel een ID-foto (AI leest hem uit). Bedoeld voor de rest van de
+   groep (partner, kinderen, vrienden) die niet allemaal individueel via
+   "Gast toevoegen · AI-scan" hoeven te lopen. */
+let bulkGasten=[];
+function openBulkAddGuests(bookingId){
+  bulkGasten=[];
+  openModal('Meerdere gasten toevoegen',
+    '<div style="display:flex;gap:8px;margin:0 0 8px;">'+
+    '<button type="button" class="scanbtn" style="margin:0;flex:1;" onclick="document.getElementById(\'bgCamInput\').click()">📷 Foto nemen</button>'+
+    '<button type="button" class="scanbtn" style="margin:0;flex:1;background:var(--card-2);border-style:solid;border-color:var(--sep);color:var(--ink-2);" onclick="document.getElementById(\'bgFileInput\').click()">🖼️ Bestand kiezen</button>'+
+    '</div>'+
+    '<button type="button" class="sbtn" style="width:100%;margin-bottom:10px;" onclick="bgAddNaamZonderFoto()">➕ Naam toevoegen (zonder foto)</button>'+
+    '<input type="file" id="bgCamInput" accept="image/*" capture="environment" style="display:none;" onchange="bgAddIdFoto(this)">'+
+    '<input type="file" id="bgFileInput" accept="image/*" multiple style="display:none;" onchange="bgAddIdFoto(this)">'+
+    '<input type="file" id="bgRetakeInput" accept="image/*" capture="environment" style="display:none;" onchange="bgRetakeIdFoto(this)">'+
+    '<div id="bgGastenList"></div>'+
+    '<div id="bgMsg" class="note-inline" style="min-height:14px;"></div>'+
+    '<button class="modal-save" id="bgSaveBtn" onclick="saveBulkGasten(\''+bookingId+'\')">Gasten opslaan</button>');
+  renderBgGastenList();
+}
+function bgAddNaamZonderFoto(){
+  bulkGasten.push({file:null,previewUrl:'',naam:'',geboortedatum:'',nationaliteit:'',id_nummer:''});
+  renderBgGastenList();
+}
+async function bgAddIdFoto(input){
+  const files=input.files;if(!files||!files.length)return;
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    const idx=bulkGasten.length;
+    bulkGasten.push({file,previewUrl:URL.createObjectURL(file),naam:'',geboortedatum:'',nationaliteit:'',id_nummer:''});
+    renderBgGastenList();
+    try{
+      const b64=await _fileToB64(file);
+      const {data:{session}}=await sb.auth.getSession();
+      const res=await fetch(SUPABASE_URL+'/functions/v1/scan-id',{
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+        body:JSON.stringify({image_base64:b64,media_type:file.type||'image/jpeg'}),
+      });
+      const d=await res.json();
+      if(!d.error){
+        const naam=d.naam||[d.voornaam,d.achternaam].filter(Boolean).join(' ');
+        bulkGasten[idx].naam=naam||''; bulkGasten[idx].geboortedatum=d.geboortedatum||'';
+        bulkGasten[idx].nationaliteit=d.nationaliteit||''; bulkGasten[idx].id_nummer=d.documentnummer||'';
+      }
+    }catch(e){/* AI-herkenning mislukt — manueel aan te vullen */}
+    renderBgGastenList();
+  }
+  input.value='';
+}
+let bgRetakeIdx=-1;
+async function bgRetakeIdFoto(input){
+  const file=input.files&&input.files[0]; if(!file||bgRetakeIdx<0)return;
+  const i=bgRetakeIdx;
+  if(bulkGasten[i].previewUrl)URL.revokeObjectURL(bulkGasten[i].previewUrl);
+  bulkGasten[i].file=file; bulkGasten[i].previewUrl=URL.createObjectURL(file);
+  renderBgGastenList();
+  try{
+    const b64=await _fileToB64(file);
+    const {data:{session}}=await sb.auth.getSession();
+    const res=await fetch(SUPABASE_URL+'/functions/v1/scan-id',{
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body:JSON.stringify({image_base64:b64,media_type:file.type||'image/jpeg'}),
+    });
+    const d=await res.json();
+    if(!d.error){
+      const naam=d.naam||[d.voornaam,d.achternaam].filter(Boolean).join(' ');
+      if(naam)bulkGasten[i].naam=naam;
+      if(d.geboortedatum)bulkGasten[i].geboortedatum=d.geboortedatum;
+      if(d.nationaliteit)bulkGasten[i].nationaliteit=d.nationaliteit;
+      if(d.documentnummer)bulkGasten[i].id_nummer=d.documentnummer;
+    }
+  }catch(e){/* AI-herkenning mislukt — manueel aan te vullen */}
+  renderBgGastenList();
+  input.value=''; bgRetakeIdx=-1;
+}
+let _bgOpenDetail={};
+function renderBgGastenList(){
+  const el=document.getElementById('bgGastenList');if(!el)return;
+  if(!bulkGasten.length){el.innerHTML='<div class="note-inline" style="padding:6px 0;">Nog geen gasten toegevoegd</div>';return;}
+  el.innerHTML=bulkGasten.map((g,i)=>{
+    const open=!!_bgOpenDetail[i];
+    return '<div class="card" style="padding:10px;margin-bottom:8px;">'+
+    '<div style="display:flex;gap:8px;align-items:center;">'+
+    (g.previewUrl?'<img src="'+g.previewUrl+'" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;cursor:pointer;" onclick="window.open(\''+g.previewUrl+'\',\'_blank\')">':'<div class="thumb" style="flex-shrink:0;">🪪</div>')+
+    '<div style="flex:1;min-width:0;">'+
+    '<input value="'+esc(g.naam)+'" placeholder="Naam" oninput="bulkGasten['+i+'].naam=this.value;" style="width:100%;padding:7px 9px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12.5px;margin-bottom:5px;">'+
+    '<div style="font-size:10.5px;color:var(--ink-3);cursor:pointer;" onclick="_bgOpenDetail['+i+']=!_bgOpenDetail['+i+'];renderBgGastenList();">'+(open?'▾ ':'▸ ')+(g.geboortedatum?fmt(g.geboortedatum)+' · ':'')+(g.nationaliteit||'AI leest…')+'</div>'+
+    '</div>'+
+    '<button title="'+(g.file?'Foto opnieuw nemen':'Foto toevoegen')+'" onclick="bgRetakeIdx='+i+';document.getElementById(\'bgRetakeInput\').click();" style="background:var(--card-2);border:1px solid var(--sep);border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">📷</button>'+
+    '<button onclick="if(bulkGasten['+i+'].previewUrl)URL.revokeObjectURL(bulkGasten['+i+'].previewUrl);bulkGasten.splice('+i+',1);renderBgGastenList();" style="background:var(--red-soft);color:var(--red);border:none;border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>'+
+    '</div>'+
+    (open?'<div style="display:flex;gap:6px;margin-top:8px;">'+
+      '<input type="date" value="'+esc(g.geboortedatum||'')+'" oninput="bulkGasten['+i+'].geboortedatum=this.value;" style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12px;">'+
+      '<input value="'+esc(g.nationaliteit||'')+'" placeholder="Nationaliteit" oninput="bulkGasten['+i+'].nationaliteit=this.value;" style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12px;">'+
+      '<input value="'+esc(g.id_nummer||'')+'" placeholder="ID-nummer" oninput="bulkGasten['+i+'].id_nummer=this.value;" style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--sep);background:var(--card-2);color:var(--ink);font-size:12px;">'+
+      '</div>':'')+
+    '</div>';
+  }).join('');
+}
+async function saveBulkGasten(bookingId){
+  const msg=document.getElementById('bgMsg');
+  if(!bulkGasten.length){msg.style.color='var(--red)';msg.textContent='Voeg minstens 1 gast toe';return;}
+  const btn=document.getElementById('bgSaveBtn'); btn.disabled=true; btn.textContent='Opslaan…';
+  let opgeslagen=0;
+  for(const g of bulkGasten){
+    try{
+      const {data:gast,error:gErr}=await sb.from('gasten').insert({
+        booking_id:bookingId, naam:g.naam||'Gast',
+        geboortedatum:g.geboortedatum||null, nationaliteit:g.nationaliteit||null,
+        id_nummer:g.id_nummer||null, is_hoofdgast:false,
+      }).select('id').single();
+      if(gErr||!gast)continue;
+      if(g.file){
+        const ext=(g.file.name.split('.').pop()||'jpg').toLowerCase();
+        const path=bookingId+'/'+gast.id+'.'+ext;
+        const {error:upErr}=await sb.storage.from('id-fotos').upload(path,g.file,{upsert:true,contentType:g.file.type});
+        if(!upErr)await sb.from('gasten').update({foto_url:path}).eq('id',gast.id);
+      }
+      opgeslagen++;
+    }catch(e){/* één mislukte gast mag de rest niet blokkeren */}
+  }
+  bulkGasten.forEach(g=>{if(g.previewUrl)URL.revokeObjectURL(g.previewUrl);});
+  bulkGasten=[]; _bgOpenDetail={};
+  closeModal(); toast('✅ '+opgeslagen+' gast'+(opgeslagen===1?'':'en')+' toegevoegd');
+  const b=bookings.find(x=>x.id===bookingId); if(b) loadGastPane(b);
 }
 function _fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
 
