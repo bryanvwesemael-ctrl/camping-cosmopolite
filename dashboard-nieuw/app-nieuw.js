@@ -2563,7 +2563,12 @@ function connectGmailV2(){
 async function renderBeheerMail(){
   const el=document.getElementById('beheerBody');
   el.innerHTML='<div class="note-inline">Laden…</div>';
-  const {data}=await sb.from('integrations').select('email,updated_at').eq('provider','gmail').maybeSingle();
+  // Filteren op het ingestelde afzenderadres (Beheer → Instellingen) — er kan
+  // meer dan 1 gmail-koppeling in de tabel staan (bv. een testkoppeling van
+  // Bryan zelf), en zonder deze filter faalt .maybeSingle() stil zodra dat
+  // gebeurt, waardoor dit scherm altijd "niet gekoppeld" toonde.
+  const senderEmail=clubCfg.mail_sender_email||'';
+  const {data}=await sb.from('integrations').select('email,updated_at').eq('provider','gmail').eq('email',senderEmail).maybeSingle();
   let h='<div class="card" style="padding:16px;">';
   if(data){
     h+='<div class="row"><span class="rl">Gekoppeld account</span><span class="rv">'+esc(data.email)+'</span></div>';
