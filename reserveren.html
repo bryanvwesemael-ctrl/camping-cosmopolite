@@ -32,6 +32,9 @@ button{cursor:pointer;border:none;background:none}
 .hero-logo{font-size:34px;margin-bottom:6px;position:relative;z-index:1}
 .hero h1{color:#fff;font-size:23px;font-weight:800;letter-spacing:-.4px;position:relative;z-index:1}
 .hero p{color:rgba(255,255,255,.75);font-size:13px;margin-top:6px;position:relative;z-index:1}
+.lang-switch{position:absolute;top:12px;right:14px;z-index:2;display:flex;gap:4px;}
+.lang-switch button{padding:5px 9px;border-radius:8px;font-size:11px;font-weight:700;color:rgba(255,255,255,.72);background:rgba(255,255,255,.14);transition:.15s;}
+.lang-switch button.active{background:#fff;color:var(--green-deep);}
 
 .wrap{max-width:560px;margin:-24px auto 0;padding:0 16px;position:relative;z-index:5}
 
@@ -105,23 +108,28 @@ button{cursor:pointer;border:none;background:none}
 
 
 <div class="hero">
+  <div class="lang-switch" id="langSwitch">
+    <button type="button" data-lang="nl" onclick="setLang('nl')">NL</button>
+    <button type="button" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button type="button" data-lang="en" onclick="setLang('en')">EN</button>
+  </div>
   <div class="hero-logo">🏕️</div>
-  <h1>Reserveer je verblijf</h1>
-  <p>Vul je gegevens in en bekijk meteen je richtprijs</p>
+  <h1 data-i18n="heroTitle">Reserveer je verblijf</h1>
+  <p data-i18n="heroSub">Vul je gegevens in en bekijk meteen je richtprijs</p>
 </div>
 
 <div class="wrap">
 
   <!-- Periode -->
   <div class="card">
-    <h2>📅 Periode</h2>
+    <h2 data-i18n="cardPeriode">📅 Periode</h2>
     <div class="row2">
       <div class="field">
-        <label>Aankomst</label>
+        <label data-i18n="lblAankomst">Aankomst</label>
         <input type="date" id="fAankomst" onchange="calc()">
       </div>
       <div class="field">
-        <label>Vertrek</label>
+        <label data-i18n="lblVertrek">Vertrek</label>
         <input type="date" id="fVertrek" onchange="calc()">
       </div>
     </div>
@@ -130,95 +138,95 @@ button{cursor:pointer;border:none;background:none}
 
   <!-- Verblijfstype -->
   <div class="card" id="cardVerblijf">
-    <h2>🏕️ Verblijfstype</h2>
+    <h2 data-i18n="cardVerblijf">🏕️ Verblijfstype</h2>
     <div id="verblijfTypeList">
       <!-- dynamisch ingeladen via JS -->
-      <div style="color:var(--lbl4);font-size:13px;padding:8px 0;">Laden…</div>
+      <div style="color:var(--lbl4);font-size:13px;padding:8px 0;" data-i18n="laden">Laden…</div>
     </div>
     <div id="maxPersonenWaarschuwing" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(255,149,0,.1);border-radius:10px;font-size:13px;font-weight:600;color:#CC7A00;"></div>
   </div>
 
   <!-- Personen -->
   <div class="card">
-    <h2>👥 Personen</h2>
+    <h2 data-i18n="cardPersonen">👥 Personen</h2>
     <div class="stepper-row">
-      <div class="sr-info"><div class="sr-title">Volwassenen</div><div class="sr-sub">€7 / nacht — vanaf 12 jaar, incl. toeristentaks</div></div>
+      <div class="sr-info"><div class="sr-title" data-i18n="lblVolwassenen">Volwassenen</div><div class="sr-sub" id="subVolwassenen">€7 / nacht — vanaf 12 jaar, incl. toeristentaks</div></div>
       <div class="stepper"><button class="stp-btn" onclick="step('volwassenen',-1)">−</button><span class="stp-val" id="v-volwassenen">2</span><button class="stp-btn" onclick="step('volwassenen',1)">+</button></div>
     </div>
     <div class="stepper-row">
-      <div class="sr-info"><div class="sr-title">Kinderen 3–11 jaar</div><div class="sr-sub">€5 / nacht — geen toeristentaks</div></div>
+      <div class="sr-info"><div class="sr-title" data-i18n="lblKinderen">Kinderen 3–11 jaar</div><div class="sr-sub" id="subKinderen">€5 / nacht — geen toeristentaks</div></div>
       <div class="stepper"><button class="stp-btn" onclick="step('kinderen',-1)">−</button><span class="stp-val" id="v-kinderen">0</span><button class="stp-btn" onclick="step('kinderen',1)">+</button></div>
     </div>
     <div class="stepper-row">
-      <div class="sr-info"><div class="sr-title">Kinderen onder 3 jaar</div><div class="sr-sub" id="srBaby">Gratis</div></div>
+      <div class="sr-info"><div class="sr-title" data-i18n="lblBaby">Kinderen onder 3 jaar</div><div class="sr-sub" id="srBaby">Gratis</div></div>
       <div class="stepper"><button class="stp-btn" onclick="step('baby',-1)">−</button><span class="stp-val" id="v-baby">0</span><button class="stp-btn" onclick="step('baby',1)">+</button></div>
     </div>
   </div>
 
   <!-- Extra's -->
   <div class="card">
-    <h2>➕ Extra's</h2>
+    <h2 data-i18n="cardExtras">➕ Extra's</h2>
     <div class="stepper-row">
-      <div class="sr-info"><div class="sr-title">Hond</div><div class="sr-sub">€3 / nacht per hond</div></div>
+      <div class="sr-info"><div class="sr-title" data-i18n="lblHond">Hond</div><div class="sr-sub" id="subHond">€3 / nacht per hond</div></div>
       <div class="stepper"><button class="stp-btn" onclick="step('honden',-1)">−</button><span class="stp-val" id="v-honden">0</span><button class="stp-btn" onclick="step('honden',1)">+</button></div>
     </div>
     <div class="stepper-row">
-      <div class="sr-info"><div class="sr-title">Auto's</div><div class="sr-sub">1e auto gratis, elke volgende €2 / nacht</div></div>
+      <div class="sr-info"><div class="sr-title" data-i18n="lblAutos">Auto's</div><div class="sr-sub" id="subAutos">1e auto gratis, elke volgende €2 / nacht</div></div>
       <div class="stepper"><button class="stp-btn" onclick="step('autos',-1)">−</button><span class="stp-val" id="v-autos">1</span><button class="stp-btn" onclick="step('autos',1)">+</button></div>
     </div>
     <div class="toggle-row">
-      <div class="sr-info"><div class="sr-title">Elektriciteit</div><div class="sr-sub">€6 per nacht</div></div>
+      <div class="sr-info"><div class="sr-title" data-i18n="lblElek">Elektriciteit</div><div class="sr-sub" id="subElek">€6 per nacht</div></div>
       <div class="switch" id="swElek" onclick="toggleElek()"></div>
     </div>
   </div>
 
   <!-- Gegevens -->
   <div class="card">
-    <h2>🪪 Jouw gegevens</h2>
+    <h2 data-i18n="cardGegevens">🪪 Jouw gegevens</h2>
     <div class="field">
-      <label>Naam (hoofdboeker)</label>
-      <input type="text" id="fNaam" placeholder="bv. Renaut Driss" oninput="calc()">
+      <label data-i18n="lblNaam">Naam (hoofdboeker)</label>
+      <input type="text" id="fNaam" placeholder="bv. Renaut Driss" data-i18n-ph="phNaam" oninput="calc()">
     </div>
     <div class="row2">
       <div class="field">
-        <label>E-mailadres</label>
-        <input type="email" id="fEmail" placeholder="naam@voorbeeld.be" oninput="calc()">
+        <label data-i18n="lblEmail">E-mailadres</label>
+        <input type="email" id="fEmail" placeholder="naam@voorbeeld.be" data-i18n-ph="phEmail" oninput="calc()">
       </div>
       <div class="field">
-        <label>Telefoonnummer</label>
-        <input type="tel" id="fTel" placeholder="+32 4...">
+        <label data-i18n="lblTel">Telefoonnummer</label>
+        <input type="tel" id="fTel" placeholder="+32 4..." data-i18n-ph="phTel">
       </div>
     </div>
     <div class="row2">
       <div class="field">
-        <label>ID-kaart / paspoortnr. <span style="font-weight:400;color:var(--lbl4)">(optioneel)</span></label>
-        <input type="text" id="fID" placeholder="mag ook bij aankomst">
+        <label><span data-i18n="lblID">ID-kaart / paspoortnr.</span> <span style="font-weight:400;color:var(--lbl4)" data-i18n="optioneel">(optioneel)</span></label>
+        <input type="text" id="fID" placeholder="mag ook bij aankomst" data-i18n-ph="phID">
       </div>
       <div class="field">
-        <label>Nummerplaat(en)</label>
+        <label data-i18n="lblPlaat">Nummerplaat(en)</label>
         <input type="text" id="fPlaat" placeholder="1-ABC-123, 2-XYZ-789">
       </div>
     </div>
     <div class="row2">
       <div class="field">
-        <label>Geboortedatum <span style="font-weight:400;color:var(--lbl4)">(optioneel)</span></label>
+        <label><span data-i18n="lblGeboorte">Geboortedatum</span> <span style="font-weight:400;color:var(--lbl4)" data-i18n="optioneel">(optioneel)</span></label>
         <input type="date" id="fGeboorte">
       </div>
       <div class="field">
-        <label>Nationaliteit <span style="font-weight:400;color:var(--lbl4)">(optioneel)</span></label>
-        <input type="text" id="fNationaliteit" placeholder="bv. Belgisch">
+        <label><span data-i18n="lblNationaliteit">Nationaliteit</span> <span style="font-weight:400;color:var(--lbl4)" data-i18n="optioneel">(optioneel)</span></label>
+        <input type="text" id="fNationaliteit" placeholder="bv. Belgisch" data-i18n-ph="phNationaliteit">
       </div>
     </div>
     <div class="field">
-      <label>Woonplaats <span style="font-weight:400;color:var(--lbl4)">(optioneel)</span></label>
-      <input type="text" id="fWoonplaats" placeholder="Stad, land">
+      <label><span data-i18n="lblWoonplaats">Woonplaats</span> <span style="font-weight:400;color:var(--lbl4)" data-i18n="optioneel">(optioneel)</span></label>
+      <input type="text" id="fWoonplaats" placeholder="Stad, land" data-i18n-ph="phWoonplaats">
     </div>
     <div class="field" style="margin-bottom:10px">
-      <label>Opmerkingen <span style="font-weight:400;color:var(--lbl4)">(optioneel)</span></label>
-      <input type="text" id="fNota" placeholder="bv. late aankomst, rustige plek...">
+      <label><span data-i18n="lblNota">Opmerkingen</span> <span style="font-weight:400;color:var(--lbl4)" data-i18n="optioneel">(optioneel)</span></label>
+      <input type="text" id="fNota" placeholder="bv. late aankomst, rustige plek..." data-i18n-ph="phNota">
     </div>
     <div class="toggle-row">
-      <div class="sr-info"><div class="sr-title">Akkoord met verwerking gegevens</div><div class="sr-sub">Nodig om je aanvraag te kunnen bevestigen — <a href="/privacy/" target="_blank" style="color:inherit;text-decoration:underline;">privacybeleid</a></div></div>
+      <div class="sr-info"><div class="sr-title" data-i18n="akkoordTitle">Akkoord met verwerking gegevens</div><div class="sr-sub"><span data-i18n="akkoordSub">Nodig om je aanvraag te kunnen bevestigen —</span> <a href="/privacy/" target="_blank" style="color:inherit;text-decoration:underline;" data-i18n="privacybeleidLink">privacybeleid</a></div></div>
       <div class="switch" id="swAkkoord" onclick="toggleAkkoord()"></div>
     </div>
     <div id="turnstileHost" style="margin-top:12px;"></div>
@@ -226,8 +234,8 @@ button{cursor:pointer;border:none;background:none}
 
   <!-- Identiteitsdocumenten — één per persoon -->
   <div class="card" id="idFotoCard">
-    <h2>🪪 Identiteitsdocumenten</h2>
-    <p style="font-size:12.5px;color:var(--lbl3);margin:0 0 12px;line-height:1.5;">
+    <h2 data-i18n="cardID">🪪 Identiteitsdocumenten</h2>
+    <p style="font-size:12.5px;color:var(--lbl3);margin:0 0 12px;line-height:1.5;" data-i18n-html="idIntro">
       Upload voor <b>iedere persoon</b> één identiteitsdocument (voorkant). Wettelijk verplicht voor het reizigersregister. Geldig: identiteitskaart, paspoort, Kids-ID of buitenlands ID. <b>Geen namen nodig</b> — die lezen wij van het document.
     </p>
 
@@ -245,15 +253,15 @@ button{cursor:pointer;border:none;background:none}
     <!-- Dropzone / bulk-upload -->
     <label id="docDrop" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:18px;border:2px dashed var(--green);border-radius:12px;color:var(--green);background:rgba(27,138,91,.04);cursor:pointer;text-align:center;">
       <div style="font-size:26px;">📷</div>
-      <div style="font-size:13.5px;font-weight:800;">Voeg documenten toe</div>
-      <div style="font-size:11px;color:var(--lbl3);">Tik om te kiezen of foto te nemen · of sleep bestanden hierheen</div>
-      <div style="font-size:10.5px;color:var(--lbl4);">Meerdere tegelijk · JPG, PNG, HEIC of PDF · max 15 MB per stuk</div>
+      <div style="font-size:13.5px;font-weight:800;" data-i18n="docDropTitle">Voeg documenten toe</div>
+      <div style="font-size:11px;color:var(--lbl3);" data-i18n="docDropSub">Tik om te kiezen of foto te nemen · of sleep bestanden hierheen</div>
+      <div style="font-size:10.5px;color:var(--lbl4);" data-i18n="docDropNote">Meerdere tegelijk · JPG, PNG, HEIC of PDF · max 15 MB per stuk</div>
       <input type="file" id="docInput" accept="image/*,application/pdf,.heic,.heif" multiple style="display:none;" onchange="onDocsSelected(this)">
     </label>
 
     <div id="docList" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"></div>
 
-    <div style="font-size:11px;color:var(--lbl4);margin-top:12px;line-height:1.5;">
+    <div style="font-size:11px;color:var(--lbl4);margin-top:12px;line-height:1.5;" data-i18n-html="docFooterNote">
       📌 Fotografeer enkel de <b>voorkant</b> van het identiteitsdocument — geen rijbewijs. Een PDF met meerdere pagina's wordt automatisch in losse documenten gesplitst.
     </div>
     <div id="docPrivacyNote" style="font-size:11px;color:var(--lbl4);margin-top:8px;line-height:1.5;"></div>
@@ -261,18 +269,18 @@ button{cursor:pointer;border:none;background:none}
 
   <!-- Prijsoverzicht -->
   <div class="price-card">
-    <h2>Prijsoverzicht</h2>
+    <h2 data-i18n="priceCardTitle">Prijsoverzicht</h2>
     <div id="priceLines"></div>
     <div class="pl-sub" id="plPerNacht"><span>Totaal per nacht</span><span>—</span></div>
     <div class="pl" id="plNachtenLine"><span>× nachten</span><span>—</span></div>
     <div class="pl" id="plElekLine"><span>Elektriciteit (eenmalig)</span><span>—</span></div>
     <div class="pl-total">
-      <span class="lbl">Totaal te betalen</span>
+      <span class="lbl" data-i18n="totaalTeBetalen">Totaal te betalen</span>
       <span class="val" id="totaalVal">€0</span>
     </div>
   </div>
 
-  <p class="note">📌 Dit is een <b>richtprijs</b>, geen definitieve factuur. Na het versturen van je aanvraag bevestigen wij de boeking en het exacte bedrag per e-mail. Toeristentaks geldt vanaf 12 jaar; kinderen van 12 jaar of ouder rekenen mee als volwassene.</p>
+  <p class="note" data-i18n-html="priceNote">📌 Dit is een <b>richtprijs</b>, geen definitieve factuur. Na het versturen van je aanvraag bevestigen wij de boeking en het exacte bedrag per e-mail. Toeristentaks geldt vanaf 12 jaar; kinderen van 12 jaar of ouder rekenen mee als volwassene.</p>
 
 </div>
 
@@ -280,16 +288,16 @@ button{cursor:pointer;border:none;background:none}
 <div class="confirm-overlay" id="confirmOverlay">
   <div class="confirm-card">
     <div class="confirm-icon">✅</div>
-    <h2>Aanvraag verzonden!</h2>
-    <p class="confirm-sub">We bevestigen je boeking zo snel mogelijk per e-mail. Bewaar onderstaande referentie — die gebruik je bij betaling.</p>
+    <h2 data-i18n="confirmTitle">Aanvraag verzonden!</h2>
+    <p class="confirm-sub" data-i18n="confirmSub">We bevestigen je boeking zo snel mogelijk per e-mail. Bewaar onderstaande referentie — die gebruik je bij betaling.</p>
     <div class="confirm-ref">
-      <div class="confirm-ref-lbl">Gestructureerde mededeling</div>
+      <div class="confirm-ref-lbl" data-i18n="confirmRefLbl">Gestructureerde mededeling</div>
       <div class="confirm-ref-val" id="confirmOgm">—</div>
     </div>
     <div class="confirm-total">
-      <span>Richtprijs</span><b id="confirmTotaal">€0</b>
+      <span data-i18n="confirmRichtprijs">Richtprijs</span><b id="confirmTotaal">€0</b>
     </div>
-    <button class="confirm-close" onclick="closeConfirm()">Sluiten</button>
+    <button class="confirm-close" onclick="closeConfirm()" data-i18n="confirmClose">Sluiten</button>
   </div>
 </div>
 
@@ -297,28 +305,28 @@ button{cursor:pointer;border:none;background:none}
 <div style="background:#1C1C1E;color:rgba(255,255,255,.55);font-size:11.5px;padding:24px 20px;line-height:1.8;margin-bottom:80px;">
   <div style="max-width:560px;margin:0 auto;">
     <div style="color:rgba(255,255,255,.85);font-weight:700;margin-bottom:8px;">🏕️ Camping Cosmopolite</div>
-    <div>Adres: <span id="footerAdres">—</span></div>
+    <div><span data-i18n="footerAdresLbl">Adres:</span> <span id="footerAdres">—</span></div>
     <div>KBO: <span id="footerKBO">—</span> · BTW: <span id="footerBTW">—</span></div>
     <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.1);padding-top:10px;">
-      <a href="/privacy/" style="color:rgba(255,255,255,.6);text-decoration:underline;">Privacybeleid</a>
+      <a href="/privacy/" style="color:rgba(255,255,255,.6);text-decoration:underline;" data-i18n="privacybeleidLink">Privacybeleid</a>
       <span style="margin:0 8px;opacity:.3;">·</span>
-      <span>Annuleringsbeleid op aanvraag</span>
+      <span data-i18n="annuleringOnRequest">Annuleringsbeleid op aanvraag</span>
       <span style="margin:0 8px;opacity:.3;">·</span>
-      <span>Herroepingsrecht niet van toepassing op logiesreservaties (WER art. VI.47 §2, 12°)</span>
+      <span data-i18n="herroepingsrecht">Herroepingsrecht niet van toepassing op logiesreservaties (WER art. VI.47 §2, 12°)</span>
     </div>
-    <div style="margin-top:6px;opacity:.5;font-size:10.5px;">Prijzen incl. 12% BTW (campingdiensten) en toeristentaks. Richtprijzen — definitief bedrag na bevestiging.</div>
+    <div style="margin-top:6px;opacity:.5;font-size:10.5px;" data-i18n="prijzenBtwNote">Prijzen incl. 12% BTW (campingdiensten) en toeristentaks. Richtprijzen — definitief bedrag na bevestiging.</div>
   </div>
 </div>
 
 <!-- Cookiebanner (ePrivacy / art. 129 Wet elektronische communicatie) -->
 <div id="cookieBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1C1C1E;color:#fff;z-index:9999;padding:14px 16px calc(14px + env(safe-area-inset-bottom,0));box-shadow:0 -4px 20px rgba(0,0,0,.3);">
   <div style="max-width:560px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-    <div style="flex:1;min-width:200px;font-size:12.5px;line-height:1.5;color:rgba(255,255,255,.8);">
+    <div style="flex:1;min-width:200px;font-size:12.5px;line-height:1.5;color:rgba(255,255,255,.8);" data-i18n-html="cookieText">
       🍪 We gebruiken enkel <b style="color:#fff;">functionele cookies</b> die nodig zijn voor het reservatieformulier. Geen tracking of advertentiecookies. <a href="/privacy/" style="color:#34C759;text-decoration:underline;">Meer info</a>
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0;">
-      <button onclick="acceptCookies()" style="padding:10px 18px;background:#1B8A5B;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Akkoord</button>
-      <button onclick="declineCookies()" style="padding:10px 18px;background:rgba(255,255,255,.1);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Weigeren</button>
+      <button onclick="acceptCookies()" style="padding:10px 18px;background:#1B8A5B;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;" data-i18n="cookieAkkoord">Akkoord</button>
+      <button onclick="declineCookies()" style="padding:10px 18px;background:rgba(255,255,255,.1);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;" data-i18n="cookieWeigeren">Weigeren</button>
     </div>
   </div>
 </div>
@@ -330,10 +338,10 @@ button{cursor:pointer;border:none;background:none}
 <div class="submit-bar">
   <div class="submit-inner">
     <div class="submit-total">
-      <div class="l">Totaal</div>
+      <div class="l" data-i18n="totaalLbl">Totaal</div>
       <div class="v" id="barTotaal">€0</div>
     </div>
-    <button class="submit-btn" onclick="submitForm()">Verstuur aanvraag →</button>
+    <button class="submit-btn" onclick="submitForm()" data-i18n="submitBtn">Verstuur aanvraag →</button>
   </div>
 </div>
 
@@ -429,6 +437,246 @@ let accommodatieTypes=[
   {id:'camper',naam:'Camper / Caravan',emoji:'🚐',prijs:15,maxPersonen:0,waarborg:0,waarborgBedrag:0,isStandaard:true},
 ];
 
+/* ═══════════ VERTALINGEN (NL/FR/EN) ═══════════
+   Enkel de zichtbare UI-tekst. De rekenlogica/DB-calls werken via ids/state
+   en blijven ongewijzigd — taalwissel raakt dus nooit de functionaliteit.
+   Verblijfstype-namen/-omschrijvingen en de bevestigingsmail komen uit
+   Beheer (settings) en blijven in de taal waarin Karen ze daar invulde. */
+const T={
+  nl:{
+    heroTitle:'Reserveer je verblijf', heroSub:'Vul je gegevens in en bekijk meteen je richtprijs',
+    cardPeriode:'📅 Periode', lblAankomst:'Aankomst', lblVertrek:'Vertrek',
+    nights:n=>n>0?`${n} nacht${n===1?'':'en'}`:'Kies geldige data',
+    cardVerblijf:'🏕️ Verblijfstype', laden:'Laden…',
+    maxPersonenWarn:(naam,max)=>`⚠️ ${naam} heeft een maximum van ${max} personen.`,
+    cardPersonen:'👥 Personen',
+    lblVolwassenen:'Volwassenen', subVolwassenen:p=>`€${p} / nacht — vanaf 12 jaar, incl. toeristentaks`,
+    lblKinderen:'Kinderen 3–11 jaar', subKinderen:p=>`€${p} / nacht — geen toeristentaks`,
+    lblBaby:'Kinderen onder 3 jaar', babyFree:'Gratis', babyPrice:p=>`€${p} / nacht`,
+    cardExtras:"➕ Extra's",
+    lblHond:'Hond', subHond:p=>`€${p} / nacht per hond`,
+    lblAutos:"Auto's", subAutos:p=>`1e auto gratis, elke volgende €${p} / nacht`,
+    lblElek:'Elektriciteit', subElek:p=>`€${p} per nacht`,
+    cardGegevens:'🪪 Jouw gegevens',
+    lblNaam:'Naam (hoofdboeker)', phNaam:'bv. Renaut Driss',
+    lblEmail:'E-mailadres', phEmail:'naam@voorbeeld.be',
+    lblTel:'Telefoonnummer', phTel:'+32 4...',
+    lblID:'ID-kaart / paspoortnr.', phID:'mag ook bij aankomst',
+    lblPlaat:'Nummerplaat(en)',
+    lblGeboorte:'Geboortedatum',
+    lblNationaliteit:'Nationaliteit', phNationaliteit:'bv. Belgisch',
+    lblWoonplaats:'Woonplaats', phWoonplaats:'Stad, land',
+    lblNota:'Opmerkingen', phNota:'bv. late aankomst, rustige plek...',
+    optioneel:'(optioneel)',
+    akkoordTitle:'Akkoord met verwerking gegevens', akkoordSub:'Nodig om je aanvraag te kunnen bevestigen —', privacybeleidLink:'privacybeleid',
+    cardID:'🪪 Identiteitsdocumenten',
+    idIntro:'Upload voor <b>iedere persoon</b> één identiteitsdocument (voorkant). Wettelijk verplicht voor het reizigersregister. Geldig: identiteitskaart, paspoort, Kids-ID of buitenlands ID. <b>Geen namen nodig</b> — die lezen wij van het document.',
+    docCounterIntro:(n,have,compleet)=>`Je hebt <b>${n}</b> ${n===1?'persoon':'personen'} opgegeven. <b style="color:${compleet?'var(--green)':have>n?'var(--red)':'#CC7700'};">${have} van ${n}</b> document${have===1?'':'en'} toegevoegd.`,
+    docDropTitle:'Voeg documenten toe', docDropSub:'Tik om te kiezen of foto te nemen · of sleep bestanden hierheen', docDropNote:'Meerdere tegelijk · JPG, PNG, HEIC of PDF · max 15 MB per stuk',
+    docFooterNote:'📌 Fotografeer enkel de <b>voorkant</b> van het identiteitsdocument — geen rijbewijs. Een PDF met meerdere pagina\'s wordt automatisch in losse documenten gesplitst.',
+    docPrivacyNote:'🔒 Je documenten worden privé en versleuteld bewaard, enkel toegankelijk voor de campingbeheerder voor het wettelijke reizigersregister. Ze worden nooit als bijlage gemaild.',
+    persoonLbl:(i,hoofdboeker)=>`Persoon ${i}${hoofdboeker?' · hoofdboeker':''}`,
+    geenDocument:'Nog geen document', lageResolutie:'⚠️ Lage resolutie — controleer of alles leesbaar is', heicNote:'📱 HEIC — geen voorbeeld, wordt wel correct bewaard',
+    priceCardTitle:'Prijsoverzicht', perNachtLbl:'Subtotaal per dag', inclTaks:'(incl. taks)', dagLbl:n=>`× ${n} dag${n===1?'':'en'}`, plusEenmalig:' + eenmalig', perDag:' /dag', gratisLbl:'Gratis', eenmaligLbl:'(eenmalig)',
+    totaalTeBetalen:'Totaal te betalen', plusWaarborg:v=>` + ${v} waarborg`,
+    priceNote:'📌 Dit is een <b>richtprijs</b>, geen definitieve factuur. Na het versturen van je aanvraag bevestigen wij de boeking en het exacte bedrag per e-mail. Toeristentaks geldt vanaf 12 jaar; kinderen van 12 jaar of ouder rekenen mee als volwassene.',
+    confirmTitle:'Aanvraag verzonden!', confirmSub:'We bevestigen je boeking zo snel mogelijk per e-mail. Bewaar onderstaande referentie — die gebruik je bij betaling.',
+    confirmRefLbl:'Gestructureerde mededeling', confirmRichtprijs:'Richtprijs', confirmClose:'Sluiten',
+    footerAdresLbl:'Adres:', privacybeleidLink2:'Privacybeleid', annuleringOnRequest:'Annuleringsbeleid op aanvraag',
+    herroepingsrecht:'Herroepingsrecht niet van toepassing op logiesreservaties (WER art. VI.47 §2, 12°)',
+    prijzenBtwNote:'Prijzen incl. 12% BTW (campingdiensten) en toeristentaks. Richtprijzen — definitief bedrag na bevestiging.',
+    cookieAkkoord:'Akkoord', cookieWeigeren:'Weigeren',
+    totaalLbl:'Totaal', submitBtn:'Verstuur aanvraag →', submitBtnSending:'Bezig met versturen…', submitBtnUploading:n=>`📷 ${n} document${n>1?'en':''} uploaden…`,
+    tPrijsLijn:(naam,qty,prijs)=>`🏕️ ${naam} (${qty} × €${prijs}/n)`,
+    tAllIn:n=>`✅ All-in (${n}p inbegrepen)`,
+    tVolw:(n,p)=>`🧑 Volwassenen (${n} × €${p}/n)`, tKind:(n,p)=>`🧒 Kinderen 3-11j (${n} × €${p}/n)`, tBaby:n=>`👶 Baby's <3j (${n}×)`,
+    tHond:(n,p)=>`🐕 Hond (${n} × €${p}/n)`, tAuto:(n,p)=>`🚗 Extra auto's (${n} × €${p}/n)`, tAfval:p=>`♻️ Afval (€${p}/nacht)`, tElek:p=>`⚡ Elektriciteit (€${p}/dag)`, tTaks:(n,p)=>`🏛️ Toeristentaks (${n} × €${p}/dag)`,
+    tEenmalig:'➕ Eenmalige kosten', tWaarborg:'🔒 Waarborg (cash bij aankomst, terugbetaalbaar)',
+    toastFileRejected:(reason,name)=>`⚠️ ${reason}: ${name}`, toastPdfLoading:'⚠️ PDF-ondersteuning laadt nog, probeer opnieuw',
+    toastPdfPassword:name=>`⚠️ Dit PDF-bestand is beveiligd met een wachtwoord: ${name}`, toastPdfError:name=>`⚠️ Kon PDF niet lezen: ${name}`,
+    toastCorruptImage:name=>`⚠️ Beschadigde afbeelding: ${name}`, toastFileReadError:name=>`⚠️ Kon bestand niet lezen: ${name}`,
+    toastDuplicate:'⚠️ Dit document heb je al toegevoegd', toastMaxDocs:n=>`⚠️ Je hebt al ${n} document${n>1?'en':''} (= aantal personen)`,
+    toastRotateNotPossible:'⚠️ Roteren niet mogelijk voor dit bestand',
+    toastCheckDates:'⚠️ Controleer je aankomst- en vertrekdatum', toastFillName:'⚠️ Vul je naam in', toastValidEmail:'⚠️ Vul een geldig e-mailadres in',
+    toastAkkoord:'⚠️ Bevestig akkoord met verwerking van je gegevens', toastRobot:'⚠️ Bevestig even dat je geen robot bent',
+    toastMinDoc:'⚠️ Voeg minstens 1 identiteitsdocument toe', toastWait:'⚠️ Even geduld, controleer je gegevens nog eens',
+    toastAlreadySent:'⚠️ Je aanvraag werd al verstuurd', toastSubmitError:'⚠️ Er ging iets mis bij het versturen — probeer opnieuw of bel ons',
+    toastUploadFailed:'⚠️ Aanvraag opgeslagen, maar documenten uploaden mislukte. We sturen je een nieuwe uploadlink.',
+    cookieText:'🍪 We gebruiken enkel <b style="color:#fff;">functionele cookies</b> die nodig zijn voor het reservatieformulier. Geen tracking of advertentiecookies. <a href="/privacy/" style="color:#34C759;text-decoration:underline;">Meer info</a>',
+    reasonText:{leeg_of_corrupt:'Bestand is leeg of beschadigd',te_groot:'Bestand is te groot (max 15 MB)',onbekend_type:'Onbekend bestandstype',type_niet_toegelaten:'Alleen JPG, PNG, HEIC of PDF toegelaten',lage_resolutie:'Lage resolutie — mogelijk onleesbaar',duplicaat:'Dit document is al toegevoegd',pdf_beveiligd:'PDF is met wachtwoord beveiligd'},
+    vulVeldenIn:'Vul de velden hierboven in…',
+    perNachtSuffix:' / nacht',
+  },
+  fr:{
+    heroTitle:'Réservez votre séjour', heroSub:'Remplissez vos données et obtenez immédiatement un prix indicatif',
+    cardPeriode:'📅 Dates', lblAankomst:'Arrivée', lblVertrek:'Départ',
+    nights:n=>n>0?`${n} nuit${n===1?'':'s'}`:'Choisissez des dates valides',
+    cardVerblijf:'🏕️ Type de séjour', laden:'Chargement…',
+    maxPersonenWarn:(naam,max)=>`⚠️ ${naam} a un maximum de ${max} personnes.`,
+    cardPersonen:'👥 Personnes',
+    lblVolwassenen:'Adultes', subVolwassenen:p=>`€${p} / nuit — à partir de 12 ans, taxe de séjour incl.`,
+    lblKinderen:'Enfants 3–11 ans', subKinderen:p=>`€${p} / nuit — sans taxe de séjour`,
+    lblBaby:'Enfants de moins de 3 ans', babyFree:'Gratuit', babyPrice:p=>`€${p} / nuit`,
+    cardExtras:'➕ Extras',
+    lblHond:'Chien', subHond:p=>`€${p} / nuit par chien`,
+    lblAutos:'Voitures', subAutos:p=>`1ère voiture gratuite, chaque suivante €${p} / nuit`,
+    lblElek:'Électricité', subElek:p=>`€${p} par nuit`,
+    cardGegevens:'🪪 Vos données',
+    lblNaam:'Nom (responsable de la réservation)', phNaam:'ex. Renaut Driss',
+    lblEmail:'Adresse e-mail', phEmail:'nom@exemple.be',
+    lblTel:'Numéro de téléphone', phTel:'+32 4...',
+    lblID:"Carte d'identité / n° passeport", phID:"possible aussi à l'arrivée",
+    lblPlaat:"Plaque(s) d'immatriculation",
+    lblGeboorte:'Date de naissance',
+    lblNationaliteit:'Nationalité', phNationaliteit:'ex. Belge',
+    lblWoonplaats:'Domicile', phWoonplaats:'Ville, pays',
+    lblNota:'Remarques', phNota:'ex. arrivée tardive, emplacement calme...',
+    optioneel:'(facultatif)',
+    akkoordTitle:'Accord pour le traitement des données', akkoordSub:'Nécessaire pour confirmer votre demande —', privacybeleidLink:'politique de confidentialité',
+    cardID:'🪪 Documents d\'identité',
+    idIntro:'Téléchargez pour <b>chaque personne</b> un document d\'identité (recto). Obligatoire légalement pour le registre des voyageurs. Valable : carte d\'identité, passeport, Kids-ID ou pièce d\'identité étrangère. <b>Pas besoin de noms</b> — nous les lisons sur le document.',
+    docCounterIntro:(n,have,compleet)=>`Vous avez indiqué <b>${n}</b> personne${n===1?'':'s'}. <b style="color:${compleet?'var(--green)':have>n?'var(--red)':'#CC7700'};">${have} sur ${n}</b> document${have===1?'':'s'} ajouté${have===1?'':'s'}.`,
+    docDropTitle:'Ajoutez des documents', docDropSub:'Touchez pour choisir ou prendre une photo · ou glissez-déposez vos fichiers ici', docDropNote:'Plusieurs à la fois · JPG, PNG, HEIC ou PDF · max 15 Mo par fichier',
+    docFooterNote:'📌 Photographiez uniquement le <b>recto</b> du document d\'identité — pas de permis de conduire. Un PDF de plusieurs pages est automatiquement scindé en documents séparés.',
+    docPrivacyNote:'🔒 Vos documents sont conservés de manière privée et cryptée, uniquement accessibles au gestionnaire du camping pour le registre des voyageurs légal. Jamais envoyés par e-mail en pièce jointe.',
+    persoonLbl:(i,hoofdboeker)=>`Personne ${i}${hoofdboeker?' · responsable':''}`,
+    geenDocument:'Pas encore de document', lageResolutie:'⚠️ Faible résolution — vérifiez la lisibilité', heicNote:'📱 HEIC — pas d\'aperçu, mais bien conservé correctement',
+    priceCardTitle:'Aperçu du prix', perNachtLbl:'Sous-total par jour', inclTaks:'(taxe incl.)', dagLbl:n=>`× ${n} jour${n===1?'':'s'}`, plusEenmalig:' + frais uniques', perDag:' /jour', gratisLbl:'Gratuit', eenmaligLbl:'(unique)',
+    totaalTeBetalen:'Total à payer', plusWaarborg:v=>` + ${v} de caution`,
+    priceNote:'📌 Ceci est un <b>prix indicatif</b>, pas une facture définitive. Après l\'envoi de votre demande, nous confirmons la réservation et le montant exact par e-mail. La taxe de séjour s\'applique à partir de 12 ans ; les enfants de 12 ans ou plus comptent comme adultes.',
+    confirmTitle:'Demande envoyée !', confirmSub:'Nous confirmons votre réservation dès que possible par e-mail. Conservez la référence ci-dessous — vous en aurez besoin pour le paiement.',
+    confirmRefLbl:'Communication structurée', confirmRichtprijs:'Prix indicatif', confirmClose:'Fermer',
+    footerAdresLbl:'Adresse :', privacybeleidLink2:'Politique de confidentialité', annuleringOnRequest:'Politique d\'annulation sur demande',
+    herroepingsrecht:'Le droit de rétractation ne s\'applique pas aux réservations d\'hébergement (Code de droit économique, art. VI.47 §2, 12°)',
+    prijzenBtwNote:'Prix TVA 12% incl. (services de camping) et taxe de séjour. Prix indicatifs — montant définitif après confirmation.',
+    cookieAkkoord:'Accepter', cookieWeigeren:'Refuser',
+    totaalLbl:'Total', submitBtn:'Envoyer la demande →', submitBtnSending:'Envoi en cours…', submitBtnUploading:n=>`📷 Téléchargement de ${n} document${n>1?'s':''}…`,
+    tPrijsLijn:(naam,qty,prijs)=>`🏕️ ${naam} (${qty} × €${prijs}/n)`,
+    tAllIn:n=>`✅ Tout compris (${n}p inclus)`,
+    tVolw:(n,p)=>`🧑 Adultes (${n} × €${p}/n)`, tKind:(n,p)=>`🧒 Enfants 3-11a (${n} × €${p}/n)`, tBaby:n=>`👶 Bébés <3a (${n}×)`,
+    tHond:(n,p)=>`🐕 Chien (${n} × €${p}/n)`, tAuto:(n,p)=>`🚗 Voitures suppl. (${n} × €${p}/n)`, tAfval:p=>`♻️ Déchets (€${p}/nuit)`, tElek:p=>`⚡ Électricité (€${p}/jour)`, tTaks:(n,p)=>`🏛️ Taxe de séjour (${n} × €${p}/jour)`,
+    tEenmalig:'➕ Frais uniques', tWaarborg:'🔒 Caution (en espèces à l\'arrivée, remboursable)',
+    toastFileRejected:(reason,name)=>`⚠️ ${reason}: ${name}`, toastPdfLoading:'⚠️ Le support PDF se charge encore, réessayez',
+    toastPdfPassword:name=>`⚠️ Ce PDF est protégé par mot de passe : ${name}`, toastPdfError:name=>`⚠️ Impossible de lire le PDF : ${name}`,
+    toastCorruptImage:name=>`⚠️ Image endommagée : ${name}`, toastFileReadError:name=>`⚠️ Impossible de lire le fichier : ${name}`,
+    toastDuplicate:'⚠️ Ce document a déjà été ajouté', toastMaxDocs:n=>`⚠️ Vous avez déjà ${n} document${n>1?'s':''} (= nombre de personnes)`,
+    toastRotateNotPossible:'⚠️ Rotation impossible pour ce fichier',
+    toastCheckDates:'⚠️ Vérifiez vos dates d\'arrivée et de départ', toastFillName:'⚠️ Indiquez votre nom', toastValidEmail:'⚠️ Indiquez une adresse e-mail valide',
+    toastAkkoord:'⚠️ Confirmez votre accord pour le traitement des données', toastRobot:'⚠️ Confirmez que vous n\'êtes pas un robot',
+    toastMinDoc:'⚠️ Ajoutez au moins 1 document d\'identité', toastWait:'⚠️ Un instant, vérifiez encore vos données',
+    toastAlreadySent:'⚠️ Votre demande a déjà été envoyée', toastSubmitError:'⚠️ Une erreur est survenue lors de l\'envoi — réessayez ou appelez-nous',
+    toastUploadFailed:'⚠️ Demande enregistrée, mais le téléchargement des documents a échoué. Nous vous enverrons un nouveau lien.',
+    cookieText:'🍪 Nous utilisons uniquement des <b style="color:#fff;">cookies fonctionnels</b> nécessaires au formulaire de réservation. Pas de cookies de suivi ou publicitaires. <a href="/privacy/" style="color:#34C759;text-decoration:underline;">Plus d\'infos</a>',
+    reasonText:{leeg_of_corrupt:'Le fichier est vide ou endommagé',te_groot:'Fichier trop volumineux (max 15 Mo)',onbekend_type:'Type de fichier inconnu',type_niet_toegelaten:'Seuls JPG, PNG, HEIC ou PDF sont autorisés',lage_resolutie:'Résolution faible — peut-être illisible',duplicaat:'Ce document a déjà été ajouté',pdf_beveiligd:'Le PDF est protégé par mot de passe'},
+    vulVeldenIn:'Remplissez les champs ci-dessus…',
+    perNachtSuffix:' / nuit',
+  },
+  en:{
+    heroTitle:'Book your stay', heroSub:'Fill in your details and see your estimated price instantly',
+    cardPeriode:'📅 Dates', lblAankomst:'Arrival', lblVertrek:'Departure',
+    nights:n=>n>0?`${n} night${n===1?'':'s'}`:'Choose valid dates',
+    cardVerblijf:'🏕️ Accommodation type', laden:'Loading…',
+    maxPersonenWarn:(naam,max)=>`⚠️ ${naam} has a maximum of ${max} people.`,
+    cardPersonen:'👥 Guests',
+    lblVolwassenen:'Adults', subVolwassenen:p=>`€${p} / night — from 12 years, incl. tourist tax`,
+    lblKinderen:'Children 3–11 years', subKinderen:p=>`€${p} / night — no tourist tax`,
+    lblBaby:'Children under 3 years', babyFree:'Free', babyPrice:p=>`€${p} / night`,
+    cardExtras:'➕ Extras',
+    lblHond:'Dog', subHond:p=>`€${p} / night per dog`,
+    lblAutos:'Cars', subAutos:p=>`1st car free, each extra €${p} / night`,
+    lblElek:'Electricity', subElek:p=>`€${p} per night`,
+    cardGegevens:'🪪 Your details',
+    lblNaam:'Name (main guest)', phNaam:'e.g. Renaut Driss',
+    lblEmail:'Email address', phEmail:'name@example.com',
+    lblTel:'Phone number', phTel:'+32 4...',
+    lblID:'ID card / passport no.', phID:'can also be given on arrival',
+    lblPlaat:'License plate(s)',
+    lblGeboorte:'Date of birth',
+    lblNationaliteit:'Nationality', phNationaliteit:'e.g. Belgian',
+    lblWoonplaats:'City / country of residence', phWoonplaats:'City, country',
+    lblNota:'Remarks', phNota:'e.g. late arrival, quiet spot...',
+    optioneel:'(optional)',
+    akkoordTitle:'Consent to data processing', akkoordSub:'Required to confirm your request —', privacybeleidLink:'privacy policy',
+    cardID:'🪪 Identity documents',
+    idIntro:'Upload one identity document (front side) for <b>every person</b>. Legally required for the guest register. Valid: ID card, passport, Kids-ID or foreign ID. <b>No names needed</b> — we read those from the document.',
+    docCounterIntro:(n,have,compleet)=>`You entered <b>${n}</b> ${n===1?'person':'people'}. <b style="color:${compleet?'var(--green)':have>n?'var(--red)':'#CC7700'};">${have} of ${n}</b> document${have===1?'':'s'} added.`,
+    docDropTitle:'Add documents', docDropSub:'Tap to choose or take a photo · or drag files here', docDropNote:'Multiple at once · JPG, PNG, HEIC or PDF · max 15 MB each',
+    docFooterNote:'📌 Only photograph the <b>front</b> of the identity document — not a driving licence. A multi-page PDF is automatically split into separate documents.',
+    docPrivacyNote:'🔒 Your documents are stored privately and encrypted, accessible only to the campsite manager for the legally required guest register. Never sent as an email attachment.',
+    persoonLbl:(i,hoofdboeker)=>`Person ${i}${hoofdboeker?' · main guest':''}`,
+    geenDocument:'No document yet', lageResolutie:'⚠️ Low resolution — check it is readable', heicNote:'📱 HEIC — no preview, but stored correctly',
+    priceCardTitle:'Price overview', perNachtLbl:'Subtotal per day', inclTaks:'(incl. tax)', dagLbl:n=>`× ${n} day${n===1?'':'s'}`, plusEenmalig:' + one-time', perDag:' /day', gratisLbl:'Free', eenmaligLbl:'(one-time)',
+    totaalTeBetalen:'Total to pay', plusWaarborg:v=>` + ${v} deposit`,
+    priceNote:'📌 This is an <b>estimated price</b>, not a final invoice. After sending your request we confirm the booking and exact amount by email. Tourist tax applies from age 12; children 12 or older count as adults.',
+    confirmTitle:'Request sent!', confirmSub:'We will confirm your booking by email as soon as possible. Keep the reference below — you\'ll need it for payment.',
+    confirmRefLbl:'Structured payment reference', confirmRichtprijs:'Estimated price', confirmClose:'Close',
+    footerAdresLbl:'Address:', privacybeleidLink2:'Privacy policy', annuleringOnRequest:'Cancellation policy on request',
+    herroepingsrecht:'Right of withdrawal does not apply to accommodation bookings (Belgian Code of Economic Law, art. VI.47 §2, 12°)',
+    prijzenBtwNote:'Prices incl. 12% VAT (campsite services) and tourist tax. Estimated prices — final amount after confirmation.',
+    cookieAkkoord:'Accept', cookieWeigeren:'Decline',
+    totaalLbl:'Total', submitBtn:'Send request →', submitBtnSending:'Sending…', submitBtnUploading:n=>`📷 Uploading ${n} document${n>1?'s':''}…`,
+    tPrijsLijn:(naam,qty,prijs)=>`🏕️ ${naam} (${qty} × €${prijs}/n)`,
+    tAllIn:n=>`✅ All-in (${n}p included)`,
+    tVolw:(n,p)=>`🧑 Adults (${n} × €${p}/n)`, tKind:(n,p)=>`🧒 Children 3-11y (${n} × €${p}/n)`, tBaby:n=>`👶 Babies <3y (${n}×)`,
+    tHond:(n,p)=>`🐕 Dog (${n} × €${p}/n)`, tAuto:(n,p)=>`🚗 Extra cars (${n} × €${p}/n)`, tAfval:p=>`♻️ Waste (€${p}/night)`, tElek:p=>`⚡ Electricity (€${p}/day)`, tTaks:(n,p)=>`🏛️ Tourist tax (${n} × €${p}/day)`,
+    tEenmalig:'➕ One-time costs', tWaarborg:'🔒 Deposit (cash on arrival, refundable)',
+    toastFileRejected:(reason,name)=>`⚠️ ${reason}: ${name}`, toastPdfLoading:'⚠️ PDF support is still loading, try again',
+    toastPdfPassword:name=>`⚠️ This PDF is password protected: ${name}`, toastPdfError:name=>`⚠️ Could not read PDF: ${name}`,
+    toastCorruptImage:name=>`⚠️ Corrupted image: ${name}`, toastFileReadError:name=>`⚠️ Could not read file: ${name}`,
+    toastDuplicate:'⚠️ You already added this document', toastMaxDocs:n=>`⚠️ You already have ${n} document${n>1?'s':''} (= number of people)`,
+    toastRotateNotPossible:'⚠️ Rotating is not possible for this file',
+    toastCheckDates:'⚠️ Check your arrival and departure date', toastFillName:'⚠️ Enter your name', toastValidEmail:'⚠️ Enter a valid email address',
+    toastAkkoord:'⚠️ Confirm consent to data processing', toastRobot:'⚠️ Please confirm you are not a robot',
+    toastMinDoc:'⚠️ Add at least 1 identity document', toastWait:'⚠️ One moment, please check your details again',
+    toastAlreadySent:'⚠️ Your request was already sent', toastSubmitError:'⚠️ Something went wrong while sending — try again or call us',
+    toastUploadFailed:'⚠️ Request saved, but uploading documents failed. We\'ll send you a new upload link.',
+    cookieText:'🍪 We only use <b style="color:#fff;">functional cookies</b> needed for the reservation form. No tracking or advertising cookies. <a href="/privacy/" style="color:#34C759;text-decoration:underline;">More info</a>',
+    reasonText:{leeg_of_corrupt:'File is empty or corrupted',te_groot:'File is too large (max 15 MB)',onbekend_type:'Unknown file type',type_niet_toegelaten:'Only JPG, PNG, HEIC or PDF allowed',lage_resolutie:'Low resolution — may be unreadable',duplicaat:'This document was already added',pdf_beveiligd:'PDF is password protected'},
+    vulVeldenIn:'Fill in the fields above…',
+    perNachtSuffix:' / night',
+  },
+};
+let lang=(()=>{
+  const saved=localStorage.getItem('cc_lang');
+  if(saved&&T[saved])return saved;
+  const nav=(navigator.language||'nl').slice(0,2).toLowerCase();
+  return T[nav]?nav:'nl';
+})();
+function tr(key,...args){
+  const v=(T[lang]&&T[lang][key]!==undefined)?T[lang][key]:T.nl[key];
+  return typeof v==='function'?v(...args):v;
+}
+function trReason(code){
+  return (T[lang].reasonText&&T[lang].reasonText[code])||T.nl.reasonText[code]||code;
+}
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.getAttribute('data-i18n'));});
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{el.innerHTML=tr(el.getAttribute('data-i18n-html'));});
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{el.placeholder=tr(el.getAttribute('data-i18n-ph'));});
+  const akkoordSub=document.querySelector('[data-i18n="akkoordSub"]');
+  const privLink=document.querySelector('[data-i18n="privacybeleidLink"]');
+  if(privLink)privLink.textContent=tr('privacybeleidLink');
+  document.querySelectorAll('#langSwitch button').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;
+  const footerPriv=document.querySelectorAll('a[href="/privacy/"]');
+  if(footerPriv[1])footerPriv[1].textContent=tr('privacybeleidLink2');
+  const subV=document.getElementById('subVolwassenen'); if(subV)subV.textContent=tr('subVolwassenen',PRICES.volwassene);
+  const subK=document.getElementById('subKinderen'); if(subK)subK.textContent=tr('subKinderen',PRICES.kind);
+  const srBaby=document.getElementById('srBaby'); if(srBaby)srBaby.textContent=PRICES.baby>0?tr('babyPrice',PRICES.baby):tr('babyFree');
+  const subH=document.getElementById('subHond'); if(subH)subH.textContent=tr('subHond',PRICES.hond);
+  const subA=document.getElementById('subAutos'); if(subA)subA.textContent=tr('subAutos',PRICES.extraAuto);
+  const subE=document.getElementById('subElek'); if(subE)subE.textContent=tr('subElek',PRICES.elektriciteit);
+  if(typeof renderVerblijfTypes==='function')renderVerblijfTypes();
+  if(typeof renderDocs==='function')renderDocs();
+  if(typeof renderDocPrivacyNote==='function')renderDocPrivacyNote();
+  if(typeof calc==='function')calc();
+}
+function setLang(l){
+  if(!T[l])return;
+  lang=l; localStorage.setItem('cc_lang',l);
+  applyI18n();
+}
+
 /* Tarieven laden uit Supabase (sync met dashboard instellingen) */
 (async function loadPrices(){
   try{
@@ -464,22 +712,8 @@ let accommodatieTypes=[
       const custom=JSON.parse(m.accommodatie_types||'[]');
       if(custom.length) accommodatieTypes=[...accommodatieTypes.filter(t=>t.isStandaard),...custom];
     }catch(e){}
-    renderVerblijfTypes();
-    // Labels bijwerken die nog in DOM staan
-    const babyEl=document.getElementById('srBaby');
-    if(babyEl)babyEl.textContent=PRICES.baby>0?`€${PRICES.baby} / nacht`:'Gratis';
-    const elekEl=document.querySelector('.toggle-row .sr-sub');
-    if(elekEl)elekEl.textContent=`€${PRICES.elektriciteit} per nacht`;
-    // Personen-labels
-    const srSubs=document.querySelectorAll('.stepper-row .sr-sub');
-    srSubs.forEach(el=>{
-      const t=el.closest('.stepper-row')?.querySelector('.sr-title')?.textContent||'';
-      if(t==='Volwassenen')el.textContent=`€${PRICES.volwassene} / nacht — vanaf 12 jaar, incl. toeristentaks`;
-      if(t.startsWith('Kinderen 3'))el.textContent=`€${PRICES.kind} / nacht — geen toeristentaks`;
-      if(t==='Hond')el.textContent=`€${PRICES.hond} / nacht per hond`;
-      if(t==="Auto's")el.textContent=`1e auto gratis, elke volgende €${PRICES.extraAuto} / nacht`;
-    });
-    calc();
+    // Labels bijwerken (taalbewust — zie applyI18n) + verblijfstypes/prijs herberekenen.
+    applyI18n();
   }catch(e){}
 })();
 
@@ -489,12 +723,14 @@ function renderVerblijfTypes(){
   el.innerHTML=accommodatieTypes.map(t=>{
     const qty=t.id==='tent'?state.tenten:t.id==='camper'?state.campers:(state.extraTypeQties[t.id]||0);
     const active=qty>0;
-    const sub=[t.maxPersonen>0?`max ${t.maxPersonen}p`:null,t.waarborgBedrag>0?`waarborg €${t.waarborgBedrag}`:null].filter(Boolean).join(' · ');
+    const maxLbl={nl:'max',fr:'max',en:'max'}[lang]||'max';
+    const waarborgLbl={nl:'waarborg',fr:'caution',en:'deposit'}[lang]||'waarborg';
+    const sub=[t.maxPersonen>0?`${maxLbl} ${t.maxPersonen}p`:null,t.waarborgBedrag>0?`${waarborgLbl} €${t.waarborgBedrag}`:null].filter(Boolean).join(' · ');
     return`<div style="display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:12px;margin-bottom:8px;border:2px solid ${active?'var(--green)':'var(--sep)'};background:${active?'rgba(27,138,91,.06)':'transparent'};transition:.15s;">
       <div style="font-size:28px;flex-shrink:0;">${t.emoji||'🏕️'}</div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:15px;font-weight:700;color:var(--lbl1);">${t.naam}</div>
-        <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">€${t.prijs} / nacht${sub?' · '+sub:''}${t.beschrijving?' · '+t.beschrijving:''}</div>
+        <div style="font-size:12px;color:var(--lbl3);margin-top:2px;">€${t.prijs}${tr('perNachtSuffix')}${sub?' · '+sub:''}${t.beschrijving?' · '+t.beschrijving:''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
         <button onclick="nbTypeStep('${t.id}',-1)" style="width:32px;height:32px;border-radius:50%;background:var(--sep);border:none;font-size:20px;font-weight:700;cursor:pointer;line-height:1;">−</button>
@@ -522,7 +758,7 @@ function step(key,delta){
     const totaalZonderKey=(key==='volwassenen'?0:state.volwassenen)+(key==='kinderen'?0:state.kinderen)+(key==='baby'?0:state.baby);
     if(totaalZonderKey+newVal>t.maxPersonen){
       const el=document.getElementById('maxPersonenWaarschuwing');
-      if(el){el.style.display='block';el.textContent=`⚠️ ${t.naam} heeft een maximum van ${t.maxPersonen} personen.`;}
+      if(el){el.style.display='block';el.textContent=tr('maxPersonenWarn',t.naam,t.maxPersonen);}
       return;
     }
   }
@@ -564,7 +800,7 @@ async function addDocFiles(files){
       const bytes=await readFileBytes(file);
       const mime=CampingUpload.sniffMime(bytes);
       const v=CampingUpload.validateFile(file.size,mime);
-      if(!v.ok){toast('⚠️ '+(CampingUpload.reasonText[v.reason]||'Bestand geweigerd')+': '+file.name);continue;}
+      if(!v.ok){toast(tr('toastFileRejected',trReason(v.reason),file.name));continue;}
 
       if(CampingUpload.isPdf(mime)){
         await addPdfPages(file,bytes);
@@ -583,19 +819,19 @@ async function addDocFiles(files){
       try{
         const dim=await probeImage(dataUrl);
         if(Math.max(dim.w,dim.h)<CampingUpload.MIN_IMAGE_PX)warn='lage_resolutie';
-      }catch(_e){toast('⚠️ Beschadigde afbeelding: '+file.name);continue;}
+      }catch(_e){toast(tr('toastCorruptImage',file.name));continue;}
       await pushDoc({blob,name:file.name,size:file.size,mime,dataUrl,warn});
-    }catch(_e){toast('⚠️ Kon bestand niet lezen: '+file.name);}
+    }catch(_e){toast(tr('toastFileReadError',file.name));}
   }
   renderDocs();
 }
 async function addPdfPages(file,bytes){
-  if(!window.pdfjsLib){toast('⚠️ PDF-ondersteuning laadt nog, probeer opnieuw');return;}
+  if(!window.pdfjsLib){toast(tr('toastPdfLoading'));return;}
   let pdf;
   try{ pdf=await pdfjsLib.getDocument({data:bytes.slice()}).promise; }
   catch(e){
-    if(String(e&&e.name).includes('Password')){toast('⚠️ '+CampingUpload.reasonText.pdf_beveiligd+': '+file.name);}
-    else toast('⚠️ Kon PDF niet lezen: '+file.name);
+    if(String(e&&e.name).includes('Password')){toast(tr('toastPdfPassword',file.name));}
+    else toast(tr('toastPdfError',file.name));
     return;
   }
   for(let p=1;p<=pdf.numPages;p++){
@@ -611,12 +847,12 @@ async function addPdfPages(file,bytes){
 // Voegt een document toe na dedup-controle (SHA-256). Respecteert de teller.
 async function pushDoc(d){
   if(idDocs.length>=totalPersons()){
-    toast(`⚠️ Je hebt al ${totalPersons()} document${totalPersons()>1?'en':''} (= aantal personen)`);
+    toast(tr('toastMaxDocs',totalPersons()));
     return;
   }
   const buf=await d.blob.arrayBuffer();
   const hash=await sha256Hex(buf);
-  if(idDocs.some(x=>x.hash===hash)){toast('⚠️ '+CampingUpload.reasonText.duplicaat);return;}
+  if(idDocs.some(x=>x.hash===hash)){toast(tr('toastDuplicate'));return;}
   idDocs.push({id:++_docSeq,blob:d.blob,name:d.name,size:d.size,mime:d.mime,hash,rotation:0,dataUrl:d.dataUrl,warn:d.warn||'',pdfPage:d.pdfPage||null});
 }
 function removeDoc(id){idDocs=idDocs.filter(d=>d.id!==id);renderDocs();}
@@ -627,7 +863,7 @@ function replaceDoc(id){
 }
 // Roteert een afbeelding-document 90° via canvas (nieuwe blob + preview).
 async function rotateDoc(id){
-  const d=idDocs.find(x=>x.id===id);if(!d||!d.dataUrl){toast('⚠️ Roteren niet mogelijk voor dit bestand');return;}
+  const d=idDocs.find(x=>x.id===id);if(!d||!d.dataUrl){toast(tr('toastRotateNotPossible'));return;}
   const im=new Image();
   await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=d.dataUrl;});
   const deg=(d.rotation+90)%360;
@@ -650,7 +886,7 @@ function renderDocCounter(){
   const icon=document.getElementById('docCounterIcon');
   if(!txt)return;
   const compleet=have===n&&n>0;
-  txt.innerHTML=`Je hebt <b>${n}</b> ${n===1?'persoon':'personen'} opgegeven. <b style="color:${compleet?'var(--green)':have>n?'var(--red)':'#CC7700'};">${have} van ${n}</b> document${have===1?'':'en'} toegevoegd.`;
+  txt.innerHTML=tr('docCounterIntro',n,have,compleet);
   if(bar){bar.style.width=Math.min(100,n?have/n*100:0)+'%';bar.style.background=compleet?'var(--green)':have>n?'var(--red)':'#FF9500';}
   if(icon)icon.textContent=compleet?'✅':have>n?'⚠️':'📋';
 }
@@ -663,14 +899,14 @@ function renderDocs(){
       ?`<img src="${d.dataUrl}" style="width:54px;height:54px;border-radius:9px;object-fit:cover;flex-shrink:0;border:1.5px solid var(--sep);">`
       :`<div style="width:54px;height:54px;border-radius:9px;background:#eef0f3;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--lbl3);flex-shrink:0;border:1.5px solid var(--sep);">${d.mime==='image/heic'?'HEIC':'DOC'}</div>`;
     const warnHtml=d.warn==='lage_resolutie'
-      ?`<div style="font-size:10.5px;color:#CC7700;margin-top:2px;">⚠️ Lage resolutie — controleer of alles leesbaar is</div>`
+      ?`<div style="font-size:10.5px;color:#CC7700;margin-top:2px;">${tr('lageResolutie')}</div>`
       :d.warn==='heic'
-      ?`<div style="font-size:10.5px;color:var(--lbl4);margin-top:2px;">📱 HEIC — geen voorbeeld, wordt wel correct bewaard</div>`:'';
+      ?`<div style="font-size:10.5px;color:var(--lbl4);margin-top:2px;">${tr('heicNote')}</div>`:'';
     const canImg=!!d.dataUrl;
     return`<div style="display:flex;align-items:center;gap:10px;padding:8px;border:1.5px solid ${d.warn&&d.warn!=='heic'?'rgba(255,149,0,.5)':'var(--sep)'};border-radius:11px;background:#fff;">
       ${thumb}
       <div style="flex:1;min-width:0;">
-        <div style="font-size:11px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.3px;">Persoon ${i+1}${i===0?' · hoofdboeker':''}</div>
+        <div style="font-size:11px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.3px;">${tr('persoonLbl',i+1,i===0)}</div>
         <div style="font-size:12px;color:var(--lbl1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.name}</div>
         <div style="font-size:10.5px;color:var(--lbl4);">${CampingUpload.humanSize(d.size)}</div>
         ${warnHtml}
@@ -687,8 +923,8 @@ function renderDocs(){
     list.innerHTML+=`<div style="display:flex;align-items:center;gap:10px;padding:8px;border:1.5px dashed var(--sep);border-radius:11px;background:var(--bg);">
       <div style="width:54px;height:54px;border-radius:9px;background:#f0f1f4;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🪪</div>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:11px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.3px;">Persoon ${i+1}${i===0?' · hoofdboeker':''}</div>
-        <div style="font-size:12px;color:var(--lbl4);">Nog geen document</div>
+        <div style="font-size:11px;font-weight:800;color:var(--lbl3);text-transform:uppercase;letter-spacing:.3px;">${tr('persoonLbl',i+1,i===0)}</div>
+        <div style="font-size:12px;color:var(--lbl4);">${tr('geenDocument')}</div>
       </div>
     </div>`;
   }
@@ -717,15 +953,18 @@ function nightCount(){
 }
 function fmt(n){return '€'+n.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2})}
 
-// Init verblijfTypes + documentplaatsen renderen
+// Init verblijfTypes + documentplaatsen renderen + taal toepassen (ook op de
+// hierboven al statisch gerenderde HTML-teksten, voor het geval de browser-
+// taal niet Nederlands is).
 renderVerblijfTypes();
 renderDocs();
-// Privacy-/bewaarinfo (fase 7 koppelt dit aan één centrale instelling).
-(function(){const el=document.getElementById('docPrivacyNote');if(el)el.innerHTML='🔒 Je documenten worden privé en versleuteld bewaard, enkel toegankelijk voor de campingbeheerder voor het wettelijke reizigersregister. Ze worden nooit als bijlage gemaild.';})();
+function renderDocPrivacyNote(){const el=document.getElementById('docPrivacyNote');if(el)el.innerHTML=tr('docPrivacyNote');}
+renderDocPrivacyNote();
+applyI18n();
 
 function calc(){
   const nights=nightCount();
-  document.getElementById('nightsPill').textContent = nights>0 ? `${nights} nacht${nights===1?'':'en'}` : 'Kies geldige data';
+  document.getElementById('nightsPill').textContent = tr('nights',nights);
 
   if(!state.extraTypeQties)state.extraTypeQties={};
   const totaalPersonen = state.volwassenen + state.kinderen + state.baby;
@@ -766,31 +1005,31 @@ function calc(){
   // Standplaats per type met aantallen
   accommodatieTypes.forEach(t=>{
     const qty=t.id==='tent'?state.tenten:t.id==='camper'?state.campers:(state.extraTypeQties[t.id]||0);
-    if(qty>0) lines.push([`${t.emoji||'🏕️'} ${t.naam} (${qty} × €${t.prijs}/n)`, qty*t.prijs]);
+    if(qty>0) lines.push([tr('tPrijsLijn',t.naam,qty,t.prijs), qty*t.prijs]);
   });
-  if(allInMode){ lines.push([`✅ All-in (${totaalPersonen}p inbegrepen)`, 0, true]); }
-  if(!allInMode && state.volwassenen>0) lines.push([`🧑 Volwassenen (${state.volwassenen} × €${PRICES.volwassene}/n)`, volwKost]);
-  if(!allInMode && state.kinderen>0) lines.push([`🧒 Kinderen 3-11j (${state.kinderen} × €${PRICES.kind}/n)`, kindKost]);
-  if(!allInMode && state.baby>0) lines.push([`👶 Baby's <3j (${state.baby}×)`, babyKost>0?babyKost:0, babyKost===0]);
-  if(state.honden>0) lines.push([`🐕 Hond (${state.honden} × €${PRICES.hond}/n)`, hondKost]);
-  if(extraAutoKost>0) lines.push([`🚗 Extra auto's (${state.autos-1} × €${PRICES.extraAuto}/n)`, extraAutoKost]);
-  if(afvalKost>0) lines.push([`♻️ Afval (€${afvalKost}/nacht)`, afvalKost]);
+  if(allInMode){ lines.push([tr('tAllIn',totaalPersonen), 0, true]); }
+  if(!allInMode && state.volwassenen>0) lines.push([tr('tVolw',state.volwassenen,PRICES.volwassene), volwKost]);
+  if(!allInMode && state.kinderen>0) lines.push([tr('tKind',state.kinderen,PRICES.kind), kindKost]);
+  if(!allInMode && state.baby>0) lines.push([tr('tBaby',state.baby), babyKost>0?babyKost:0, babyKost===0]);
+  if(state.honden>0) lines.push([tr('tHond',state.honden,PRICES.hond), hondKost]);
+  if(extraAutoKost>0) lines.push([tr('tAuto',state.autos-1,PRICES.extraAuto), extraAutoKost]);
+  if(afvalKost>0) lines.push([tr('tAfval',afvalKost), afvalKost]);
   extraLines.forEach(([lbl,val])=>lines.push([lbl,val]));
-  if(state.elek) lines.push([`⚡ Elektriciteit (€${PRICES.elektriciteit}/dag)`, elekKost]);
-  if(r.taksPerNacht>0) lines.push([`🏛️ Toeristentaks (${state.volwassenen} × €${PRICES.toeristentaks}/dag)`, r.taksPerNacht]);
+  if(state.elek) lines.push([tr('tElek',PRICES.elektriciteit), elekKost]);
+  if(r.taksPerNacht>0) lines.push([tr('tTaks',state.volwassenen,PRICES.toeristentaks), r.taksPerNacht]);
   // Eenmalige extra kosten (niet × dagen) — apart onderaan.
   const eenmalig = r.extraEenmalig||0;
-  if(eenmalig>0) lines.push([`➕ Eenmalige kosten`, eenmalig, false, false, true]);
-  if(waarborg>0) lines.push([`🔒 Waarborg (cash bij aankomst, terugbetaalbaar)`, waarborg, false, true]);
+  if(eenmalig>0) lines.push([tr('tEenmalig'), eenmalig, false, false, true]);
+  if(waarborg>0) lines.push([tr('tWaarborg'), waarborg, false, true]);
 
   document.getElementById('priceLines').innerHTML = lines.map(([l,v,gratis,isWaarborg,isEenmalig])=>`
     <div class="pl" ${isWaarborg?'style="border-top:1.5px dashed var(--sep);margin-top:6px;padding-top:8px;color:var(--lbl3);"':''}>
-      <span>${l}${isEenmalig?' <span style="font-size:10px;color:var(--lbl4);">(eenmalig)</span>':(!isWaarborg&&!gratis?' <span style="font-size:10px;color:var(--lbl4);">/dag</span>':'')}</span><b>${gratis?'Gratis':fmt(v)}</b>
-    </div>`).join('') || '<div class="pl"><span>Vul de velden hierboven in…</span><span>—</span></div>';
-  document.getElementById('plPerNacht').innerHTML = `<span><b>Subtotaal per dag</b> (incl. taks)</span><span><b>${fmt(perNacht)}</b></span>`;
-  document.getElementById('plNachtenLine').innerHTML = `<span>× ${nights} dag${nights===1?'':'en'}${eenmalig>0?' + eenmalig':''}</span><span><b>${fmt(perNacht*nights+eenmalig)}</b></span>`;
+      <span>${l}${isEenmalig?` <span style="font-size:10px;color:var(--lbl4);">${tr('eenmaligLbl')}</span>`:(!isWaarborg&&!gratis?` <span style="font-size:10px;color:var(--lbl4);">${tr('perDag')}</span>`:'')}</span><b>${gratis?tr('gratisLbl'):fmt(v)}</b>
+    </div>`).join('') || `<div class="pl"><span>${tr('vulVeldenIn')}</span><span>—</span></div>`;
+  document.getElementById('plPerNacht').innerHTML = `<span><b>${tr('perNachtLbl')}</b> ${tr('inclTaks')}</span><span><b>${fmt(perNacht)}</b></span>`;
+  document.getElementById('plNachtenLine').innerHTML = `<span>${tr('dagLbl',nights)}${eenmalig>0?tr('plusEenmalig'):''}</span><span><b>${fmt(perNacht*nights+eenmalig)}</b></span>`;
   document.getElementById('plElekLine').style.display='none';
-  document.getElementById('totaalVal').textContent = fmt(totaal) + (waarborg>0 ? ` + ${fmt(waarborg)} waarborg` : '');
+  document.getElementById('totaalVal').textContent = fmt(totaal) + (waarborg>0 ? tr('plusWaarborg',fmt(waarborg)) : '');
   document.getElementById('barTotaal').textContent = fmt(totaal);
 }
 
@@ -845,17 +1084,17 @@ async function submitForm(){
   const woonplaats=document.getElementById('fWoonplaats').value.trim();
   const nota=document.getElementById('fNota').value.trim();
 
-  if(nights<=0){ toast('⚠️ Controleer je aankomst- en vertrekdatum'); return; }
-  if(!naam){ toast('⚠️ Vul je naam in'); document.getElementById('fNaam').focus(); return; }
-  if(!email || !email.includes('@')){ toast('⚠️ Vul een geldig e-mailadres in'); document.getElementById('fEmail').focus(); return; }
-  if(!state.akkoord){ toast('⚠️ Bevestig akkoord met verwerking van je gegevens'); return; }
-  if(window._turnstileOn && !getTurnstileToken()){ toast('⚠️ Bevestig even dat je geen robot bent'); return; }
+  if(nights<=0){ toast(tr('toastCheckDates')); return; }
+  if(!naam){ toast(tr('toastFillName')); document.getElementById('fNaam').focus(); return; }
+  if(!email || !email.includes('@')){ toast(tr('toastValidEmail')); document.getElementById('fEmail').focus(); return; }
+  if(!state.akkoord){ toast(tr('toastAkkoord')); return; }
+  if(window._turnstileOn && !getTurnstileToken()){ toast(tr('toastRobot')); return; }
 
   // Minstens één identiteitsdocument nodig om door te sturen (niet meer
   // per se één per opgegeven persoon — Karen wil aanvragen niet nodeloos
   // laten stranden op ontbrekende documenten van medereizigers).
   if(idDocs.length<1){
-    toast('⚠️ Voeg minstens 1 identiteitsdocument toe');
+    toast(tr('toastMinDoc'));
     document.getElementById('idFotoCard')?.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
@@ -864,13 +1103,13 @@ async function submitForm(){
   // 1. Honeypot: enkel bots vullen dit verborgen veld in
   if(document.getElementById('hp_website')?.value){ showConfirm('—', fmt(0)); return; }
   // 2. Tijdscontrole: een mens doet er langer dan 3s over om in te vullen
-  if(Date.now() - _formLoadedAt < 3000){ toast('⚠️ Even geduld, controleer je gegevens nog eens'); return; }
+  if(Date.now() - _formLoadedAt < 3000){ toast(tr('toastWait')); return; }
   // 3. Dubbele inzending binnen 30s blokkeren
-  if(_lastSubmitAt && Date.now() - _lastSubmitAt < 30000){ toast('⚠️ Je aanvraag werd al verstuurd'); return; }
+  if(_lastSubmitAt && Date.now() - _lastSubmitAt < 30000){ toast(tr('toastAlreadySent')); return; }
   _lastSubmitAt = Date.now();
 
   const btn=document.querySelector('.submit-btn');
-  btn.classList.add('loading'); btn.textContent='Bezig met versturen…';
+  btn.classList.add('loading'); btn.textContent=tr('submitBtnSending');
 
   try{
     const {clientId,bookingId,checkinToken,idemKey}=_submitIds;
@@ -929,7 +1168,7 @@ async function submitForm(){
     }
 
     // 3. Identiteitsdocumenten uploaden (verplicht, één per persoon). GEEN AI hier.
-    btn.textContent=`📷 ${idDocs.length} document${idDocs.length>1?'en':''} uploaden…`;
+    btn.textContent=tr('submitBtnUploading',idDocs.length);
     const documents=[];
     for(let i=0;i<idDocs.length;i++){
       const d=idDocs[i];
@@ -944,7 +1183,7 @@ async function submitForm(){
     if(!upRes.ok){
       // Boeking staat er, documenten niet → meld het, blokkeer geen tweede boeking.
       console.error('guest-upload faalde',await upRes.text());
-      toast('⚠️ Aanvraag opgeslagen, maar documenten uploaden mislukte. We sturen je een nieuwe uploadlink.');
+      toast(tr('toastUploadFailed'));
     }
 
     // 5. Conceptmail klaarzetten (OGM wordt door dashboard gegenereerd na aanmaak)
@@ -960,8 +1199,8 @@ async function submitForm(){
     showConfirm(ogm, fmt(totaalNow));
   }catch(err){
     console.error(err);
-    toast('⚠️ Er ging iets mis bij het versturen — probeer opnieuw of bel ons');
-    btn.classList.remove('loading'); btn.textContent='Verstuur aanvraag →';
+    toast(tr('toastSubmitError'));
+    btn.classList.remove('loading'); btn.textContent=tr('submitBtn');
   }
 }
 
