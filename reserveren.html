@@ -875,13 +875,19 @@ async function submitForm(){
   try{
     const {clientId,bookingId,checkinToken,idemKey}=_submitIds;
 
-    // 1. Klant aanmaken. ignoreDuplicates → een retry met dezelfde id botst niet.
-    const {error:clientErr}=await sb.from('clients').upsert({
+    // 1. Klant aanmaken. Gewone insert (geen upsert/ON CONFLICT): anon heeft
+    // bewust geen SELECT-recht op clients (privacy), en Postgres kan de
+    // conflict-check van ON CONFLICT DO NOTHING dan niet uitvoeren — dat
+    // blokkeerde tot nu toe élke aanvraag met een RLS-fout. clientId is
+    // sowieso een verse crypto.randomUUID() per paginabezoek; 23505 (echte
+    // dubbele inzending met dezelfde sleutel) wordt gewoon genegeerd, zelfde
+    // patroon als de idempotency-check hieronder bij de boeking zelf.
+    const {error:clientErr}=await sb.from('clients').insert({
       id:clientId,
       naam, email, telefoon:tel||null, id_nummer:idnr||null, nummerplaten:plaat||null,
       geboortedatum:geboorte, nationaliteit:nationaliteit||null, woonplaats:woonplaats||null
-    },{onConflict:'id',ignoreDuplicates:true});
-    if(clientErr) throw clientErr;
+    });
+    if(clientErr && clientErr.code!=='23505') throw clientErr;
 
     // 2. Boeking aanmaken — bedragen uit de CENTRALE berekening (single source of truth)
     if(!state.extraTypeQties)state.extraTypeQties={};
