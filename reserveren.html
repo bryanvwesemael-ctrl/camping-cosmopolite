@@ -470,12 +470,12 @@ const T={
     optioneel:'(optioneel)',
     akkoordTitle:'Akkoord met verwerking gegevens', akkoordSub:'Nodig om je aanvraag te kunnen bevestigen —', privacybeleidLink:'privacybeleid',
     cardID:'🪪 Identiteitsdocumenten',
-    idIntro:'Upload voor <b>iedere persoon</b> één identiteitsdocument (voorkant). Wettelijk verplicht voor het reizigersregister. Geldig: identiteitskaart, paspoort, Kids-ID of buitenlands ID. <b>Geen namen nodig</b> — die lezen wij van het document.',
-    docCounterIntro:(n,have,compleet)=>`Je hebt <b>${n}</b> ${n===1?'persoon':'personen'} opgegeven. <b style="color:${compleet?'var(--green)':have>n?'var(--red)':'#CC7700'};">${have} van ${n}</b> document${have===1?'':'en'} toegevoegd.`,
+    idIntro:'Upload een identiteitsdocument (voorkant) van de <b>hoofdboeker</b> — verplicht voor het reizigersregister. Geldig: identiteitskaart, paspoort, Kids-ID of buitenlands ID. Voor de <b>overige gasten is dit optioneel</b>: hun document maken we bij aankomst in orde. <b>Geen namen nodig</b> — die lezen wij van het document.',
+    docCounterIntro:(n,have,compleet)=>compleet?`<b style="color:var(--green)">✅ Document van de hoofdboeker toegevoegd.</b>${n>1?` Optioneel: voeg ook een document toe voor de ${n-1} andere gast${n-1===1?'':'en'}.`:''}`:`<b style="color:#CC7700">Document van de hoofdboeker nog nodig</b> (verplicht — de overige ${n-1>0?n-1+' gast'+(n-1===1?'':'en zijn'):''} optioneel).`,
     docDropTitle:'Voeg documenten toe', docDropSub:'Tik om te kiezen of foto te nemen · of sleep bestanden hierheen', docDropNote:'Meerdere tegelijk · JPG, PNG, HEIC of PDF · max 15 MB per stuk',
     docFooterNote:'📌 Fotografeer enkel de <b>voorkant</b> van het identiteitsdocument — geen rijbewijs. Een PDF met meerdere pagina\'s wordt automatisch in losse documenten gesplitst.',
     docPrivacyNote:'🔒 Je documenten worden privé en versleuteld bewaard, enkel toegankelijk voor de campingbeheerder voor het wettelijke reizigersregister. Ze worden nooit als bijlage gemaild.',
-    persoonLbl:(i,hoofdboeker)=>`Persoon ${i}${hoofdboeker?' · hoofdboeker':''}`,
+    persoonLbl:(i,hoofdboeker)=>`Persoon ${i}${hoofdboeker?' · hoofdboeker · verplicht':' · optioneel'}`,
     geenDocument:'Nog geen document', lageResolutie:'⚠️ Lage resolutie — controleer of alles leesbaar is', heicNote:'📱 HEIC — geen voorbeeld, wordt wel correct bewaard',
     priceCardTitle:'Prijsoverzicht', perNachtLbl:'Subtotaal per dag', inclTaks:'(incl. taks)', dagLbl:n=>`× ${n} dag${n===1?'':'en'}`, plusEenmalig:' + eenmalig', perDag:' /dag', gratisLbl:'Gratis', eenmaligLbl:'(eenmalig)',
     totaalTeBetalen:'Totaal te betalen', plusWaarborg:v=>` + ${v} waarborg`,
@@ -534,12 +534,12 @@ const T={
     optioneel:'(facultatif)',
     akkoordTitle:'Accord pour le traitement des données', akkoordSub:'Nécessaire pour confirmer votre demande —', privacybeleidLink:'politique de confidentialité',
     cardID:'🪪 Documents d\'identité',
-    idIntro:'Téléchargez pour <b>chaque personne</b> un document d\'identité (recto). Obligatoire légalement pour le registre des voyageurs. Valable : carte d\'identité, passeport, Kids-ID ou pièce d\'identité étrangère. <b>Pas besoin de noms</b> — nous les lisons sur le document.',
-    docCounterIntro:(n,have,compleet)=>`Vous avez indiqué <b>${n}</b> personne${n===1?'':'s'}. <b style="color:${compleet?'var(--green)':have>n?'var(--red)':'#CC7700'};">${have} sur ${n}</b> document${have===1?'':'s'} ajouté${have===1?'':'s'}.`,
+    idIntro:'Téléchargez un document d\'identité (recto) du <b>responsable de la réservation</b> — obligatoire pour le registre des voyageurs. Valable : carte d\'identité, passeport, Kids-ID ou pièce d\'identité étrangère. Pour les <b>autres invités, c\'est facultatif</b> : nous nous en occupons à l\'arrivée. <b>Pas besoin de noms</b> — nous les lisons sur le document.',
+    docCounterIntro:(n,have,compleet)=>compleet?`<b style="color:var(--green)">✅ Document du responsable ajouté.</b>${n>1?` Facultatif : ajoutez aussi un document pour ${n-1===1?'l\'autre invité':'les '+(n-1)+' autres invités'}.`:''}`:`<b style="color:#CC7700">Document du responsable encore requis</b> (obligatoire — ${n-1>0?(n-1)+' autre'+(n-1===1?'':'s')+' invité'+(n-1===1?'':'s')+' facultatif':''}).`,
     docDropTitle:'Ajoutez des documents', docDropSub:'Touchez pour choisir ou prendre une photo · ou glissez-déposez vos fichiers ici', docDropNote:'Plusieurs à la fois · JPG, PNG, HEIC ou PDF · max 15 Mo par fichier',
     docFooterNote:'📌 Photographiez uniquement le <b>recto</b> du document d\'identité — pas de permis de conduire. Un PDF de plusieurs pages est automatiquement scindé en documents séparés.',
     docPrivacyNote:'🔒 Vos documents sont conservés de manière privée et cryptée, uniquement accessibles au gestionnaire du camping pour le registre des voyageurs légal. Jamais envoyés par e-mail en pièce jointe.',
-    persoonLbl:(i,hoofdboeker)=>`Personne ${i}${hoofdboeker?' · responsable':''}`,
+    persoonLbl:(i,hoofdboeker)=>`Personne ${i}${hoofdboeker?' · responsable · obligatoire':' · facultatif'}`,
     geenDocument:'Pas encore de document', lageResolutie:'⚠️ Faible résolution — vérifiez la lisibilité', heicNote:'📱 HEIC — pas d\'aperçu, mais bien conservé correctement',
     priceCardTitle:'Aperçu du prix', perNachtLbl:'Sous-total par jour', inclTaks:'(taxe incl.)', dagLbl:n=>`× ${n} jour${n===1?'':'s'}`, plusEenmalig:' + frais uniques', perDag:' /jour', gratisLbl:'Gratuit', eenmaligLbl:'(unique)',
     totaalTeBetalen:'Total à payer', plusWaarborg:v=>` + ${v} de caution`,
@@ -598,12 +598,12 @@ const T={
     optioneel:'(optional)',
     akkoordTitle:'Consent to data processing', akkoordSub:'Required to confirm your request —', privacybeleidLink:'privacy policy',
     cardID:'🪪 Identity documents',
-    idIntro:'Upload one identity document (front side) for <b>every person</b>. Legally required for the guest register. Valid: ID card, passport, Kids-ID or foreign ID. <b>No names needed</b> — we read those from the document.',
-    docCounterIntro:(n,have,compleet)=>`You entered <b>${n}</b> ${n===1?'person':'people'}. <b style="color:${compleet?'var(--green)':have>n?'var(--red)':'#CC7700'};">${have} of ${n}</b> document${have===1?'':'s'} added.`,
+    idIntro:'Upload an identity document (front side) for the <b>main guest</b> — required for the guest register. Valid: ID card, passport, Kids-ID or foreign ID. For <b>other guests this is optional</b>: we\'ll take care of that on arrival. <b>No names needed</b> — we read those from the document.',
+    docCounterIntro:(n,have,compleet)=>compleet?`<b style="color:var(--green)">✅ Main guest\'s document added.</b>${n>1?` Optional: add a document for the ${n-1} other guest${n-1===1?'':'s'} too.`:''}`:`<b style="color:#CC7700">Main guest\'s document still needed</b> (required — the ${n-1>0?n-1+' other guest'+(n-1===1?'':'s'):''} optional).`,
     docDropTitle:'Add documents', docDropSub:'Tap to choose or take a photo · or drag files here', docDropNote:'Multiple at once · JPG, PNG, HEIC or PDF · max 15 MB each',
     docFooterNote:'📌 Only photograph the <b>front</b> of the identity document — not a driving licence. A multi-page PDF is automatically split into separate documents.',
     docPrivacyNote:'🔒 Your documents are stored privately and encrypted, accessible only to the campsite manager for the legally required guest register. Never sent as an email attachment.',
-    persoonLbl:(i,hoofdboeker)=>`Person ${i}${hoofdboeker?' · main guest':''}`,
+    persoonLbl:(i,hoofdboeker)=>`Person ${i}${hoofdboeker?' · main guest · required':' · optional'}`,
     geenDocument:'No document yet', lageResolutie:'⚠️ Low resolution — check it is readable', heicNote:'📱 HEIC — no preview, but stored correctly',
     priceCardTitle:'Price overview', perNachtLbl:'Subtotal per day', inclTaks:'(incl. tax)', dagLbl:n=>`× ${n} day${n===1?'':'s'}`, plusEenmalig:' + one-time', perDag:' /day', gratisLbl:'Free', eenmaligLbl:'(one-time)',
     totaalTeBetalen:'Total to pay', plusWaarborg:v=>` + ${v} deposit`,
@@ -885,10 +885,10 @@ function renderDocCounter(){
   const bar=document.getElementById('docCounterBar');
   const icon=document.getElementById('docCounterIcon');
   if(!txt)return;
-  const compleet=have===n&&n>0;
+  const compleet=have>=1;
   txt.innerHTML=tr('docCounterIntro',n,have,compleet);
-  if(bar){bar.style.width=Math.min(100,n?have/n*100:0)+'%';bar.style.background=compleet?'var(--green)':have>n?'var(--red)':'#FF9500';}
-  if(icon)icon.textContent=compleet?'✅':have>n?'⚠️':'📋';
+  if(bar){bar.style.width=(compleet?100:0)+'%';bar.style.background=compleet?'var(--green)':'#FF9500';}
+  if(icon)icon.textContent=compleet?'✅':'📋';
 }
 function renderDocs(){
   renderDocCounter();
