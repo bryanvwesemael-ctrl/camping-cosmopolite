@@ -35,16 +35,39 @@
   to = "/dashboard-nieuw/index.html"
   status = 200
 
+# ── Beveiligingsheaders ──────────────────────────────────────────────────────
+# Audit 2026-08-08, bevinding F-07: deze headers stonden enkel op /dashboard*.
+# Het reserveringsformulier — precies de pagina die naam, e-mail, geboortedatum
+# én een foto van een identiteitsbewijs verzamelt — kreeg alleen HSTS mee en kon
+# dus in een iframe op een vreemde site geladen worden (clickjacking).
+# Nu gelden de basisheaders op ALLE routes.
 [[headers]]
-  for = "/dashboard/*"
+  for = "/*"
     [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+    # camera=(self) is nodig: gasten fotograferen hun ID rechtstreeks in de browser.
+    Cross-Origin-Opener-Policy = "same-origin"
 
+# CSP staat bewust op Report-Only voor de publieke pagina's.
+# Reden: reserveren.html gebruikt op veel plaatsen inline onclick/style. Een
+# afdwingende CSP zou 'unsafe-inline' moeten toestaan (en dan weinig toevoegen)
+# óf het formulier breken. De opschoning naar externe handlers is te groot voor
+# deze auditronde en staat als P2 in het remediatieplan. Report-Only levert
+# ondertussen wél zichtbaarheid op zonder risico op stukgaan.
+[[headers]]
+  for = "/*"
+    [headers.values]
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+# Het dashboard bevat geen externe CDN-scripts buiten jsdelivr en is een
+# gesloten omgeving — daar kan de CSP wél afdwingend.
 [[headers]]
   for = "/dashboard-nieuw/*"
     [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
