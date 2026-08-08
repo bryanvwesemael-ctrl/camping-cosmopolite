@@ -60,7 +60,7 @@
 [[headers]]
   for = "/*"
     [headers.values]
-    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co wss://whubbowuqhjdkdequbmb.supabase.co https://challenges.cloudflare.com https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 
 # Het dashboard bevat geen externe CDN-scripts buiten jsdelivr en is een
 # gesloten omgeving — daar kan de CSP wél afdwingend.
@@ -70,4 +70,7 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+    # wss:// staat er expliciet bij omdat het dashboard Supabase Realtime
+    # gebruikt (sb.channel → WebSocket). Of een browser een https-bron ook als
+    # match voor wss beschouwt, verschilt per implementatie — niet op gokken.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co wss://whubbowuqhjdkdequbmb.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
