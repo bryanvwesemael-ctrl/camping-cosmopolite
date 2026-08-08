@@ -24,7 +24,23 @@ Dit is de belangrijkste AVG-bevinding en ze is hard bewezen (zie F-16 en F-02):
 
 Het privacybeleid belooft de gast letterlijk: *"De foto wordt 90 dagen na uw vertrek automatisch verwijderd."* Die belofte werd technisch niet nagekomen. Dat is geen theoretisch risico maar een feitelijk verschil tussen wat er staat en wat er gebeurt.
 
-**Beide oorzaken zijn in deze ronde opgelost en de fix is geverifieerd.** Wat resteert: de 63 bestaande wezen moeten nog daadwerkelijk gewist worden (bewust aan Bryan gelaten — onomkeerbaar), en de maandelijkse aanroep van `purge-storage` moet nog ingepland worden.
+**Beide oorzaken zijn in deze ronde opgelost en de fix is geverifieerd.**
+
+## Beleidswijziging 2026-08-08 — ID-foto's blijven bewaard
+
+Na presentatie van bovenstaande bevindingen heeft de uitbater besloten de foto's van identiteitsdocumenten **niet** automatisch te laten verwijderen. Dat is een legitieme keuze van de verwerkingsverantwoordelijke, maar ze verplaatst het risico: de belofte in het privacybeleid moest mee veranderen, want *iets beloven aan de betrokkene en het niet doen* is het eigenlijke probleem — niet het bewaren op zich.
+
+**Wat er is aangepast (migratie 041):**
+- `id_bewaartermijn_dagen` staat op `0`, met de afspraak dat 0 betekent "niet automatisch verwijderen". Het mechanisme blijft intact; één getal invullen zet het weer aan.
+- `purge_expired_data()` slaat het documentblok over bij waarde 0. **De overige bewaartermijnen blijven onverkort draaien**: gastgegevens na 3 jaar, volledige boekingen na 7 jaar, analytics na 14 maanden.
+- `te_verwijderen_id_bestanden()` biedt geen verlopen documenten meer aan. Geverifieerd: enkel de 63 wezen worden nog gerapporteerd, en er wordt niets automatisch verwijderd.
+- De keuzelijst in het oude dashboard stond standaard op "90 dagen" — die is omgezet naar "niet automatisch verwijderen", zodat per ongeluk opslaan de verwijdering niet heropstart.
+
+**Wat het privacybeleid nu zegt (en wat waar is):** de foto wordt bewaard *zolang het reservatiedossier bestaat, uiterlijk 7 jaar* — dat is feitelijk juist, want de 7-jaarsopruiming verwijdert `booking_documents` mee. Daarbij staat expliciet dat de gast op elk moment vroegere verwijdering kan vragen; dat is nu ook technisch uitvoerbaar dankzij de DELETE-policy uit migratie 037.
+
+**Wat hier juridisch aan vastzit — expliciet als open punt:** een bewaartermijn van 7 jaar voor een *kopie van een identiteitsbewijs* is aanmerkelijk moeilijker te verdedigen dan 90 dagen. De boekhoudkundige bewaarplicht geldt voor de boekhouding, niet vanzelfsprekend voor identiteitskopieën. Dit hoort bij open vraag 1 hieronder en verdient een uitdrukkelijk juridisch oordeel vóór het volgende seizoen.
+
+Wat resteert: de 63 wees-bestanden staan er nog (bewust, niets wordt automatisch verwijderd), en de maandelijkse aanroep van `purge-storage` is nog niet ingepland.
 
 ## Rechten van betrokkenen — technische uitvoerbaarheid
 
