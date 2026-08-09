@@ -40,15 +40,19 @@ Deno.serve(async (req) => {
     const { data: { user } } = await sb.auth.getUser(jwt!)
     if (!user) throw new Error('Niet ingelogd')
 
+    // F-04/F-05: beheerdersrechten vereist. Was voorheen elke ingelogde
+    // gebruiker — en omdat create-payment/scan-id de sleutel ophalen met
+    // "laatst gewijzigde rij wint" (zonder user_id), kon een medewerker
+    // daarmee een eigen sleutel opdringen.
+    const { data: rol } = await sb.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+    if (rol?.role !== 'admin') throw new Error('Geen beheerdersrechten')
+
     const { resend_key, mollie_key } = await req.json()
 
-    // Sla keys op als Supabase secrets via management API
-    // (In productie: gebruik Supabase secrets API - hier slaan we hints op in settings)
     const upserts: any[] = []
     if (resend_key) {
       upserts.push({ user_id: user.id, key: 'resend_key_set', value: 'true', updated_at: new Date().toISOString() })
       upserts.push({ user_id: user.id, key: 'resend_key_hint', value: '...'+resend_key.slice(-4), updated_at: new Date().toISOString() })
-      // Sla volledige key op in settings (encrypted via RLS)   ← ONJUIST, zie kop
       upserts.push({ user_id: user.id, key: 'resend_api_key', value: resend_key, updated_at: new Date().toISOString() })
     }
     if (mollie_key) {
@@ -58,10 +62,17 @@ Deno.serve(async (req) => {
     }
     if (upserts.length) {
       await sb.from('settings').upsert(upserts, { onConflict: 'user_id,key' })
+      // Spoor nalaten: het wijzigen van een API-sleutel is een gevoelige
+      // beheerdershandeling. Nooit de sleutel zelf loggen.
+      await sb.from('audit_logs').insert({
+        actor: user.id, actor_email: user.email, actie: 'api_sleutel_gewijzigd',
+        entiteit: 'settings', bron: 'save-api-keys',
+        nieuwe_waarde: { resend: !!resend_key, mollie: !!mollie_key },
+      })
     }
 
     return new Response(JSON.stringify({ ok: true }), { headers: { ...cors, 'Content-Type': 'application/json' } })
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err.message) }), { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ error: String((err as Error).message) }), { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } })
   }
 })

@@ -24,6 +24,13 @@ Deno.serve(async (req) => {
     const { data:{ user } } = await sb.auth.getUser(jwt!)
     if (!user) throw new Error('Niet ingelogd')
 
+    // Rolcontrole — auditbevinding F-04 (2026-08-08). Hiervoor volstond
+    // "ingelogd zijn", waardoor elk account willekeurige afbeeldingen door de
+    // Anthropic-API kon jagen op kosten van de eigenaar van de sleutel.
+    const { data: rol } = await sb.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+    if (!rol || !['admin','staff'].includes(rol.role))
+      throw new Error('Geen toegang — je account heeft geen rol in dit systeem.')
+
     const KEY = Deno.env.get('ANTHROPIC_API_KEY') || await setting(sb,'anthropic_api_key')
     if (!KEY) throw new Error('AI is nog niet gekoppeld. Vul je Anthropic-sleutel in bij de instellingen.')
 

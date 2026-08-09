@@ -305,6 +305,7 @@ async function loadData(){
     (fac.data||[]).forEach(f=>{(facturenByBooking[f.booking_id]=facturenByBooking[f.booking_id]||[]).push(f);});
     renderAll();
     saveOfflineSnapshot();
+    checkSysteemStoringen(); // bewust niet awaited: mag het laden niet ophouden
   }catch(e){
     const snap=await loadOfflineSnapshot();
     if(!snap){toast('⚠️ Kon reserveringen niet laden: '+e.message);return;}
@@ -315,6 +316,27 @@ async function loadData(){
   }
 }
 function reloadData(){ loadData(); toast('↻ Vernieuwd'); }
+// Toont een balk bovenaan wanneer een geplande taak (zoals de maandelijkse
+// AVG-opruiming) is mislukt. Aanleiding: die opruiming crashte op 1 augustus
+// 2026 en dat bleef vijf weken onopgemerkt — er was simpelweg niets dat het
+// liet zien. Bewust geen e-mailmelding: die zou afhangen van de
+// Gmail-koppeling, en dat is precies iets wat zelf kan uitvallen.
+async function checkSysteemStoringen(){
+  const el=document.getElementById('storingBanner'); if(!el)return;
+  try{
+    const {data,error}=await sb.rpc('systeem_storingen',{p_dagen:90});
+    if(error||!data||!data.length){el.style.display='none';el.innerHTML='';return;}
+    const laatste=data[0];
+    const wanneer=new Date(laatste.wanneer).toLocaleDateString('nl-BE',{day:'numeric',month:'long',year:'numeric'});
+    el.style.display='block';
+    el.innerHTML='<div style="background:#7a1f1f;color:#fff;padding:10px 14px;font-size:12.5px;line-height:1.5;">'+
+      '<b>⚠️ Automatische taak mislukt</b> — “'+esc(laatste.taak)+'” op '+esc(wanneer)+
+      (data.length>1?' (en '+(data.length-1)+' eerdere)':'')+
+      '. <span style="opacity:.85;">Het systeem werkt gewoon door, maar deze taak is niet uitgevoerd. Laat dit nakijken.</span>'+
+      '<div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:11px;opacity:.75;white-space:pre-wrap;">'+esc(String(laatste.melding||'').slice(0,240))+'</div>'+
+      '</div>';
+  }catch(_e){ /* nooit het dashboard blokkeren om een waarschuwing */ }
+}
 
 function paidOf(b){return paidByBooking[b.id]||0;}
 function openOf(b){return Math.round((Number(b.bedrag||0)-paidOf(b))*100)/100;}

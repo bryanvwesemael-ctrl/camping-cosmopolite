@@ -61,6 +61,14 @@ Deno.serve(async (req) => {
     const { data:{ user } } = await sb.auth.getUser(jwt!)
     if (!user) throw new Error('Niet ingelogd')
 
+    // Rolcontrole — auditbevinding F-04 (2026-08-08). Hiervoor volstond
+    // "ingelogd zijn". Deze functie verstuurt e-mail VANUIT Karens mailbox met
+    // een vrij op te geven onderwerp en inhoud; dat hoort achter een rol te
+    // zitten, niet achter het loutere bestaan van een account.
+    const { data: rol } = await sb.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+    if (!rol || !['admin','staff'].includes(rol.role))
+      throw new Error('Geen toegang — je account heeft geen rol in dit systeem.')
+
     const { booking_id, template_key, onderwerp, inhoud } = await req.json()
     const { data: b } = await sb.from('bookings').select('*,clients(*)').eq('id', booking_id).single()
     if (!b) throw new Error('Boeking niet gevonden')
@@ -136,7 +144,7 @@ Deno.serve(async (req) => {
     }
 
     await sb.from('communicatie').insert({
-      booking_id, richting:'uitgaand', status:'verzonden', template_key, onderwerp:subject, inhoud:text,
+      booking_id, richting:'uitgaand', status:'verzonden', template_key: template_key || null, onderwerp:subject, inhoud:text,
       gmail_message_id: sendResult.id, gmail_thread_id: sendResult.threadId,
     })
     return new Response(JSON.stringify({ ok:true }), { headers:{...cors,'Content-Type':'application/json'} })

@@ -343,6 +343,10 @@
       <button class="gear" title="Vernieuwen" onclick="reloadData()">↻</button>
       <button class="who" id="whoLbl" style="border:none;cursor:pointer;font-family:inherit;" title="Uitloggen" onclick="doLogout()">👤</button>
     </div>
+    <!-- Waarschuwingsbalk voor mislukte geplande taken. Aanleiding: de
+         maandelijkse AVG-opruiming crashte op 1 augustus 2026 en dat bleef
+         vijf weken onopgemerkt omdat niets het liet zien. -->
+    <div id="storingBanner" style="display:none;"></div>
 
     <div class="main">
       <!-- RAIL (desktop) -->
