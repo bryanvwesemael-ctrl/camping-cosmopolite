@@ -334,8 +334,15 @@ async function checkSysteemStoringen(){
       (data.length>1?' (en '+(data.length-1)+' eerdere)':'')+
       '. <span style="opacity:.85;">Het systeem werkt gewoon door, maar deze taak is niet uitgevoerd. Laat dit nakijken.</span>'+
       '<div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:11px;opacity:.75;white-space:pre-wrap;">'+esc(String(laatste.melding||'').slice(0,240))+'</div>'+
+      '<button onclick="bevestigStoring('+Number(laatste.jobid)+','+Number(laatste.runid)+')" style="margin-top:8px;background:#fff2;border:1px solid #fff5;color:#fff;padding:4px 10px;border-radius:6px;font-size:11.5px;cursor:pointer;">Nagekeken, verberg deze melding</button>'+
       '</div>';
   }catch(_e){ /* nooit het dashboard blokkeren om een waarschuwing */ }
+}
+async function bevestigStoring(jobid,runid){
+  if(!confirm('Deze storing is nagekeken en opgelost, en mag verdwijnen uit deze lijst?'))return;
+  const {error}=await sb.rpc('bevestig_storing',{p_jobid:jobid,p_runid:runid});
+  if(error){toast('Kon niet bevestigen: '+error.message);return;}
+  checkSysteemStoringen();
 }
 
 function paidOf(b){return paidByBooking[b.id]||0;}
