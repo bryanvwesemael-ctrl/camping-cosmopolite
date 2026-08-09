@@ -22,11 +22,11 @@ Geen groen, omdat "het werkt en er zijn geen bekende gaten meer" niet hetzelfde 
 | Bewaartermijnen werken aantoonbaar | ⚠️ mechanisme hersteld en getest; ID-foto's bewust uitgezonderd (beleid aangepast), rechtsgrond nog te toetsen |
 | Beveiligingsheaders op alle routes | ✅ na aanpassing `netlify.toml` (CSP publiek nog Report-Only) |
 | Alle productiecode in versiebeheer | ✅ na toevoegen `checkin` + `save-api-keys` |
-| Rolcontrole op alle bevoorrechte endpoints | ⚠️ 3 van 7 gefixt (de drie met reële misbruikwaarde); 4 met beperkt risico open |
+| Rolcontrole op alle bevoorrechte endpoints | ✅ alle 7 edge functions, geverifieerd |
 | Monitoring/alerting op storingen | ⚠️ waarschuwingsbalk in het dashboard bij mislukte taken; geen externe/push-alerting |
 | Back-up- en herstelprocedure getest | ❓ niet beoordeeld |
 | Juridische review AVG | ❌ niet gebeurd |
 
 ## Naar groen
 
-Minimaal nodig: rolcontrole in de edge functions, alerting op mislukte geplande taken, en een juridisch oordeel over het bewaren van ID-kopieën. Dat is realistisch werk voor één gerichte sessie plus een afspraak met een privacyjurist.
+Minimaal nodig: extern/proactief alerting-kanaal naast de dashboardbalk (bv. een wekelijkse controle), en een juridisch oordeel over het bewaren van ID-kopieën (zie 19_JURIDISCHE_ANALYSE_ID_BEWARING.md — dit onderzoek bracht bovendien aan het licht dat de oude regionale rechtsgrond voor de identiteitsfiche zelf is opgeheven sinds 1 juli 2025). Dat is realistisch werk voor één gerichte sessie plus een afspraak met een privacyjurist.

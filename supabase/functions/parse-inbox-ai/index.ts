@@ -138,6 +138,12 @@ Deno.serve(async (req) => {
     const { data: { user } } = await sb.auth.getUser(jwt!)
     if (!user) throw new Error('Niet ingelogd')
 
+    // Rolcontrole — auditbevinding F-04 (2026-08-08). Deze functie leest
+    // Gmail-berichten en maakt automatisch conceptboekingen aan.
+    const { data: rol } = await sb.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+    if (!rol || !['admin','staff'].includes(rol.role))
+      throw new Error('Geen toegang — je account heeft geen rol in dit systeem.')
+
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!anthropicKey) throw new Error('AI is niet geconfigureerd (ANTHROPIC_API_KEY ontbreekt).')
 

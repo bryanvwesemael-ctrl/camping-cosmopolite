@@ -25,6 +25,12 @@ Deno.serve(async (req) => {
     const { data:{ user } } = await sb.auth.getUser(jwt!)
     if (!user) throw new Error('Niet ingelogd')
 
+    // Rolcontrole — auditbevinding F-04 (2026-08-08). Deze functie maakt een
+    // echte betaalaanvraag aan; "ingelogd zijn" volstaat niet.
+    const { data: rol } = await sb.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+    if (!rol || !['admin','staff'].includes(rol.role))
+      throw new Error('Geen toegang — je account heeft geen rol in dit systeem.')
+
     const MOLLIE_API_KEY = await getMollieKey(sb)
     if (!MOLLIE_API_KEY) throw new Error('Mollie is nog niet gekoppeld. Vul je Mollie-sleutel in bij Instellingen → Mollie.')
 

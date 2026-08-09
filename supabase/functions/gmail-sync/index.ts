@@ -59,6 +59,13 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userErr } = await sb.auth.getUser(jwt!)
     if (userErr || !user) throw new Error('Niet ingelogd')
 
+    // Rolcontrole — auditbevinding F-04 (2026-08-08). Deze functie leest al
+    // enkel de eigen integratie (eq user_id), maar consistent met de overige
+    // functies wordt nu ook expliciet een rol vereist.
+    const { data: rol } = await sb.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+    if (!rol || !['admin','staff'].includes(rol.role))
+      throw new Error('Geen toegang — je account heeft geen rol in dit systeem.')
+
     // Haal integratie op
     const { data: integ, error: integErr } = await sb.from('integrations')
       .select('*').eq('user_id', user.id).eq('provider', 'gmail').single()

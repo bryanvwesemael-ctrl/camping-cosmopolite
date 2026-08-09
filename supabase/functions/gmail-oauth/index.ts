@@ -16,7 +16,17 @@ Deno.serve(async (req) => {
   try {
     const { code, redirect_uri } = await req.json()
 
-    // 1. Wissel auth code in voor tokens bij Google
+    // Rolcontrole vóór de OAuth-code wordt verzilverd — auditbevinding F-04
+    // (2026-08-08). Voorheen kon eender welk ingelogd account hier een Gmail-
+    // koppeling aanmaken, zelfs zonder rol in het systeem.
+    const jwt = req.headers.get('authorization')?.replace('Bearer ', '')
+    const sb  = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    const { data: { user }, error: userErr } = await sb.auth.getUser(jwt!)
+    if (userErr || !user) throw new Error('Niet ingelogd')
+    const { data: rol } = await sb.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+    if (!rol || !['admin','staff'].includes(rol.role))
+      throw new Error('Geen toegang — je account heeft geen rol in dit systeem.')
+
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -31,19 +41,11 @@ Deno.serve(async (req) => {
     const tokens = await tokenRes.json()
     if (tokens.error) throw new Error(tokens.error_description || tokens.error)
 
-    // 2. Haal Gmail-adres op
     const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     })
     const profile = await profileRes.json()
 
-    // 3. Haal Supabase user_id op uit JWT
-    const jwt = req.headers.get('authorization')?.replace('Bearer ', '')
-    const sb  = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    const { data: { user }, error: userErr } = await sb.auth.getUser(jwt!)
-    if (userErr || !user) throw new Error('Niet ingelogd')
-
-    // 4. Sla tokens op (upsert)
     const expires_at = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
     const { error: upsertErr } = await sb.from('integrations').upsert({
       user_id:       user.id,
