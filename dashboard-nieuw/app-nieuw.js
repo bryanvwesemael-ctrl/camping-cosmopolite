@@ -162,6 +162,46 @@ function initRealtimeNotifications(){
 }
 
 /* ---------- data ---------- */
+// Berekent het bedrag van een websiteaanvraag met dezelfde gedeelde logica als
+// het formulier (shared/pricing.js). Sinds de audit van 2026-08-08 stuurt het
+// publieke formulier GEEN bedrag meer mee — de browser is daar geen
+// betrouwbare bron voor (een verblijf van 14 nachten kon voor €0 ingediend
+// worden). Het bedrag ontstaat dus hier, aan de kant die we wel vertrouwen.
+//
+// Prijzen en verblijfstypes komen uit accTypes/PRICES, die in loadData() vlak
+// vóór het inlezen van de boekingen ververst worden — nooit uit wat de
+// bezoeker meestuurde.
+function berekenBedragVoorAanvraag(row){
+  if(!window.CampingPricing) return 0;
+  try{
+    const units=[
+      {prijs:PRICES.tent,   count:Number(row.tenten)||0,  allIn:false},
+      {prijs:PRICES.camper, count:Number(row.campers)||0, allIn:false},
+    ];
+    let extra=[];
+    try{ extra = typeof row.extra_type_units==='string' ? JSON.parse(row.extra_type_units) : (row.extra_type_units||[]); }
+    catch(e){ extra=[]; }
+    (extra||[]).forEach(u=>{
+      const c=Number(u.count)||0; if(c<=0) return;
+      // Actueel tarief uit de instellingen; het meegestuurde bedrag is enkel
+      // een terugval als het type intussen verwijderd zou zijn.
+      const t=accTypes.find(x=>x.id===u.id);
+      units.push({prijs:Number(t?t.prijs:u.prijs)||0, count:c, allIn:!!(t?t.allIn:u.allIn)});
+    });
+    const r=CampingPricing.calc({
+      prices:PRICES, units,
+      volwassenen:Number(row.volwassenen)||0,
+      kinderen:Number(row.kinderen)||0,
+      baby:Number(row.baby)||0,
+      honden:Number(row.honden)||0,
+      autos:Number(row.autos)||0,
+      elektriciteit:!!row.elektriciteit,
+      aankomst:row.aankomst, vertrek:row.vertrek,
+      extraTarieven:extraTarieven||[],
+    });
+    return Number(r.totaal)||0;
+  }catch(e){ console.error('herberekening aanvraag mislukt',e); return 0; }
+}
 function mapBooking(row){
   const c=row.clients||{};
   return {
@@ -173,7 +213,16 @@ function mapBooking(row){
     aankomst:row.aankomst, vertrek:row.vertrek,
     type:row.verblijfstype||'', tenten:row.tenten||0, campers:row.campers||0,
     extraTypeUnits:(()=>{try{return typeof row.extra_type_units==='string'?JSON.parse(row.extra_type_units):(row.extra_type_units||[]);}catch(e){return[];}})(),
-    status:row.status, bron:row.bron||'', bedrag:row.bedrag_totaal||0,
+    // Bedrag: staat het al in de databank, dan is dat leidend — Karen kan het
+    // handmatig aangepast hebben (extra dagen, extra kosten) en dat mag nooit
+    // overschreven worden. Enkel bij een websiteaanvraag zónder bedrag
+    // berekenen we het zelf; dat is precies het geval waarin de client het
+    // niet meer mag meesturen.
+    status:row.status, bron:row.bron||'',
+    bedrag:(row.bedrag_totaal!=null)
+      ? Number(row.bedrag_totaal)
+      : ((row.bron==='website'&&row.status==='aanvraag') ? berekenBedragVoorAanvraag(row) : 0),
+    bedragBerekend:(row.bedrag_totaal==null&&row.bron==='website'&&row.status==='aanvraag'),
     ingecheckt_at:row.ingecheckt_at, uitgecheckt_at:row.uitgecheckt_at,
     aiDraft:!!row.ai_draft, aiParsed:row.ai_parsed||null,
     nota:row.nota||'', honden:row.honden||0, autos:row.autos||1, elektriciteit:!!row.elektriciteit,
@@ -1372,6 +1421,14 @@ async function actVerwijderBoeking(id){
   closeModal(); closeFiche(); toast('🗑 Boeking verwijderd');
   selectedId=null; await loadData();
 }
+// Een websiteaanvraag heeft nog geen bedrag in de databank staan (de client
+// mag dat sinds de audit niet meer meesturen). Zodra de aanvraag de status
+// 'aanvraag' verlaat, leggen we het door het dashboard berekende bedrag vast —
+// anders zou het daarna op €0 vallen omdat er niets meer te berekenen valt.
+function bedragVastleggenBij(b,upd){
+  if(b&&b.bedragBerekend&&upd.status&&upd.status!=='aanvraag') upd.bedrag_totaal=Number(b.bedrag)||0;
+  return upd;
+}
 async function doMoveToFolder(id,target){
   const b=bookings.find(x=>x.id===id);if(!b)return;
   if(folderOf(b)===target){closeModal();return;}
@@ -1380,6 +1437,7 @@ async function doMoveToFolder(id,target){
   else if(target==='booking'){upd.status='bevestigd';upd.ingecheckt_at=null;upd.uitgecheckt_at=null;}
   else if(target==='aanwezig'){upd.status='ingecheckt';upd.ingecheckt_at=b.ingecheckt_at||new Date().toISOString();upd.uitgecheckt_at=null;}
   else if(target==='vertrokken'){upd.uitgecheckt_at=new Date().toISOString();}
+  bedragVastleggenBij(b,upd);
   const {error}=await sb.from('bookings').update(upd).eq('id',id);
   if(error){toast('⚠️ '+error.message);return;}
   closeModal();
@@ -1391,8 +1449,8 @@ async function doMoveToFolder(id,target){
 /* ---------- acties (schrijven echte data) ---------- */
 async function actBevestig(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
-  if(!confirm('Reservering van '+b.naam+' bevestigen?\n\nStatus wordt "bevestigd" en de fiche verhuist naar Booking.'))return;
-  const {error}=await sb.from('bookings').update({status:'bevestigd',ai_draft:false}).eq('id',id);
+  if(!confirm('Reservering van '+b.naam+' bevestigen?\n\nBedrag: '+money(b.bedrag)+'\nStatus wordt "bevestigd" en de fiche verhuist naar Booking.'))return;
+  const {error}=await sb.from('bookings').update(bedragVastleggenBij(b,{status:'bevestigd',ai_draft:false})).eq('id',id);
   if(error){toast('⚠️ '+error.message);return;}
   toast('✅ Bevestigd → Booking'); await loadData();
 }

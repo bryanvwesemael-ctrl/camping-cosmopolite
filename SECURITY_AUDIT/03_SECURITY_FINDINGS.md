@@ -108,7 +108,7 @@ Code: `dashboard-nieuw/app-nieuw.js:1312` en `:1320` — `catch(_e){}`.
 |---|---|
 | **Component** | RLS-policy `anon_insert_bookings` + `reserveren.html` `submitForm()` |
 | **Categorie** | A04 Insecure Design / business logic |
-| **Status** | **OPEN** — fix vereist een ontwerpkeuze van Bryan (zie 14_REMEDIATION_PLAN.md) |
+| **Status** | **GEFIXT + geverifieerd** (migratie 042 + formulier + dashboard) |
 
 **Beschrijving.** `bedrag_totaal` en `bedrag_per_nacht` worden in de browser berekend en rechtstreeks in de databank geschreven. De RLS-policy controleert enkel `COALESCE(bedrag_totaal, 0) >= 0`. Er is nergens een server-side herberekening bij het aanmaken.
 
@@ -125,7 +125,26 @@ Reële richtprijs voor dat verblijf ligt rond **€1.200**.
 
 **Waarom dit niet als KRITIEK is geklasseerd.** De boeking komt binnen als `status='aanvraag'` en genereert geen betaling of factuur; Karen bevestigt handmatig en int via QR/IBAN. De aanvaller krijgt dus geen automatisch verblijf — hij creëert een discussie over de prijs. Financiële schade vereist dat Karen het bedrag ongezien overneemt.
 
-**Aanbevolen fix.** Zie remediatieplan: ofwel (A) een databanktrigger die het bedrag bij anon-inserts altijd overschrijft met een server-side berekening, ofwel (B) — eenvoudiger en robuuster — de anon-policy dwingt `bedrag_totaal IS NULL` af en het dashboard berekent het bedrag altijd zelf bij het openen van een aanvraag.
+### Doorgevoerde fix (optie B)
+
+De client mag het bedrag niet meer meesturen. Er valt dus niets meer te manipuleren.
+
+1. **Migratie 042** — `anon_insert_bookings` eist nu `bedrag_totaal IS NULL AND bedrag_per_nacht IS NULL`.
+2. **`reserveren.html`** stuurt die velden niet meer mee. De richtprijs op het scherm blijft puur informatief.
+3. **`dashboard-nieuw`** berekent het bedrag zelf via `berekenBedragVoorAanvraag()`, met dezelfde gedeelde `shared/pricing.js`. Bij het bevestigen wordt het berekende bedrag vastgelegd (`bedragVastleggenBij`), zodat het na de statuswissel niet op €0 valt.
+
+**Bewust niet gekozen:** een databanktrigger die de prijs herberekent. Dat zou de volledige prijslogica in PL/pgSQL dupliceren naast `shared/pricing.js` — twee bronnen van waarheid, precies wat eerder in dit project bewust is opgeruimd.
+
+**Een tweede bug die hierdoor aan het licht kwam.** Het formulier telde safaritenten en stacaravans gewoon op bij `tenten` en bewaarde het type alléén als tekstlabel (`"1× Safaritent"`). Zonder fix zou de herberekening een safaritent van €102 als tent van €15 hebben gerekend — de fix zou de prijs dus *verlaagd* hebben. Het formulier stuurt de types nu gestructureerd mee in `extra_type_units`, net zoals het dashboard al deed bij een handmatige reservering. Bijkomend voordeel: die boekingen verschijnen nu ook in de verhuurkalender.
+
+**Regressietests (uitgevoerd, testdata opgeruimd):**
+
+| Test | Resultaat |
+|---|---|
+| Originele aanval: 14 nachten, €0, buiten het formulier om | `42501 new row violates row-level security policy` |
+| Omgekeerd: €99.999 opdringen | `42501` — geweigerd |
+| Normale boeking via het formulier (safaritent, 2 nachten) | Aangemaakt; `bedrag_totaal = null`, `tenten = 0`, `extra_type_units` correct gestructureerd |
+| Herberekening van diezelfde boeking met de dashboardlogica | **€204,00 — exact het bedrag dat de bezoeker op het scherm zag** |
 
 ---
 

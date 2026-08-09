@@ -1167,7 +1167,14 @@ async function submitForm(){
     const typeParts=[];
     accommodatieTypes.forEach(t=>{const qty=t.id==='tent'?state.tenten:t.id==='camper'?state.campers:(state.extraTypeQties[t.id]||0);if(qty>0)typeParts.push(`${qty}× ${t.naam}`);});
     const verblijfstypeLabel=typeParts.join(' + ')||'Tent';
-    const extraEenheden=Object.values(state.extraTypeQties).reduce((s,v)=>s+v,0);
+    // Extra verblijfstypes (safaritent, stacaravan, ...) gestructureerd opslaan,
+    // net zoals het dashboard doet bij een handmatige reservering. Vroeger
+    // werden ze bij 'tenten' opgeteld en bleef enkel een tekstlabel over — dan
+    // kan het dashboard de prijs niet correct herberekenen (een safaritent van
+    // €100 zou als tent van €15 tellen) en ziet de verhuurkalender ze niet.
+    const extraTypeUnits=accommodatieTypes
+      .filter(t=>!t.isStandaard&&(state.extraTypeQties[t.id]||0)>0)
+      .map(t=>({id:t.id,naam:t.naam,emoji:t.emoji||'🏕️',count:state.extraTypeQties[t.id],prijs:t.prijs,allIn:!!t.allIn}));
 
     // OGM berekenen zonder volgnummer (volgnummer kennen we pas na insert via trigger)
     // Boeking zonder select → geen volgnummer beschikbaar aan client-kant
@@ -1176,12 +1183,20 @@ async function submitForm(){
       client_id:clientId,
       aankomst:document.getElementById('fAankomst').value,
       vertrek:document.getElementById('fVertrek').value,
-      tenten:(state.tenten||0)+extraEenheden,
+      tenten:state.tenten||0,
       campers:state.campers||0,
       verblijfstype:verblijfstypeLabel,
+      extra_type_units:extraTypeUnits.length?JSON.stringify(extraTypeUnits):null,
       volwassenen:state.volwassenen,
       kinderen:state.kinderen, baby:state.baby, honden:state.honden, autos:state.autos,
-      elektriciteit:state.elek, bedrag_per_nacht:dienstenPerNacht, bedrag_totaal:totaalNow,
+      elektriciteit:state.elek,
+      // GEEN bedrag meesturen. Het bedrag dat hierboven getoond wordt is een
+      // richtprijs voor de bezoeker; de browser is geen betrouwbare bron voor
+      // wat er uiteindelijk aangerekend wordt. Tijdens de beveiligingsaudit van
+      // 2026-08-08 bleek dat je zo buiten dit formulier om een verblijf van 14
+      // nachten voor €0 kon indienen. Het dashboard berekent het bedrag nu zelf
+      // met exact dezelfde gedeelde logica (shared/pricing.js), zodat er maar
+      // één bron van waarheid blijft en manipulatie onmogelijk is.
       nota:nota||null, bron:'website', status:'aanvraag', checkin_token:checkinToken,
       idempotency_key:idemKey
     });
