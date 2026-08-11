@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: booking } = await sb
-      .from('bookings').select('id,volgnummer').eq('checkin_token', token).maybeSingle()
+      .from('bookings').select('id,volgnummer,client_id').eq('checkin_token', token).maybeSingle()
     if (!booking) throw new Error('Ongeldige of verlopen link')
 
     // Rate limit: bestaand aantal documenten voor deze boeking.
@@ -74,6 +74,7 @@ Deno.serve(async (req) => {
 
     const ts = Date.now()
     let count = 0, skipped = 0
+    let firstStoredPath: string | null = null
     const results: any[] = []
 
     for (let i = 0; i < docs.length; i++) {
@@ -119,11 +120,41 @@ Deno.serve(async (req) => {
       if (insErr) { skipped++; results.push({ i, ok: true, skipped: true, note: 'race_dedup' }); continue }
 
       count++
+      if (!firstStoredPath) firstStoredPath = path
       results.push({ i, ok: true })
     }
 
     if (count === 0 && skipped === 0)
       throw new Error('Geen enkel document kon worden opgeslagen')
+
+    // Het dashboard toont ID-foto's via gasten.foto_url, niet via
+    // booking_documents (dat is enkel het opslag-/dedupspoor). Zonder deze
+    // koppeling verdween elk via het publieke formulier geüpload document
+    // spoorloos uit het dashboard — de foto stond wel veilig in storage,
+    // maar Karen kreeg hem nooit te zien. Koppel dus het eerst opgeslagen
+    // document van deze aanvraag aan de hoofdgast.
+    if (firstStoredPath) {
+      const { data: hoofd } = await sb.from('gasten')
+        .select('id,foto_url').eq('booking_id', booking.id).eq('is_hoofdgast', true)
+        .order('created_at', { ascending: true }).limit(1).maybeSingle()
+
+      if (hoofd) {
+        if (!hoofd.foto_url) {
+          await sb.from('gasten').update({ foto_url: firstStoredPath }).eq('id', hoofd.id)
+        }
+      } else {
+        // Geen hoofdgast-rij (oudere boeking, van vóór de gasten-koppeling).
+        // Naam ophalen bij de klant zodat er toch een zichtbare rij ontstaat.
+        let naam = 'Hoofdboeker'
+        if (booking.client_id) {
+          const { data: client } = await sb.from('clients').select('naam').eq('id', booking.client_id).maybeSingle()
+          if (client?.naam) naam = client.naam
+        }
+        await sb.from('gasten').insert({
+          booking_id: booking.id, naam, is_hoofdgast: true, foto_url: firstStoredPath,
+        })
+      }
+    }
 
     return new Response(JSON.stringify({ ok: true, count, skipped, results }), {
       headers: { ...cors, 'Content-Type': 'application/json' }
