@@ -13,6 +13,14 @@ async function setting(sb: any, key: string): Promise<string|null> {
   return data?.value || null
 }
 
+// Uitgeschakeld op 2026-08-11: de Verwerkersovereenkomst met Club Cosmopolite
+// vermeldt Anthropic (VS) als subverwerker voor deze functie enkel als de
+// internationale doorgifte van ID-documenten een bevestigde waarborg heeft
+// (SCC's/Data Privacy Framework). Dat is niet geverifieerd. Tot dat bevestigd
+// is, gebeurt er geen enkele AI-scan van een identiteitsdocument — ook niet
+// per ongeluk via een oude/gecachte knop in het dashboard.
+const AI_SCAN_ENABLED = false
+
 // AI-herkenning van de VOORKANT van een identiteitsdocument (Claude vision).
 // Wordt ALLEEN aangeroepen wanneer een ingelogde medewerker er bewust om vraagt.
 // Leest registervelden uit, maar NOOIT het rijksregisternummer.
@@ -30,6 +38,8 @@ Deno.serve(async (req) => {
     const { data: rol } = await sb.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
     if (!rol || !['admin','staff'].includes(rol.role))
       throw new Error('Geen toegang — je account heeft geen rol in dit systeem.')
+
+    if (!AI_SCAN_ENABLED) throw new Error('AI-scan is momenteel uitgeschakeld. Vul de gegevens handmatig in.')
 
     const KEY = Deno.env.get('ANTHROPIC_API_KEY') || await setting(sb,'anthropic_api_key')
     if (!KEY) throw new Error('AI is nog niet gekoppeld. Vul je Anthropic-sleutel in bij de instellingen.')
