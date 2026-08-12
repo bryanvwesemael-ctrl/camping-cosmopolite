@@ -226,6 +226,7 @@ function mapBooking(row){
     ingecheckt_at:row.ingecheckt_at, uitgecheckt_at:row.uitgecheckt_at,
     aiDraft:!!row.ai_draft, aiParsed:row.ai_parsed||null,
     nota:row.nota||'', honden:row.honden||0, autos:row.autos||1, elektriciteit:!!row.elektriciteit,
+    dataHold:!!row.data_hold, dataHoldReden:row.data_hold_reden||'',
     waarborgOntvangenAt:row.waarborg_ontvangen_at||null, waarborgTeruggegevenAt:row.waarborg_teruggegeven_at||null,
     kentekens:(row.booking_kentekens||[]).map(k=>({id:k.id,plaat:k.plaat,slagboomIngegeven:!!k.slagboom_ingegeven})),
   };
@@ -1632,6 +1633,8 @@ async function editGegevens(id){
     '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('🐕 Honden','honden')+step('🚗 Auto\'s','autos')+
     '<div class="toggle-row"><span class="sl">⚡ Elektriciteit <span style="opacity:.6;font-size:11px;font-weight:400;">+€'+PRICES.elektriciteit+'/nacht</span></span><input type="checkbox" id="eElek" '+(egState.elek?'checked':'')+' onchange="egState.elek=this.checked;egPrice()"></div></div>'+
     '<div class="fld"><label>Opmerking</label><input id="eNota" value="'+esc(b.nota)+'"></div>'+
+    '<div class="toggle-row"><span class="sl">🔒 Dossier langer bewaren <span style="opacity:.6;font-size:11px;font-weight:400;">uitzondering op de 7-jaar/ID-bewaartermijn — enkel bij een goede reden</span></span><input type="checkbox" id="eHold" '+(b.dataHold?'checked':'')+' onchange="document.getElementById(\'eHoldRedenWrap\').style.display=this.checked?\'block\':\'none\'"></div>'+
+    '<div class="fld" id="eHoldRedenWrap" style="display:'+(b.dataHold?'block':'none')+';"><label>Reden (verplicht bij aanvinken)</label><input id="eHoldReden" value="'+esc(b.dataHoldReden)+'" placeholder="bv. lopend schadegeval, politieonderzoek"></div>'+
     '<div class="card" id="egBreakdown" style="margin:6px 0 4px;"></div>'+
     '<div class="fld"><label>Bedrag (€) — automatisch herberekend</label><input id="eBedrag" type="number" value="'+esc(b.bedrag)+'"></div>'+
     '<div id="egMsg" class="note-inline" style="min-height:14px;"></div>'+
@@ -1666,6 +1669,8 @@ async function saveGegevens(id){
   const aan=g('eAan').value, ver=g('eVer').value;
   if(!(g('eNaam').value||'').trim()){msg.style.color='var(--red)';msg.textContent='Naam is verplicht';return;}
   if(aan&&ver&&aan>=ver){msg.style.color='var(--red)';msg.textContent='Vertrek moet na aankomst zijn';return;}
+  const holdOn=!!g('eHold').checked, holdReden=(g('eHoldReden').value||'').trim();
+  if(holdOn&&!holdReden){msg.style.color='var(--red)';msg.textContent='Geef een reden op om dit dossier langer te bewaren';return;}
   if(btn){btn.disabled=true;btn.textContent='Opslaan…';}
   try{
     const parts=[];
@@ -1688,6 +1693,7 @@ async function saveGegevens(id){
       volwassenen:egState.volw, kinderen:egState.kind, baby:egState.baby,
       honden:egState.honden, autos:egState.autos, elektriciteit:egState.elek,
       bedrag_totaal:parseFloat(g('eBedrag').value)||0, nota:(g('eNota').value||'').trim()||null,
+      data_hold:holdOn, data_hold_reden:holdOn?holdReden:null,
     }).eq('id',id)).error;
     if(cErr||bErr)throw new Error((cErr||bErr).message);
     closeModal(); toast('✅ Opgeslagen'); await loadData();
