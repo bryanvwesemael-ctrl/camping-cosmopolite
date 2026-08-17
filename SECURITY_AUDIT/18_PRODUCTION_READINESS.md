@@ -1,5 +1,12 @@
 # 18 — Productiepoort
 
+> **Update 2026-08-17:** volledige herverificatie tegen live productie + Belgisch/EU-nalevingsaudit
+> uitgevoerd — zie [20_NALEVING_BE_EU.md](20_NALEVING_BE_EU.md). Oordeel blijft 🟡 GEEL met
+> expliciete **GO**-beslissing en een opvolgingslijst van 9 niet-blokkerende punten. Sinds 08/08
+> bijgekomen en opgelost: AI-scan uitgeschakeld, ID-bewaartermijn 7 jaar technisch actief
+> (migratie 047, met data_hold-uitzondering), storingsbanner met bevestigknop, privacyverklaring
+> volledig consistent gemaakt met werkelijk gedrag, Peppol-verplichting geïdentificeerd.
+
 ## Oordeel: 🟡 **GEEL** *(bijgewerkt 2026-08-08 na de F-03-fix)*
 
 **Motivering.** Er blijven na deze ronde géén bekende kritieke risico's open: F-16 (kapotte AVG-opruiming) en F-01 (anonieme upload naar de ID-bucket) zijn opgelost én met een regressietest bevestigd, en F-02 (wees-documenten) heeft een werkende oplossing die enkel nog uitgevoerd moet worden. Maar geel en niet groen, om drie redenen:
