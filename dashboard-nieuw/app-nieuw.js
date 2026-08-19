@@ -533,6 +533,7 @@ function renderFolders(){
       if(f==='postvak'&&b.status!=='aanvraag')pill='<span class="pill p-conf">'+esc(b.status)+'</span>';
       else if(f==='postvak'&&b.aiDraft)pill='<span class="pill p-draft">🤖 AI-concept</span>';
       if((f==='aanwezig'||f==='booking')&&kentekensOpen(b)>0)pill='<span title="'+kentekensOpen(b)+' kenteken(s) nog niet in de slagboom" style="margin-right:6px;">🚧</span>'+pill;
+      if(b.bron==='campspace')pill='<span class="pill" title="Externe boeking — betaling via Campspace" style="background:var(--amber-soft,#FFF4E5);color:var(--amber,#B45309);margin-right:6px;">🏕️ Campspace</span>'+pill;
       return rowHtml(b,sub,pill);
     }).join('');
     const leeg=f==='vertrokken'?'Geen vertrokken boekingen in deze periode':'Geen reserveringen in deze map';
@@ -617,7 +618,7 @@ function renderFiche(b){
   if(b.honden>0)extra.push('🐕 '+b.honden+' hond'+(b.honden>1?'en':''));
   if(b.autos>1)extra.push('🚗 '+b.autos+' auto\'s');
   if(b.elektriciteit)extra.push('⚡ elektriciteit');
-  const bronL={mail:'📧 E-mail',website:'🌐 Website',telefoon:'☎️ Telefoon'}[b.bron]||(b.bron||'—');
+  const bronL={mail:'📧 E-mail',website:'🌐 Website',telefoon:'☎️ Telefoon',campspace:'🏕️ Campspace (extern — betaling via Campspace)'}[b.bron]||(b.bron||'—');
   let g='';
   g+=grow('Plaats / type',esc(verblijf(b)));
   g+=grow('Personen',b.volwassenen+' volw.'+(b.kinderen?' · '+b.kinderen+' kind':'')+(b.baby?' · '+b.baby+' baby':''));
@@ -1605,7 +1606,7 @@ let egState=null;
 async function editGegevens(id){
   const b=bookings.find(x=>x.id===id);if(!b)return;
   await loadPrices();
-  egState={tent:b.tenten||0,camper:b.campers||0,volw:b.volwassenen||0,kind:b.kinderen||0,baby:b.baby||0,honden:b.honden||0,autos:b.autos||1,elek:!!b.elektriciteit,custom:{}};
+  egState={tent:b.tenten||0,camper:b.campers||0,volw:b.volwassenen||0,kind:b.kinderen||0,baby:b.baby||0,honden:b.honden||0,autos:b.autos||1,elek:!!b.elektriciteit,custom:{},bron:b.bron||''};
   accTypes.forEach(t=>{egState.custom[t.id]=0;});
   (b.extraTypeUnits||[]).forEach(u=>{if(egState.custom[u.id]!=null)egState.custom[u.id]=u.count||0;});
   const priceSub={
@@ -1653,6 +1654,13 @@ function egCustomStep(id,delta){
 }
 function egPrice(){
   const el=document.getElementById('egBreakdown'); if(!el||!egState)return;
+  // Campspace-boeking: nooit herprijzen — het bedrag blijft €0, anders sluipt
+  // de externe omzet alsnog binnen zodra iemand bv. een datum aanpast.
+  if(egState.bron==='campspace'){
+    el.innerHTML='<div class="note-inline" style="padding:12px;">🏕️ Externe boeking via Campspace — bedrag blijft €0, betaling loopt via Campspace.</div>';
+    const bEl=document.getElementById('eBedrag'); if(bEl)bEl.value='0.00';
+    return;
+  }
   const aan=document.getElementById('eAan').value, ver=document.getElementById('eVer').value;
   if(!window.CampingPricing||!aan||!ver||aan>=ver){el.innerHTML='<div class="note-inline" style="padding:12px;">Vul geldige data in om te herprijzen</div>';return;}
   const units=[{prijs:PRICES.tent,count:egState.tent,allIn:false},{prijs:PRICES.camper,count:egState.camper,allIn:false}];
@@ -1897,8 +1905,8 @@ async function openNewBooking(resumeId){
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);">Extra</label>'+
     '<div style="display:grid;gap:8px;margin:6px 0 13px;">'+step('🐕 Honden','honden')+step('🚗 Auto'+"'"+'s','autos')+
     '<div class="toggle-row"><span class="sl">⚡ Elektriciteit <span style="opacity:.6;font-size:11px;font-weight:400;">+€'+PRICES.elektriciteit+'/nacht</span></span><input type="checkbox" id="nbElek" '+(nbState.elek?'checked':'')+' onchange="nbState.elek=this.checked;nbPrice();nbSaveDraft();"></div></div>'+
-    '<div class="fld"><label>Via kanaal</label><select id="nbBron" onchange="nbSaveDraft()">'+
-    ['telefoon','mail','website'].map(k=>'<option value="'+k+'" '+((draft?draft.bron:'telefoon')===k?'selected':'')+'>'+({telefoon:'☎️ Telefoon',mail:'📧 E-mail',website:'🌐 Website'}[k])+'</option>').join('')+
+    '<div class="fld"><label>Via kanaal</label><select id="nbBron" onchange="nbPrice();nbSaveDraft();">'+
+    ['telefoon','mail','website','campspace'].map(k=>'<option value="'+k+'" '+((draft?draft.bron:'telefoon')===k?'selected':'')+'>'+({telefoon:'☎️ Telefoon',mail:'📧 E-mail',website:'🌐 Website',campspace:'🏕️ Campspace (extern)'}[k])+'</option>').join('')+
     '</select></div>'+
     '<div class="card" id="nbBreakdown" style="margin:6px 0 4px;"></div>'+
     '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin-top:8px;display:block;">ID-kaarten (optioneel)</label>'+
@@ -1941,6 +1949,13 @@ function nbCalc(){
 }
 function nbPrice(){
   const el=document.getElementById('nbBreakdown');
+  // Externe boeking (Campspace): geld loopt volledig via het externe platform.
+  // Geen prijsberekening tonen en straks €0 opslaan, anders zou dezelfde
+  // omzet twee keer geregistreerd worden (daar én hier).
+  if((document.getElementById('nbBron')?.value)==='campspace'){
+    el.innerHTML='<div class="note-inline" style="padding:14px;">🏕️ Externe boeking via Campspace — betaling en omzet lopen via Campspace, hier wordt €0 geregistreerd. In-/uitchecken, gastenregister en slagboom werken gewoon.</div>';
+    return;
+  }
   const r=nbCalc();
   const nights=r.nights||0;
   if(!nights){el.innerHTML='<div class="note-inline" style="padding:14px;">Vul aankomst, vertrek en verblijf in</div>';return;}
@@ -2079,7 +2094,11 @@ async function saveNewBooking(){
       extra_type_units:extraTypeUnits.length?JSON.stringify(extraTypeUnits):null,
       volwassenen:nbState.volw, kinderen:nbState.kind, baby:nbState.baby,
       honden:nbState.honden, autos:nbState.autos, elektriciteit:nbState.elek,
-      bron:document.getElementById('nbBron').value, bedrag_totaal:Number(r.totaal||0), status:'bevestigd',
+      bron:document.getElementById('nbBron').value,
+      // Campspace-boeking: €0 — de betaling loopt volledig via Campspace en
+      // mag hier niet nog eens als omzet of openstaand bedrag verschijnen.
+      bedrag_totaal:document.getElementById('nbBron').value==='campspace'?0:Number(r.totaal||0),
+      status:'bevestigd',
     }).select('id').single();
     if(bErr)throw new Error(bErr.message);
     // Opgegeven kentekens ook los in booking_kentekens zetten (slagboom-tracker),
@@ -3001,7 +3020,7 @@ async function renderBeheerAnalytics(){
     '<div class="kpi"><div class="kv g">'+money(omzet)+'</div><div class="kk">Totale omzet</div></div>'+
     '<div class="kpi"><div class="kv" style="color:var(--amber)">'+money(openTotaal)+'</div><div class="kk">Totaal openstaand</div></div></div>'+
     '<div class="sec-lbl">Boekingen per kanaal</div><div class="card taskcard">'+
-    Object.keys(perKanaal).map(k=>'<div class="row"><span class="rl">'+({mail:'📧 E-mail',website:'🌐 Website',telefoon:'☎️ Telefoon'}[k]||k)+'</span><span class="rv">'+perKanaal[k]+'</span></div>').join('')+'</div>'+
+    Object.keys(perKanaal).map(k=>'<div class="row"><span class="rl">'+({mail:'📧 E-mail',website:'🌐 Website',telefoon:'☎️ Telefoon',campspace:'🏕️ Campspace (extern)'}[k]||k)+'</span><span class="rv">'+perKanaal[k]+'</span></div>').join('')+'</div>'+
     '<div class="sec-lbl">💰 Inkomsten per betaalmethode</div>'+
     '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">'+
       pbtn('maand','Deze maand')+pbtn('jaar','Dit jaar')+pbtn('alles','Alles')+pbtn('aangepast','Aangepast')+
