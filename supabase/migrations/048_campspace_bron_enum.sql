@@ -1,0 +1,11 @@
+-- ============================================================================
+-- 048_campspace_bron_enum.sql
+-- De bron-kolom op bookings is een enum (website/mail/telefoon), geen vrije
+-- tekst — de nieuwe kanaaloptie "Campspace (extern)" uit het dashboard botste
+-- daardoor live op: invalid input value for enum booking_bron: "campspace".
+--
+-- Let op bij rollback: een enum-waarde verwijderen kan in Postgres niet
+-- rechtstreeks; zolang er geen boekingen met bron='campspace' bestaan kan het
+-- via een type-herschepping, anders laat je de waarde gewoon staan (onschuldig).
+-- ============================================================================
+alter type booking_bron add value if not exists 'campspace';
