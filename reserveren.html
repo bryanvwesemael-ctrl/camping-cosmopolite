@@ -1281,20 +1281,33 @@ async function submitForm(){
     // (GBA-dossier INF-2026-01267: foto is optioneel/toestemmingsgebaseerd,
     // deze gegevens kunnen wél wettelijk vereist zijn).
     const gastenRows=[{
-      booking_id:bookingId, naam, is_hoofdgast:true,
-      geboortedatum:geboorte, nationaliteit:nationaliteit||null, id_nummer:idnr||null,
+      naam, geboortedatum:geboorte, nationaliteit:nationaliteit||null, id_nummer:idnr||null,
       id_consent:!!state.fotoConsent,
     }];
     for(let gi=1;gi<totalPersons();gi++){
       const gnaam=(gastNamen[gi]||'').trim();
-      if(gnaam) gastenRows.push({booking_id:bookingId,naam:gnaam,is_hoofdgast:false});
+      if(gnaam) gastenRows.push({naam:gnaam});
     }
-    const {error:gastenErr}=await sb.from('gasten').insert(gastenRows);
-    if(gastenErr){
-      // Boeking staat er sowieso al; de registergegevens niet stil laten
-      // verdwijnen — Karen vult dit dan handmatig aan, maar moet wel weten
-      // dát dat nodig is.
-      console.error('gasten insert faalde',gastenErr);
+    // Tijdelijke omweg (26/08/2026): anon-INSERT op gasten faalt project-breed
+    // met een RLS-fout — bevestigd via een testtabel met een maximaal
+    // toegeeflijke policy en na een project-restart, dus geen policy- of
+    // cache-probleem aan onze kant. De registergegevens gaan daarom via de
+    // register-guests edge function (service_role, checkin_token bewijst dat
+    // je de boeking kent). Zet terug naar een rechtstreekse insert zodra
+    // Supabase het onderliggende probleem oplost.
+    try{
+      const rgRes=await fetch(`${SUPABASE_URL}/functions/v1/register-guests`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+        body:JSON.stringify({token:checkinToken,gasten:gastenRows})
+      });
+      if(!rgRes.ok){
+        const rgBody=await rgRes.json().catch(()=>({}));
+        console.error('gasten insert faalde',rgBody);
+        toast(tr('toastGastenSaveWarning'));
+      }
+    }catch(rgErr){
+      console.error('gasten insert faalde',rgErr);
       toast(tr('toastGastenSaveWarning'));
     }
 
