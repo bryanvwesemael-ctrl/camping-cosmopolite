@@ -46,7 +46,18 @@ Deno.serve(async (req) => {
                : []
 
     if (!token) throw new Error('Geen token meegegeven')
-    if (!docs.length) throw new Error('Geen documenten ontvangen')
+
+    // Geen documenten meegestuurd: sinds GBA-dossier INF-2026-01267 is de
+    // ID-foto optioneel/toestemmingsgebaseerd, geen voorwaarde meer om een
+    // boeking af te ronden. Het publieke formulier roept deze functie nu al
+    // niet meer aan bij nul documenten, maar dit is de correcte staat van de
+    // functie zelf — nul documenten is een geldig, succesvol no-op verzoek,
+    // geen foutgeval.
+    if (!docs.length) {
+      return new Response(JSON.stringify({ ok: true, count: 0, skipped: 0, results: [] }), {
+        headers: { ...cors, 'Content-Type': 'application/json' }
+      })
+    }
 
     // Optionele bot-check: enkel actief wanneer TURNSTILE_SECRET is ingesteld.
     const TURNSTILE_SECRET = Deno.env.get('TURNSTILE_SECRET')

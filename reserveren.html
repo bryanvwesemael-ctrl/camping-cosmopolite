@@ -200,7 +200,7 @@ button{cursor:pointer;border:none;background:none}
     <div class="row2">
       <div class="field">
         <label><span data-i18n="lblID">ID-kaart / paspoortnr.</span> <span style="font-weight:400;color:var(--lbl4)" data-i18n="optioneel">(optioneel)</span></label>
-        <input type="text" id="fID" placeholder="mag ook bij aankomst" data-i18n-ph="phID">
+        <input type="text" id="fID" maxlength="40" placeholder="mag ook bij aankomst" data-i18n-ph="phID">
       </div>
       <div class="field">
         <label data-i18n="lblPlaat">Nummerplaat(en)</label>
@@ -214,7 +214,7 @@ button{cursor:pointer;border:none;background:none}
       </div>
       <div class="field">
         <label><span data-i18n="lblNationaliteit">Nationaliteit</span> <span style="font-weight:400;color:var(--lbl4)" data-i18n="optioneel">(optioneel)</span></label>
-        <input type="text" id="fNationaliteit" placeholder="bv. Belgisch" data-i18n-ph="phNationaliteit">
+        <input type="text" id="fNationaliteit" maxlength="80" placeholder="bv. Belgisch" data-i18n-ph="phNationaliteit">
       </div>
     </div>
     <div class="field">
@@ -232,15 +232,28 @@ button{cursor:pointer;border:none;background:none}
     <div id="turnstileHost" style="margin-top:12px;"></div>
   </div>
 
-  <!-- Identiteitsdocumenten — één per persoon -->
+  <!-- Identiteitsdocumenten — foto optioneel/toestemmingsgebaseerd (GBA-dossier
+       INF-2026-01267): fotograferen/scannen van het ID-document mag enkel met
+       vrije, specifieke toestemming van de gast, nooit als voorwaarde om te
+       kunnen boeken. De wettelijke registergegevens zelf (naam, geboortedatum,
+       nationaliteit, documentnummer) worden via de tekstvelden hierboven
+       gevraagd, ongeacht of er een foto bijkomt. -->
   <div class="card" id="idFotoCard">
-    <h2 data-i18n="cardID">🪪 Identiteitsdocumenten</h2>
+    <h2 data-i18n="cardID">🪪 Identiteitsdocument (optioneel)</h2>
     <p style="font-size:12.5px;color:var(--lbl3);margin:0 0 12px;line-height:1.5;" data-i18n-html="idIntro">
-      Upload voor <b>iedere persoon</b> één identiteitsdocument (voorkant). Wettelijk verplicht voor het reizigersregister. Geldig: identiteitskaart, paspoort, Kids-ID of buitenlands ID. <b>Geen namen nodig</b> — die lezen wij van het document.
+      Liever geen foto? Zorg dan dat je hierboven bij je gegevens je <b>geboortedatum, nationaliteit en documentnummer</b> invult — dat volstaat wettelijk voor het reizigersregister. Een foto is optioneel en enkel bedoeld als extra, handig bewijs.
     </p>
 
+    <div class="toggle-row">
+      <div class="sr-info">
+        <div class="sr-title" data-i18n="fotoConsentTitle">Ik geef toestemming om een foto van mijn identiteitsdocument te bewaren</div>
+        <div class="sr-sub" data-i18n="fotoConsentSub">Optioneel. Niet nodig om je aanvraag te versturen — enkel bedoeld als handig, extra bewijs voor het reizigersregister.</div>
+      </div>
+      <div class="switch" id="swFotoConsent" onclick="toggleFotoConsent()"></div>
+    </div>
+
     <!-- Voortgangsteller -->
-    <div id="docCounter" style="display:flex;align-items:center;gap:10px;background:var(--bg);border:1.5px solid var(--sep);border-radius:12px;padding:10px 14px;margin-bottom:12px;">
+    <div id="docCounter" style="display:flex;align-items:center;gap:10px;background:var(--bg);border:1.5px solid var(--sep);border-radius:12px;padding:10px 14px;margin:12px 0;">
       <div id="docCounterIcon" style="font-size:20px;">📋</div>
       <div style="flex:1;min-width:0;">
         <div id="docCounterText" style="font-size:13px;font-weight:700;color:var(--lbl1);">Je hebt 0 personen opgegeven.</div>
@@ -250,19 +263,19 @@ button{cursor:pointer;border:none;background:none}
       </div>
     </div>
 
-    <!-- Dropzone / bulk-upload -->
-    <label id="docDrop" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:18px;border:2px dashed var(--green);border-radius:12px;color:var(--green);background:rgba(27,138,91,.04);cursor:pointer;text-align:center;">
+    <!-- Dropzone / bulk-upload — start uitgeschakeld tot toestemming aangevinkt is -->
+    <label id="docDrop" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:18px;border:2px dashed var(--green);border-radius:12px;color:var(--green);background:rgba(27,138,91,.04);cursor:pointer;text-align:center;opacity:.5;">
       <div style="font-size:26px;">📷</div>
       <div style="font-size:13.5px;font-weight:800;" data-i18n="docDropTitle">Voeg documenten toe</div>
       <div style="font-size:11px;color:var(--lbl3);" data-i18n="docDropSub">Tik om te kiezen of foto te nemen · of sleep bestanden hierheen</div>
       <div style="font-size:10.5px;color:var(--lbl4);" data-i18n="docDropNote">Meerdere tegelijk · JPG, PNG, HEIC of PDF · max 15 MB per stuk</div>
-      <input type="file" id="docInput" accept="image/*,application/pdf,.heic,.heif" style="display:none;" onchange="onDocsSelected(this)">
+      <input type="file" id="docInput" disabled accept="image/*,application/pdf,.heic,.heif" style="display:none;" onchange="onDocsSelected(this)">
     </label>
 
     <div id="docList" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"></div>
 
     <div style="font-size:11px;color:var(--lbl4);margin-top:12px;line-height:1.5;" data-i18n-html="docFooterNote">
-      📌 Fotografeer enkel de <b>voorkant</b> van het identiteitsdocument — geen rijbewijs. Een PDF met meerdere pagina's wordt automatisch in losse documenten gesplitst.
+      📌 Deze foto is optioneel en wordt enkel bewaard met jouw toestemming hierboven. Fotografeer enkel de <b>voorkant</b> — geen rijbewijs. Een PDF met meerdere pagina's wordt automatisch in losse documenten gesplitst.
     </div>
     <div id="docPrivacyNote" style="font-size:11px;color:var(--lbl4);margin-top:8px;line-height:1.5;"></div>
   </div>
@@ -407,7 +420,7 @@ function ogmReference(volgnummer){
 // Defaults uit de centrale module (shared/pricing.js). Worden overschreven met
 // de actuele tarieven uit Supabase (settings). Eén bron, gedeeld met dashboard.
 const PRICES=Object.assign({},CampingPricing.DEFAULTS);
-let state={tenten:1,campers:0,extraTypeQties:{},volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,elek:false,akkoord:false};
+let state={tenten:1,campers:0,extraTypeQties:{},volwassenen:2,kinderen:0,baby:0,honden:0,autos:1,elek:false,akkoord:false,fotoConsent:false};
 
 /* Bouwt de genormaliseerde invoer voor de CENTRALE berekening uit de
    formulierstaat. Zowel de live prijsweergave als het opslaan gebruiken dit. */
@@ -473,13 +486,20 @@ const T={
     lblNota:'Opmerkingen', phNota:'bv. late aankomst, rustige plek...',
     optioneel:'(optioneel)',
     akkoordTitle:'Akkoord met verwerking gegevens', akkoordSub:'Nodig om je aanvraag te kunnen bevestigen —', privacybeleidLink:'privacybeleid',
-    cardID:'🪪 Identiteitsdocumenten',
-    idIntro:'Upload een identiteitsdocument (voorkant) van de <b>hoofdboeker</b> — verplicht voor het reizigersregister. Geldig: identiteitskaart, paspoort, Kids-ID of buitenlands ID. Vul ook de <b>naam van elke andere gast</b> hieronder in — dat is verplicht, hun document maken we bij aankomst in orde.',
-    docCounterIntro:(n,have,compleet)=>compleet?`<b style="color:var(--green)">✅ Document van de hoofdboeker toegevoegd.</b>${n>1?` Vul hieronder ook de naam in van de ${n-1} andere gast${n-1===1?'':'en'} (verplicht).`:''}`:`<b style="color:#CC7700">Document van de hoofdboeker nog nodig</b> (verplicht).`,
+    cardID:'🪪 Identiteitsdocument (optioneel)',
+    idIntro:'Liever geen foto? Zorg dan dat je hierboven bij je gegevens je <b>geboortedatum, nationaliteit en documentnummer</b> invult — dat volstaat wettelijk voor het reizigersregister. Een foto is optioneel en enkel bedoeld als extra, handig bewijs. Vul ook de <b>naam van elke andere gast</b> hieronder in — dat blijft verplicht, hun document maken we bij aankomst in orde.',
+    fotoConsentTitle:'Ik geef toestemming om een foto van mijn identiteitsdocument te bewaren',
+    fotoConsentSub:'Optioneel. Niet nodig om je aanvraag te versturen — enkel bedoeld als handig, extra bewijs voor het reizigersregister.',
+    docCounterIntro:(n,have,compleet,fotoConsent)=>{
+      const mede=n>1?` Vul hieronder ook de naam in van de ${n-1} andere gast${n-1===1?'':'en'} (verplicht).`:'';
+      if(compleet) return `<b style="color:var(--green)">✅ Document toegevoegd.</b>${mede}`;
+      if(fotoConsent) return `<b style="color:#CC7700">Voeg hieronder je documentfoto toe</b>, of vink de toestemming weer uit als je toch liever geen foto geeft.${mede}`;
+      return `<b style="color:var(--lbl2)">Optioneel:</b> vink hierboven toestemming aan voor een foto, of vul je geboortedatum/nationaliteit/documentnummer hierboven in — dat volstaat ook.${mede}`;
+    },
     docDropTitle:'Document hoofdboeker toevoegen', docDropSub:'Tik om te kiezen of foto te nemen · of sleep een bestand hierheen', docDropNote:'JPG, PNG, HEIC of PDF · max 15 MB',
-    docFooterNote:'📌 Fotografeer enkel de <b>voorkant</b> van het identiteitsdocument — geen rijbewijs. Een PDF met meerdere pagina\'s wordt automatisch in losse documenten gesplitst.',
+    docFooterNote:'📌 Deze foto is optioneel en wordt enkel bewaard met jouw toestemming hierboven. Fotografeer enkel de <b>voorkant</b> — geen rijbewijs. Een PDF met meerdere pagina\'s wordt automatisch in losse documenten gesplitst.',
     docPrivacyNote:'🔒 Je documenten worden privé en versleuteld bewaard, enkel toegankelijk voor de campingbeheerder voor het wettelijke reizigersregister. Ze worden nooit als bijlage gemaild.',
-    persoonLbl:(i,hoofdboeker)=>`Persoon ${i}${hoofdboeker?' · hoofdboeker · verplicht':' · optioneel'}`,
+    persoonLbl:(i,hoofdboeker)=>`Persoon ${i}${hoofdboeker?' · hoofdboeker · optioneel':' · optioneel'}`,
     gastNaamPh:'Naam', gastLbl:i=>`Gast ${i} · verplicht`, toastGastNaam:'⚠️ Vul de naam van elke gast in',
     geenDocument:'Nog geen document', lageResolutie:'⚠️ Lage resolutie — controleer of alles leesbaar is', heicNote:'📱 HEIC — geen voorbeeld, wordt wel correct bewaard',
     priceCardTitle:'Prijsoverzicht', perNachtLbl:'Subtotaal per dag', inclTaks:'(incl. taks)', dagLbl:n=>`× ${n} dag${n===1?'':'en'}`, plusEenmalig:' + eenmalig', perDag:' /dag', gratisLbl:'Gratis', eenmaligLbl:'(eenmalig)',
@@ -504,9 +524,10 @@ const T={
     toastRotateNotPossible:'⚠️ Roteren niet mogelijk voor dit bestand',
     toastCheckDates:'⚠️ Controleer je aankomst- en vertrekdatum', toastFillName:'⚠️ Vul je naam in', toastValidEmail:'⚠️ Vul een geldig e-mailadres in',
     toastAkkoord:'⚠️ Bevestig akkoord met verwerking van je gegevens', toastRobot:'⚠️ Bevestig even dat je geen robot bent',
-    toastMinDoc:'⚠️ Voeg minstens 1 identiteitsdocument toe', toastWait:'⚠️ Even geduld, controleer je gegevens nog eens',
+    toastFotoConsentNeeded:'⚠️ Vink eerst aan dat je akkoord gaat met het bewaren van de foto', toastWait:'⚠️ Even geduld, controleer je gegevens nog eens',
     toastAlreadySent:'⚠️ Je aanvraag werd al verstuurd', toastSubmitError:'⚠️ Er ging iets mis bij het versturen — probeer opnieuw of bel ons',
     toastUploadFailed:'⚠️ Aanvraag opgeslagen, maar documenten uploaden mislukte. We sturen je een nieuwe uploadlink.',
+    toastGastenSaveWarning:'⚠️ Aanvraag verzonden, maar er ging iets mis bij het opslaan van je registergegevens — we vullen dit manueel aan.',
     cookieText:'🍪 We gebruiken enkel <b style="color:#fff;">functionele cookies</b> die nodig zijn voor het reservatieformulier. Geen tracking of advertentiecookies. <a href="/privacy/" style="color:#34C759;text-decoration:underline;">Meer info</a>',
     reasonText:{leeg_of_corrupt:'Bestand is leeg of beschadigd',te_groot:'Bestand is te groot (max 15 MB)',onbekend_type:'Onbekend bestandstype',type_niet_toegelaten:'Alleen JPG, PNG, HEIC of PDF toegelaten',lage_resolutie:'Lage resolutie — mogelijk onleesbaar',duplicaat:'Dit document is al toegevoegd',pdf_beveiligd:'PDF is met wachtwoord beveiligd'},
     vulVeldenIn:'Vul de velden hierboven in…',
@@ -538,13 +559,20 @@ const T={
     lblNota:'Remarques', phNota:'ex. arrivée tardive, emplacement calme...',
     optioneel:'(facultatif)',
     akkoordTitle:'Accord pour le traitement des données', akkoordSub:'Nécessaire pour confirmer votre demande —', privacybeleidLink:'politique de confidentialité',
-    cardID:'🪪 Documents d\'identité',
-    idIntro:'Téléchargez un document d\'identité (recto) du <b>responsable de la réservation</b> — obligatoire pour le registre des voyageurs. Valable : carte d\'identité, passeport, Kids-ID ou pièce d\'identité étrangère. Indiquez aussi le <b>nom de chaque autre invité</b> ci-dessous — obligatoire, nous nous occupons de leur document à l\'arrivée.',
-    docCounterIntro:(n,have,compleet)=>compleet?`<b style="color:var(--green)">✅ Document du responsable ajouté.</b>${n>1?` Indiquez aussi ci-dessous le nom de ${n-1===1?'l\'autre invité':'des '+(n-1)+' autres invités'} (obligatoire).`:''}`:`<b style="color:#CC7700">Document du responsable encore requis</b> (obligatoire).`,
+    cardID:'🪪 Document d\'identité (facultatif)',
+    idIntro:'Vous préférez ne pas ajouter de photo ? Indiquez alors ci-dessus votre <b>date de naissance, nationalité et numéro de document</b> — cela suffit légalement pour le registre des voyageurs. Une photo est facultative, uniquement utile comme preuve supplémentaire. Indiquez aussi le <b>nom de chaque autre invité</b> ci-dessous — cela reste obligatoire, nous nous occupons de leur document à l\'arrivée.',
+    fotoConsentTitle:'Je donne mon accord pour conserver une photo de mon document d\'identité',
+    fotoConsentSub:'Facultatif. Pas nécessaire pour envoyer votre demande — uniquement utile comme preuve supplémentaire pour le registre des voyageurs.',
+    docCounterIntro:(n,have,compleet,fotoConsent)=>{
+      const mede=n>1?` Indiquez aussi ci-dessous le nom de ${n-1===1?'l\'autre invité':'des '+(n-1)+' autres invités'} (obligatoire).`:'';
+      if(compleet) return `<b style="color:var(--green)">✅ Document ajouté.</b>${mede}`;
+      if(fotoConsent) return `<b style="color:#CC7700">Ajoutez votre photo ci-dessous</b>, ou décochez votre accord si vous préférez finalement ne pas donner de photo.${mede}`;
+      return `<b style="color:var(--lbl2)">Facultatif :</b> cochez votre accord ci-dessus pour une photo, ou indiquez votre date de naissance/nationalité/numéro de document ci-dessus — cela suffit aussi.${mede}`;
+    },
     docDropTitle:'Ajouter le document du responsable', docDropSub:'Touchez pour choisir ou prendre une photo · ou glissez-déposez un fichier ici', docDropNote:'JPG, PNG, HEIC ou PDF · max 15 Mo',
-    docFooterNote:'📌 Photographiez uniquement le <b>recto</b> du document d\'identité — pas de permis de conduire. Un PDF de plusieurs pages est automatiquement scindé en documents séparés.',
+    docFooterNote:'📌 Cette photo est facultative et n\'est conservée qu\'avec votre accord ci-dessus. Photographiez uniquement le <b>recto</b> — pas de permis de conduire. Un PDF de plusieurs pages est automatiquement scindé en documents séparés.',
     docPrivacyNote:'🔒 Vos documents sont conservés de manière privée et cryptée, uniquement accessibles au gestionnaire du camping pour le registre des voyageurs légal. Jamais envoyés par e-mail en pièce jointe.',
-    persoonLbl:(i,hoofdboeker)=>`Personne ${i}${hoofdboeker?' · responsable · obligatoire':' · facultatif'}`,
+    persoonLbl:(i,hoofdboeker)=>`Personne ${i}${hoofdboeker?' · responsable · facultatif':' · facultatif'}`,
     gastNaamPh:'Nom', gastLbl:i=>`Invité ${i} · obligatoire`, toastGastNaam:'⚠️ Indiquez le nom de chaque invité',
     geenDocument:'Pas encore de document', lageResolutie:'⚠️ Faible résolution — vérifiez la lisibilité', heicNote:'📱 HEIC — pas d\'aperçu, mais bien conservé correctement',
     priceCardTitle:'Aperçu du prix', perNachtLbl:'Sous-total par jour', inclTaks:'(taxe incl.)', dagLbl:n=>`× ${n} jour${n===1?'':'s'}`, plusEenmalig:' + frais uniques', perDag:' /jour', gratisLbl:'Gratuit', eenmaligLbl:'(unique)',
@@ -569,9 +597,10 @@ const T={
     toastRotateNotPossible:'⚠️ Rotation impossible pour ce fichier',
     toastCheckDates:'⚠️ Vérifiez vos dates d\'arrivée et de départ', toastFillName:'⚠️ Indiquez votre nom', toastValidEmail:'⚠️ Indiquez une adresse e-mail valide',
     toastAkkoord:'⚠️ Confirmez votre accord pour le traitement des données', toastRobot:'⚠️ Confirmez que vous n\'êtes pas un robot',
-    toastMinDoc:'⚠️ Ajoutez au moins 1 document d\'identité', toastWait:'⚠️ Un instant, vérifiez encore vos données',
+    toastFotoConsentNeeded:'⚠️ Cochez d\'abord votre accord pour conserver la photo', toastWait:'⚠️ Un instant, vérifiez encore vos données',
     toastAlreadySent:'⚠️ Votre demande a déjà été envoyée', toastSubmitError:'⚠️ Une erreur est survenue lors de l\'envoi — réessayez ou appelez-nous',
     toastUploadFailed:'⚠️ Demande enregistrée, mais le téléchargement des documents a échoué. Nous vous enverrons un nouveau lien.',
+    toastGastenSaveWarning:'⚠️ Demande envoyée, mais l\'enregistrement de vos données de registre a échoué — nous les compléterons manuellement.',
     cookieText:'🍪 Nous utilisons uniquement des <b style="color:#fff;">cookies fonctionnels</b> nécessaires au formulaire de réservation. Pas de cookies de suivi ou publicitaires. <a href="/privacy/" style="color:#34C759;text-decoration:underline;">Plus d\'infos</a>',
     reasonText:{leeg_of_corrupt:'Le fichier est vide ou endommagé',te_groot:'Fichier trop volumineux (max 15 Mo)',onbekend_type:'Type de fichier inconnu',type_niet_toegelaten:'Seuls JPG, PNG, HEIC ou PDF sont autorisés',lage_resolutie:'Résolution faible — peut-être illisible',duplicaat:'Ce document a déjà été ajouté',pdf_beveiligd:'Le PDF est protégé par mot de passe'},
     vulVeldenIn:'Remplissez les champs ci-dessus…',
@@ -603,13 +632,20 @@ const T={
     lblNota:'Remarks', phNota:'e.g. late arrival, quiet spot...',
     optioneel:'(optional)',
     akkoordTitle:'Consent to data processing', akkoordSub:'Required to confirm your request —', privacybeleidLink:'privacy policy',
-    cardID:'🪪 Identity documents',
-    idIntro:'Upload an identity document (front side) for the <b>main guest</b> — required for the guest register. Valid: ID card, passport, Kids-ID or foreign ID. Also fill in the <b>name of every other guest</b> below — required, we\'ll take care of their document on arrival.',
-    docCounterIntro:(n,have,compleet)=>compleet?`<b style="color:var(--green)">✅ Main guest\'s document added.</b>${n>1?` Also fill in the name of the ${n-1} other guest${n-1===1?'':'s'} below (required).`:''}`:`<b style="color:#CC7700">Main guest\'s document still needed</b> (required).`,
+    cardID:'🪪 Identity document (optional)',
+    idIntro:'Prefer not to add a photo? Just make sure you fill in your <b>date of birth, nationality and document number</b> above — that\'s legally sufficient for the guest register. A photo is optional, only meant as handy extra proof. Also fill in the <b>name of every other guest</b> below — that\'s still required, we\'ll take care of their document on arrival.',
+    fotoConsentTitle:'I consent to storing a photo of my identity document',
+    fotoConsentSub:'Optional. Not needed to send your request — only meant as handy, extra proof for the guest register.',
+    docCounterIntro:(n,have,compleet,fotoConsent)=>{
+      const mede=n>1?` Also fill in the name of the ${n-1} other guest${n-1===1?'':'s'} below (required).`:'';
+      if(compleet) return `<b style="color:var(--green)">✅ Document added.</b>${mede}`;
+      if(fotoConsent) return `<b style="color:#CC7700">Add your document photo below</b>, or untick your consent if you'd rather not provide a photo after all.${mede}`;
+      return `<b style="color:var(--lbl2)">Optional:</b> tick consent above for a photo, or fill in your date of birth/nationality/document number above — that also works.${mede}`;
+    },
     docDropTitle:'Add main guest\'s document', docDropSub:'Tap to choose or take a photo · or drag a file here', docDropNote:'JPG, PNG, HEIC or PDF · max 15 MB',
-    docFooterNote:'📌 Only photograph the <b>front</b> of the identity document — not a driving licence. A multi-page PDF is automatically split into separate documents.',
+    docFooterNote:'📌 This photo is optional and only kept with your consent above. Only photograph the <b>front</b> — not a driving licence. A multi-page PDF is automatically split into separate documents.',
     docPrivacyNote:'🔒 Your documents are stored privately and encrypted, accessible only to the campsite manager for the legally required guest register. Never sent as an email attachment.',
-    persoonLbl:(i,hoofdboeker)=>`Person ${i}${hoofdboeker?' · main guest · required':' · optional'}`,
+    persoonLbl:(i,hoofdboeker)=>`Person ${i}${hoofdboeker?' · main guest · optional':' · optional'}`,
     gastNaamPh:'Name', gastLbl:i=>`Guest ${i} · required`, toastGastNaam:'⚠️ Enter the name of every guest',
     geenDocument:'No document yet', lageResolutie:'⚠️ Low resolution — check it is readable', heicNote:'📱 HEIC — no preview, but stored correctly',
     priceCardTitle:'Price overview', perNachtLbl:'Subtotal per day', inclTaks:'(incl. tax)', dagLbl:n=>`× ${n} day${n===1?'':'s'}`, plusEenmalig:' + one-time', perDag:' /day', gratisLbl:'Free', eenmaligLbl:'(one-time)',
@@ -634,9 +670,10 @@ const T={
     toastRotateNotPossible:'⚠️ Rotating is not possible for this file',
     toastCheckDates:'⚠️ Check your arrival and departure date', toastFillName:'⚠️ Enter your name', toastValidEmail:'⚠️ Enter a valid email address',
     toastAkkoord:'⚠️ Confirm consent to data processing', toastRobot:'⚠️ Please confirm you are not a robot',
-    toastMinDoc:'⚠️ Add at least 1 identity document', toastWait:'⚠️ One moment, please check your details again',
+    toastFotoConsentNeeded:'⚠️ First tick that you agree to storing the photo', toastWait:'⚠️ One moment, please check your details again',
     toastAlreadySent:'⚠️ Your request was already sent', toastSubmitError:'⚠️ Something went wrong while sending — try again or call us',
     toastUploadFailed:'⚠️ Request saved, but uploading documents failed. We\'ll send you a new upload link.',
+    toastGastenSaveWarning:'⚠️ Request sent, but saving your register details failed — we\'ll complete this manually.',
     cookieText:'🍪 We only use <b style="color:#fff;">functional cookies</b> needed for the reservation form. No tracking or advertising cookies. <a href="/privacy/" style="color:#34C759;text-decoration:underline;">More info</a>',
     reasonText:{leeg_of_corrupt:'File is empty or corrupted',te_groot:'File is too large (max 15 MB)',onbekend_type:'Unknown file type',type_niet_toegelaten:'Only JPG, PNG, HEIC or PDF allowed',lage_resolutie:'Low resolution — may be unreadable',duplicaat:'This document was already added',pdf_beveiligd:'PDF is password protected'},
     vulVeldenIn:'Fill in the fields above…',
@@ -801,6 +838,9 @@ async function onDocsSelected(inp){
   await addDocFiles(files);
 }
 async function addDocFiles(files){
+  // Vangnet tegen drag-and-drop rond de disabled input (GBA-dossier
+  // INF-2026-01267) — één toast i.p.v. één per gesleept bestand.
+  if(!state.fotoConsent){ toast(tr('toastFotoConsentNeeded')); return; }
   const drop=document.getElementById('docDrop');
   for(const file of files){
     try{
@@ -855,6 +895,13 @@ async function addPdfPages(file,bytes){
 // heeft een ID-document nodig — medereizigers krijgen enkel een naamveld
 // (zie renderDocs), dus max 1 document in totaal.
 async function pushDoc(d){
+  // Vangnet: enkel met expliciete toestemming (GBA-dossier INF-2026-01267) —
+  // dit is het ene punt waar alle upload-paden (kiezen, camera, drag-drop)
+  // doorheen moeten, dus hier controleren volstaat.
+  if(!state.fotoConsent){
+    toast(tr('toastFotoConsentNeeded'));
+    return;
+  }
   if(idDocs.length>=1){
     toast(tr('toastMaxDocs'));
     return;
@@ -894,10 +941,13 @@ function renderDocCounter(){
   const bar=document.getElementById('docCounterBar');
   const icon=document.getElementById('docCounterIcon');
   if(!txt)return;
+  // Drie toestanden i.p.v. verplicht/niet-verplicht (GBA-dossier
+  // INF-2026-01267): geen toestemming (neutraal, wijst naar de velden
+  // hierboven) · toestemming maar nog geen foto (nudge) · foto aanwezig (groen).
   const compleet=have>=1;
-  txt.innerHTML=tr('docCounterIntro',n,have,compleet);
-  if(bar){bar.style.width=(compleet?100:0)+'%';bar.style.background=compleet?'var(--green)':'#FF9500';}
-  if(icon)icon.textContent=compleet?'✅':'📋';
+  txt.innerHTML=tr('docCounterIntro',n,have,compleet,state.fotoConsent);
+  if(bar){bar.style.width=(compleet?100:state.fotoConsent?35:0)+'%';bar.style.background=compleet?'var(--green)':state.fotoConsent?'#FF9500':'var(--sep)';}
+  if(icon)icon.textContent=compleet?'✅':state.fotoConsent?'📷':'ℹ️';
 }
 function renderDocs(){
   renderDocCounter();
@@ -966,6 +1016,19 @@ function toggleElek(){
 function toggleAkkoord(){
   state.akkoord=!state.akkoord;
   document.getElementById('swAkkoord').classList.toggle('on',state.akkoord);
+}
+// Aparte, specifieke toestemming voor de ID-foto (GBA-dossier INF-2026-01267)
+// — losstaand van de algemene verwerkingstoestemming hierboven. Uitvinken
+// wist een al toegevoegde foto meteen: toestemming die niet meer geldt, mag
+// niet stilzwijgend blijven hangen.
+function toggleFotoConsent(){
+  state.fotoConsent=!state.fotoConsent;
+  document.getElementById('swFotoConsent').classList.toggle('on',state.fotoConsent);
+  const inp=document.getElementById('docInput'), drop=document.getElementById('docDrop');
+  if(inp)inp.disabled=!state.fotoConsent;
+  if(drop)drop.style.opacity=state.fotoConsent?'1':'.5';
+  if(!state.fotoConsent && idDocs.length){ idDocs=[]; renderDocs(); }
+  renderDocCounter();
 }
 function nightCount(){
   const a=new Date(document.getElementById('fAankomst').value);
@@ -1112,14 +1175,11 @@ async function submitForm(){
   if(!state.akkoord){ toast(tr('toastAkkoord')); return; }
   if(window._turnstileOn && !getTurnstileToken()){ toast(tr('toastRobot')); return; }
 
-  // Minstens één identiteitsdocument nodig om door te sturen (niet meer
-  // per se één per opgegeven persoon — Karen wil aanvragen niet nodeloos
-  // laten stranden op ontbrekende documenten van medereizigers).
-  if(idDocs.length<1){
-    toast(tr('toastMinDoc'));
-    document.getElementById('idFotoCard')?.scrollIntoView({behavior:'smooth',block:'center'});
-    return;
-  }
+  // Geen ID-document meer verplicht om te kunnen versturen (GBA-dossier
+  // INF-2026-01267): een foto mag enkel met vrije toestemming bewaard worden,
+  // nooit als voorwaarde om te boeken. De wettelijke registergegevens zelf
+  // (geboorte/nationaliteit/documentnummer, hierboven ingevuld) volstaan.
+
   // Naam van elke medereiziger is verplicht (enkel de hoofdboeker heeft ook
   // nog een ID-document nodig, zie hierboven).
   for(let gi=1;gi<totalPersons();gi++){
@@ -1213,35 +1273,51 @@ async function submitForm(){
       if(platenErr) console.error('booking_kentekens insert faalde',platenErr);
     }
 
-    // 2c. Gasten aanmaken: hoofdboeker (naam al gekend) + eventueel ingevulde
-    // namen van medereizigers (optioneel, zie gastNamen in renderDocs). Zo
-    // staan namen meteen klaar in het dashboard i.p.v. te wachten op
-    // AI-scan/handmatige invoer — ID-foto blijft voor hen optioneel.
-    const gastenRows=[{booking_id:bookingId,naam,is_hoofdgast:true}];
+    // 2c. Gasten aanmaken: hoofdboeker + eventueel ingevulde namen van
+    // medereizigers (optioneel, zie gastNamen in renderDocs). De hoofdboeker
+    // krijgt hier ook meteen de wettelijke registergegevens mee die hierboven
+    // ingevuld werden (geboortedatum/nationaliteit/documentnummer) — dat is
+    // wat het reizigersregister vult, ongeacht of er een foto bijkomt
+    // (GBA-dossier INF-2026-01267: foto is optioneel/toestemmingsgebaseerd,
+    // deze gegevens kunnen wél wettelijk vereist zijn).
+    const gastenRows=[{
+      booking_id:bookingId, naam, is_hoofdgast:true,
+      geboortedatum:geboorte, nationaliteit:nationaliteit||null, id_nummer:idnr||null,
+      id_consent:!!state.fotoConsent,
+    }];
     for(let gi=1;gi<totalPersons();gi++){
       const gnaam=(gastNamen[gi]||'').trim();
       if(gnaam) gastenRows.push({booking_id:bookingId,naam:gnaam,is_hoofdgast:false});
     }
     const {error:gastenErr}=await sb.from('gasten').insert(gastenRows);
-    if(gastenErr) console.error('gasten insert faalde',gastenErr);
-
-    // 3. Identiteitsdocumenten uploaden (verplicht, één per persoon). GEEN AI hier.
-    btn.textContent=tr('submitBtnUploading',idDocs.length);
-    const documents=[];
-    for(let i=0;i<idDocs.length;i++){
-      const d=idDocs[i];
-      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(d.blob);});
-      documents.push({image_base64:b64,media_type:d.mime,slot_index:i,page_index:d.pdfPage||0});
+    if(gastenErr){
+      // Boeking staat er sowieso al; de registergegevens niet stil laten
+      // verdwijnen — Karen vult dit dan handmatig aan, maar moet wel weten
+      // dát dat nodig is.
+      console.error('gasten insert faalde',gastenErr);
+      toast(tr('toastGastenSaveWarning'));
     }
-    const upRes=await fetch(`${SUPABASE_URL}/functions/v1/guest-upload`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
-      body:JSON.stringify({token:checkinToken,documents,turnstile_token:getTurnstileToken()})
-    });
-    if(!upRes.ok){
-      // Boeking staat er, documenten niet → meld het, blokkeer geen tweede boeking.
-      console.error('guest-upload faalde',await upRes.text());
-      toast(tr('toastUploadFailed'));
+
+    // 3. Identiteitsdocument uploaden — enkel als de gast met toestemming een
+    // foto heeft toegevoegd (optioneel, zie hierboven). GEEN AI hier.
+    if(idDocs.length>0){
+      btn.textContent=tr('submitBtnUploading',idDocs.length);
+      const documents=[];
+      for(let i=0;i<idDocs.length;i++){
+        const d=idDocs[i];
+        const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(d.blob);});
+        documents.push({image_base64:b64,media_type:d.mime,slot_index:i,page_index:d.pdfPage||0});
+      }
+      const upRes=await fetch(`${SUPABASE_URL}/functions/v1/guest-upload`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+        body:JSON.stringify({token:checkinToken,documents,turnstile_token:getTurnstileToken()})
+      });
+      if(!upRes.ok){
+        // Boeking staat er, document niet → meld het, blokkeer geen tweede boeking.
+        console.error('guest-upload faalde',await upRes.text());
+        toast(tr('toastUploadFailed'));
+      }
     }
 
     // 5. Conceptmail klaarzetten (OGM wordt door dashboard gegenereerd na aanmaak)
