@@ -16,3 +16,6 @@ node_modules/
 
 # Local Claude Code config
 .claude/
+
+_site/
+supabase/.temp/

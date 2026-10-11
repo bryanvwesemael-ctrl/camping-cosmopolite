@@ -445,9 +445,10 @@ let _docSeq=0;
 // index (0-based, zelfde volgorde als idDocs/placeholders in renderDocs).
 // Optioneel — enkel gevuld als de bezoeker het invult.
 let gastNamen={};
-// Stabiele ids per pagina-load → idempotency: een dubbele inzending hergebruikt
-// dezelfde sleutels en kan dus geen tweede boeking maken (unique idempotency_key).
-const _submitIds={clientId:crypto.randomUUID(),bookingId:crypto.randomUUID(),checkinToken:crypto.randomUUID(),idemKey:crypto.randomUUID()};
+// Stabiele sleutel per pagina-load → idempotency: een dubbele inzending
+// hergebruikt dezelfde sleutel en kan dus geen tweede boeking maken. De overige
+// sleutels (klant, boeking, check-in-token) maakt de server zelf aan.
+const _submitIds={idemKey:crypto.randomUUID()};
 let extraTarievenPublic=[];
 let accommodatieTypes=[
   {id:'tent',naam:'Tent',emoji:'⛺',prijs:15,maxPersonen:0,waarborg:0,waarborgBedrag:0,isStandaard:true},
@@ -525,7 +526,7 @@ const T={
     toastCheckDates:'⚠️ Controleer je aankomst- en vertrekdatum', toastFillName:'⚠️ Vul je naam in', toastValidEmail:'⚠️ Vul een geldig e-mailadres in',
     toastAkkoord:'⚠️ Bevestig akkoord met verwerking van je gegevens', toastRobot:'⚠️ Bevestig even dat je geen robot bent',
     toastFotoConsentNeeded:'⚠️ Vink eerst aan dat je akkoord gaat met het bewaren van de foto', toastWait:'⚠️ Even geduld, controleer je gegevens nog eens',
-    toastAlreadySent:'⚠️ Je aanvraag werd al verstuurd', toastSubmitError:'⚠️ Er ging iets mis bij het versturen — probeer opnieuw of bel ons',
+    toastAlreadySent:'⚠️ Je aanvraag werd al verstuurd', toastTeVeel:'⚠️ Er zijn net te veel aanvragen verstuurd — probeer het binnen een uur opnieuw of bel ons', toastSubmitError:'⚠️ Er ging iets mis bij het versturen — probeer opnieuw of bel ons',
     toastUploadFailed:'⚠️ Aanvraag opgeslagen, maar documenten uploaden mislukte. We sturen je een nieuwe uploadlink.',
     toastGastenSaveWarning:'⚠️ Aanvraag verzonden, maar er ging iets mis bij het opslaan van je registergegevens — we vullen dit manueel aan.',
     cookieText:'🍪 We gebruiken enkel <b style="color:#fff;">functionele cookies</b> die nodig zijn voor het reservatieformulier. Geen tracking of advertentiecookies. <a href="/privacy/" style="color:#34C759;text-decoration:underline;">Meer info</a>',
@@ -598,7 +599,7 @@ const T={
     toastCheckDates:'⚠️ Vérifiez vos dates d\'arrivée et de départ', toastFillName:'⚠️ Indiquez votre nom', toastValidEmail:'⚠️ Indiquez une adresse e-mail valide',
     toastAkkoord:'⚠️ Confirmez votre accord pour le traitement des données', toastRobot:'⚠️ Confirmez que vous n\'êtes pas un robot',
     toastFotoConsentNeeded:'⚠️ Cochez d\'abord votre accord pour conserver la photo', toastWait:'⚠️ Un instant, vérifiez encore vos données',
-    toastAlreadySent:'⚠️ Votre demande a déjà été envoyée', toastSubmitError:'⚠️ Une erreur est survenue lors de l\'envoi — réessayez ou appelez-nous',
+    toastAlreadySent:'⚠️ Votre demande a déjà été envoyée', toastTeVeel:'⚠️ Trop de demandes envoyées récemment — réessayez dans une heure ou appelez-nous', toastSubmitError:'⚠️ Une erreur est survenue lors de l\'envoi — réessayez ou appelez-nous',
     toastUploadFailed:'⚠️ Demande enregistrée, mais le téléchargement des documents a échoué. Nous vous enverrons un nouveau lien.',
     toastGastenSaveWarning:'⚠️ Demande envoyée, mais l\'enregistrement de vos données de registre a échoué — nous les compléterons manuellement.',
     cookieText:'🍪 Nous utilisons uniquement des <b style="color:#fff;">cookies fonctionnels</b> nécessaires au formulaire de réservation. Pas de cookies de suivi ou publicitaires. <a href="/privacy/" style="color:#34C759;text-decoration:underline;">Plus d\'infos</a>',
@@ -671,7 +672,7 @@ const T={
     toastCheckDates:'⚠️ Check your arrival and departure date', toastFillName:'⚠️ Enter your name', toastValidEmail:'⚠️ Enter a valid email address',
     toastAkkoord:'⚠️ Confirm consent to data processing', toastRobot:'⚠️ Please confirm you are not a robot',
     toastFotoConsentNeeded:'⚠️ First tick that you agree to storing the photo', toastWait:'⚠️ One moment, please check your details again',
-    toastAlreadySent:'⚠️ Your request was already sent', toastSubmitError:'⚠️ Something went wrong while sending — try again or call us',
+    toastAlreadySent:'⚠️ Your request was already sent', toastTeVeel:'⚠️ Too many requests were sent recently — try again within an hour or call us', toastSubmitError:'⚠️ Something went wrong while sending — try again or call us',
     toastUploadFailed:'⚠️ Request saved, but uploading documents failed. We\'ll send you a new upload link.',
     toastGastenSaveWarning:'⚠️ Request sent, but saving your register details failed — we\'ll complete this manually.',
     cookieText:'🍪 We only use <b style="color:#fff;">functional cookies</b> needed for the reservation form. No tracking or advertising cookies. <a href="/privacy/" style="color:#34C759;text-decoration:underline;">More info</a>',
@@ -1203,23 +1204,11 @@ async function submitForm(){
   btn.classList.add('loading'); btn.textContent=tr('submitBtnSending');
 
   try{
-    const {clientId,bookingId,checkinToken,idemKey}=_submitIds;
+    const {idemKey}=_submitIds;
 
-    // 1. Klant aanmaken. Gewone insert (geen upsert/ON CONFLICT): anon heeft
-    // bewust geen SELECT-recht op clients (privacy), en Postgres kan de
-    // conflict-check van ON CONFLICT DO NOTHING dan niet uitvoeren — dat
-    // blokkeerde tot nu toe élke aanvraag met een RLS-fout. clientId is
-    // sowieso een verse crypto.randomUUID() per paginabezoek; 23505 (echte
-    // dubbele inzending met dezelfde sleutel) wordt gewoon genegeerd, zelfde
-    // patroon als de idempotency-check hieronder bij de boeking zelf.
-    const {error:clientErr}=await sb.from('clients').insert({
-      id:clientId,
-      naam, email, telefoon:tel||null, id_nummer:idnr||null, nummerplaten:plaat||null,
-      geboortedatum:geboorte, nationaliteit:nationaliteit||null, woonplaats:woonplaats||null
-    });
-    if(clientErr && clientErr.code!=='23505') throw clientErr;
-
-    // 2. Boeking aanmaken — bedragen uit de CENTRALE berekening (single source of truth)
+    // Bedragen uit de CENTRALE berekening (single source of truth) — enkel
+    // als richtprijs in de conceptmail, de server/het dashboard bepaalt het
+    // echte bedrag.
     if(!state.extraTypeQties)state.extraTypeQties={};
     const rSubmit=CampingPricing.calc(pricingInputFromState(nights));
     const dienstenPerNacht=rSubmit.dienstenPerNacht;
@@ -1236,11 +1225,34 @@ async function submitForm(){
       .filter(t=>!t.isStandaard&&(state.extraTypeQties[t.id]||0)>0)
       .map(t=>({id:t.id,naam:t.naam,emoji:t.emoji||'🏕️',count:state.extraTypeQties[t.id],prijs:t.prijs,allIn:!!t.allIn}));
 
-    // OGM berekenen zonder volgnummer (volgnummer kennen we pas na insert via trigger)
-    // Boeking zonder select → geen volgnummer beschikbaar aan client-kant
-    const {error:bookErr}=await sb.from('bookings').insert({
-      id:bookingId,
-      client_id:clientId,
+    // Gasten: hoofdboeker (met de wettelijke registergegevens) + de namen van
+    // de medereizigers. Foto blijft optioneel/toestemmingsgebaseerd
+    // (GBA-dossier INF-2026-01267).
+    const gastenRows=[{
+      naam, geboortedatum:geboorte, nationaliteit:nationaliteit||null, id_nummer:idnr||null,
+      id_consent:!!state.fotoConsent,
+    }];
+    for(let gi=1;gi<totalPersons();gi++){
+      const gnaam=(gastNamen[gi]||'').trim();
+      if(gnaam) gastenRows.push({naam:gnaam});
+    }
+
+    // Hercontrole 2026-10-11: de aanvraag gaat via de create-booking edge
+    // function i.p.v. rechtstreekse anon-inserts. De server valideert, legt
+    // status/bron vast, maakt de sleutels aan, past rate limiting toe en
+    // schrijft klant, boeking, kentekens, gasten en de conceptmail weg.
+    const cbRes=await fetch(`${SUPABASE_URL}/functions/v1/create-booking`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+      body:JSON.stringify({
+        idempotency_key:idemKey,
+        hp:document.getElementById('hp_website')?.value||'',
+        turnstile_token:getTurnstileToken(),
+        richtprijs:totaalNow,
+        klant:{naam, email, telefoon:tel||null, id_nummer:idnr||null, nummerplaten:plaat||null,
+               geboortedatum:geboorte, nationaliteit:nationaliteit||null, woonplaats:woonplaats||null},
+        gasten:gastenRows,
+        boeking:{
       aankomst:document.getElementById('fAankomst').value,
       vertrek:document.getElementById('fVertrek').value,
       tenten:state.tenten||0,
@@ -1257,61 +1269,24 @@ async function submitForm(){
       // nachten voor €0 kon indienen. Het dashboard berekent het bedrag nu zelf
       // met exact dezelfde gedeelde logica (shared/pricing.js), zodat er maar
       // één bron van waarheid blijft en manipulatie onmogelijk is.
-      nota:nota||null, bron:'website', status:'aanvraag', checkin_token:checkinToken,
-      idempotency_key:idemKey
+      nota:nota||null
+        }
+      })
     });
-    // 23505 = unique violation op idempotency_key → boeking bestaat al (dubbele inzending).
-    if(bookErr && bookErr.code==='23505'){ _abandoned=false; showConfirm('—', fmt(totaalNow)); return; }
-    if(bookErr) throw bookErr;
-
-    // 2b. Opgegeven kentekens ook los in booking_kentekens zetten, zodat ze
-    // meteen in de slagboom-tracker staan (naast het vrije tekstveld op de
-    // klant zelf). Blijft in het dashboard altijd bewerkbaar/aanvinkbaar.
-    const platen=plaat.split(/[,;\n]/).map(p=>p.trim()).filter(Boolean);
-    if(platen.length){
-      const {error:platenErr}=await sb.from('booking_kentekens').insert(platen.map(p=>({booking_id:bookingId,plaat:p})));
-      if(platenErr) console.error('booking_kentekens insert faalde',platenErr);
+    const cb=await cbRes.json().catch(()=>({}));
+    if(cbRes.status===429){
+      toast(tr('toastTeVeel'));
+      _lastSubmitAt=0;
+      btn.classList.remove('loading'); btn.textContent=tr('submitBtn');
+      return;
     }
+    if(!cbRes.ok || !cb.ok) throw new Error(cb.error||('create-booking '+cbRes.status));
+    // Dubbele inzending (zelfde idempotency_key) of honeypot: bevestigen
+    // zonder verdere stappen.
+    if(cb.dubbel || !cb.checkin_token){ _abandoned=false; showConfirm('—', fmt(totaalNow)); return; }
+    const checkinToken=cb.checkin_token;
 
-    // 2c. Gasten aanmaken: hoofdboeker + eventueel ingevulde namen van
-    // medereizigers (optioneel, zie gastNamen in renderDocs). De hoofdboeker
-    // krijgt hier ook meteen de wettelijke registergegevens mee die hierboven
-    // ingevuld werden (geboortedatum/nationaliteit/documentnummer) — dat is
-    // wat het reizigersregister vult, ongeacht of er een foto bijkomt
-    // (GBA-dossier INF-2026-01267: foto is optioneel/toestemmingsgebaseerd,
-    // deze gegevens kunnen wél wettelijk vereist zijn).
-    const gastenRows=[{
-      naam, geboortedatum:geboorte, nationaliteit:nationaliteit||null, id_nummer:idnr||null,
-      id_consent:!!state.fotoConsent,
-    }];
-    for(let gi=1;gi<totalPersons();gi++){
-      const gnaam=(gastNamen[gi]||'').trim();
-      if(gnaam) gastenRows.push({naam:gnaam});
-    }
-    // Tijdelijke omweg (26/08/2026): anon-INSERT op gasten faalt project-breed
-    // met een RLS-fout — bevestigd via een testtabel met een maximaal
-    // toegeeflijke policy en na een project-restart, dus geen policy- of
-    // cache-probleem aan onze kant. De registergegevens gaan daarom via de
-    // register-guests edge function (service_role, checkin_token bewijst dat
-    // je de boeking kent). Zet terug naar een rechtstreekse insert zodra
-    // Supabase het onderliggende probleem oplost.
-    try{
-      const rgRes=await fetch(`${SUPABASE_URL}/functions/v1/register-guests`,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
-        body:JSON.stringify({token:checkinToken,gasten:gastenRows})
-      });
-      if(!rgRes.ok){
-        const rgBody=await rgRes.json().catch(()=>({}));
-        console.error('gasten insert faalde',rgBody);
-        toast(tr('toastGastenSaveWarning'));
-      }
-    }catch(rgErr){
-      console.error('gasten insert faalde',rgErr);
-      toast(tr('toastGastenSaveWarning'));
-    }
-
-    // 3. Identiteitsdocument uploaden — enkel als de gast met toestemming een
+    // Identiteitsdocument uploaden — enkel als de gast met toestemming een
     // foto heeft toegevoegd (optioneel, zie hierboven). GEEN AI hier.
     if(idDocs.length>0){
       btn.textContent=tr('submitBtnUploading',idDocs.length);
@@ -1333,13 +1308,7 @@ async function submitForm(){
       }
     }
 
-    // 5. Conceptmail klaarzetten (OGM wordt door dashboard gegenereerd na aanmaak)
-    await sb.from('communicatie').insert({
-      booking_id:bookingId, richting:'uitgaand', status:'concept',
-      template_key:'bevestiging_aanvraag',
-      onderwerp:`Bevestiging aanvraag — ${naam}`,
-      inhoud:`Beste ${naam},\n\nBedankt voor je aanvraag bij Camping Cosmopolite van ${document.getElementById('fAankomst').value} tot ${document.getElementById('fVertrek').value}.\n\nRichtprijs: ${fmt(totaalNow)}\n\nTot binnenkort!\nCamping Cosmopolite`
-    });
+    // De conceptmail is server-side door create-booking klaargezet.
     const ogm='—'; // Dashboard genereert OGM na bevestiging
 
     _abandoned=false;_track('submit',{totaal:totaalNow});

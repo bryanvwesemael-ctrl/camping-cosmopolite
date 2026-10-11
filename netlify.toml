@@ -1,5 +1,12 @@
 [build]
-  publish = "."
+  # Hercontrole 2026-10-11: met publish = "." werd de VOLLEDIGE repo publiek
+  # geserveerd — ook SECURITY_AUDIT/ (incl. nog-open zwakke punten),
+  # legal/verwerkersovereenkomst.md, supabase/ (migraties + broncode edge
+  # functions) en de interne AUDIT_*.md. Nu een allow-list: enkel wat hier
+  # expliciet gekopieerd wordt, komt online. Nieuwe publieke pagina? Hier
+  # toevoegen, anders geeft ze 404.
+  command = "rm -rf _site && mkdir -p _site/handleiding && cp -r index.html reserveren.html privacy upload betaald check-in dashboard dashboard-nieuw shared _site/ && cp handleiding/handleiding-camping-cosmopolite.html handleiding/Handleiding-Camping-Cosmopolite.pdf _site/handleiding/"
+  publish = "_site"
 
 # Websitewerk (nieuwe publieke site op root index.html) ligt tijdelijk on
 # hold — de code blijft gewoon staan, maar de homepage wijst terug naar het
@@ -51,12 +58,53 @@
     # camera=(self) is nodig: gasten fotograferen hun ID rechtstreeks in de browser.
     Cross-Origin-Opener-Policy = "same-origin"
 
-# CSP staat bewust op Report-Only voor de publieke pagina's.
-# Reden: reserveren.html gebruikt op veel plaatsen inline onclick/style. Een
-# afdwingende CSP zou 'unsafe-inline' moeten toestaan (en dan weinig toevoegen)
-# óf het formulier breken. De opschoning naar externe handlers is te groot voor
-# deze auditronde en staat als P2 in het remediatieplan. Report-Only levert
-# ondertussen wél zichtbaarheid op zonder risico op stukgaan.
+# CSP op de publieke pagina's — sinds hercontrole 2026-10-11 AFDWINGEND.
+# Ze bevat nog 'unsafe-inline' (reserveren.html gebruikt inline onclick/style;
+# opschonen is P2 in het remediatieplan), maar beperkt wél waar scripts
+# vandaan mogen komen, waar gegevens naartoe mogen (connect-src: enkel
+# Supabase/Cloudflare/jsDelivr — geen exfiltratie naar vreemde servers),
+# en blokkeert plugins, <base>-kaping en formulieren naar externe adressen.
+# Getest op een Netlify-draft vóór livegang (formulier, pdf-upload, betaald,
+# check-in, privacy).
+[[headers]]
+  for = "/"
+    [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co wss://whubbowuqhjdkdequbmb.supabase.co https://challenges.cloudflare.com https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+[[headers]]
+  for = "/reserveren"
+    [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co wss://whubbowuqhjdkdequbmb.supabase.co https://challenges.cloudflare.com https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+[[headers]]
+  for = "/reserveren/"
+    [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co wss://whubbowuqhjdkdequbmb.supabase.co https://challenges.cloudflare.com https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+[[headers]]
+  for = "/reserveren.html"
+    [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co wss://whubbowuqhjdkdequbmb.supabase.co https://challenges.cloudflare.com https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+[[headers]]
+  for = "/index.html"
+    [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co wss://whubbowuqhjdkdequbmb.supabase.co https://challenges.cloudflare.com https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+[[headers]]
+  for = "/upload/*"
+    [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co wss://whubbowuqhjdkdequbmb.supabase.co https://challenges.cloudflare.com https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+[[headers]]
+  for = "/check-in/*"
+    [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://challenges.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://whubbowuqhjdkdequbmb.supabase.co; connect-src 'self' https://whubbowuqhjdkdequbmb.supabase.co wss://whubbowuqhjdkdequbmb.supabase.co https://challenges.cloudflare.com https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+[[headers]]
+  for = "/betaald/*"
+    [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+[[headers]]
+  for = "/privacy/*"
+    [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+# Overige routes (o.a. het oude /dashboard/, dat ook api.qrserver.com en
+# Google gebruikt) blijven op Report-Only: zichtbaarheid zonder breukrisico.
 [[headers]]
   for = "/*"
     [headers.values]
